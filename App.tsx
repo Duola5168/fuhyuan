@@ -144,7 +144,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
     const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
         const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
         const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-        const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[60px] whitespace-pre-wrap w-full";
+        const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[144px] whitespace-pre-wrap w-full overflow-hidden";
         
         return (
             <div
