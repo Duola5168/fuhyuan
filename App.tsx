@@ -8,8 +8,8 @@ declare const jsPDF: any;
 declare const html2canvas: any;
 
 const A4_SAFE_HEIGHT_MM = 280; // A4 height is 297mm, leave some margin
-const TASKS_STATUS_LIMIT = 20;
-const PRODUCTS_REMARKS_LIMIT = 20;
+const TASKS_STATUS_LIMIT = 18;
+const PRODUCTS_REMARKS_LIMIT = 16;
 
 const getFormattedDateTime = () => {
   const now = new Date();
@@ -45,7 +45,24 @@ const chunk = <T,>(arr: T[], size: number): T[][] =>
     arr.slice(i * size, i * size + size)
   );
 
-const countLines = (str: string) => str ? str.split('\n').length : 0;
+/**
+ * Estimates the number of visual lines a string will take up in a textarea,
+ * accounting for both manual line breaks and automatic wrapping.
+ * @param str The string to measure.
+ * @param avgCharsPerLine An estimated average number of characters that fit on one line.
+ * @returns The estimated number of visual lines.
+ */
+const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number => {
+    if (!str) return 0;
+    const manualLines = str.split('\n');
+    if (manualLines.length === 1 && manualLines[0] === '') return 0;
+    
+    return manualLines.reduce((acc, line) => {
+        // An empty line or a line with content both count as at least 1 visual line.
+        const wrappedLines = Math.ceil(line.length / avgCharsPerLine);
+        return acc + Math.max(1, wrappedLines);
+    }, 0);
+};
 
 
 // --- Component Definitions ---
@@ -154,8 +171,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     onCustomerSignatureClear,
     onSubmit
 }) => {
-    const tasksStatusTotal = countLines(formData.tasks) + countLines(formData.status);
-    const productsRemarksTotal = formData.products.length + countLines(formData.remarks);
+    const tasksStatusTotal = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status);
+    const productsRemarksTotal = formData.products.length + calculateVisualLines(formData.remarks);
 
     return (
      <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
@@ -169,7 +186,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
             <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
             <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`} />
-            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} />
+            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`}/>
             
             <div>
               <div className="flex justify-between items-baseline mb-2">
@@ -233,7 +250,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
               </div>
             </div>
 
-            <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} autoSize />
+            <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} autoSize cornerHint={`${productsRemarksTotal}/${PRODUCTS_REMARKS_LIMIT} 行`} />
             
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">拍照插入圖片</label>
@@ -263,6 +280,12 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 
 
 // --- Report Components ---
+
+const PdfFooter: React.FC = () => (
+    <div className="flex-shrink-0 text-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
+      本表單由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339
+    </div>
+);
 
 type ReportLayoutProps = {
   data: WorkOrderData;
@@ -373,26 +396,29 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
         )}
       </div>
 
-      {/* FOOTER - Signatures */}
+      {/* SIGNATURES & FOOTER */}
       {showSignatures && (
-        <div className="flex-shrink-0 pt-12 mt-auto grid grid-cols-2 gap-x-12 text-base">
-          <div className="text-center">
-            <strong>服務人員簽認：</strong>
-            <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
-              {data.technicianSignature ? (
-                <img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />
-              ) : <span className="text-slate-400">未簽名</span>}
+         <div className="pt-12 mt-auto">
+            <div className="grid grid-cols-2 gap-x-12 text-base">
+                <div className="text-center">
+                    <strong>服務人員簽認：</strong>
+                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+                    {data.technicianSignature ? (
+                        <img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />
+                    ) : <span className="text-slate-400">未簽名</span>}
+                    </div>
+                </div>
+                <div className="text-center">
+                    <strong>客戶簽認：</strong>
+                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+                    {data.signature ? (
+                        <img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />
+                    ) : <span className="text-slate-400">未簽名</span>}
+                    </div>
+                </div>
             </div>
-          </div>
-          <div className="text-center">
-            <strong>客戶簽認：</strong>
-            <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
-              {data.signature ? (
-                <img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />
-              ) : <span className="text-slate-400">未簽名</span>}
-            </div>
-          </div>
-        </div>
+            {isPdf && <PdfFooter />}
+         </div>
       )}
     </div>
   );
@@ -418,6 +444,7 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string
                 ))}
                 {Array(4 - photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
             </div>
+            <PdfFooter />
         </div>
     );
 };
@@ -483,36 +510,29 @@ const App: React.FC = () => {
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // Create a temporary copy to test the new value
+    const tempState = {...formData, [name]: value};
 
-    setFormData(prev => {
-        const currentData = { ...prev, [name]: value };
-
-        // --- SHARED LINE LIMIT LOGIC ---
-        if (name === 'tasks' || name === 'status') {
-            const tasksLines = countLines(currentData.tasks);
-            const statusLines = countLines(currentData.status);
-            if (tasksLines + statusLines > TASKS_STATUS_LIMIT) {
-                const otherFieldName = name === 'tasks' ? 'status' : 'tasks';
-                const otherLines = countLines(prev[otherFieldName]);
-                const allowedLines = TASKS_STATUS_LIMIT - otherLines;
-                const truncatedValue = value.split('\n').slice(0, Math.max(0, allowedLines)).join('\n');
-                return { ...prev, [name]: truncatedValue };
-            }
+    if (name === 'tasks' || name === 'status') {
+        const totalLines = calculateVisualLines(tempState.tasks) + calculateVisualLines(tempState.status);
+        if (totalLines > TASKS_STATUS_LIMIT) {
+            // alert('「處理事項」與「處理情形」總行數已達上限。');
+            return; // Exit without calling setFormData
         }
-        
-        if (name === 'remarks') {
-            const productLines = prev.products.length;
-            const remarkLines = countLines(value);
-            if (productLines + remarkLines > PRODUCTS_REMARKS_LIMIT) {
-                const allowedLines = PRODUCTS_REMARKS_LIMIT - productLines;
-                const truncatedValue = value.split('\n').slice(0, Math.max(0, allowedLines)).join('\n');
-                return { ...prev, remarks: truncatedValue };
-            }
+    }
+    
+    if (name === 'remarks') {
+        const totalLines = formData.products.length + calculateVisualLines(tempState.remarks);
+        if (totalLines > PRODUCTS_REMARKS_LIMIT) {
+            // alert('「產品項目」與「備註」總行數已達上限。');
+            return; // Exit without calling setFormData
         }
+    }
 
-        return currentData;
-    });
-  }, []);
+    // If all checks pass, update the state
+    setFormData(tempState);
+  }, [formData]);
   
   const handleProductChange = (index: number, field: keyof Omit<ProductItem, 'id'>, value: string | number) => {
     setFormData(prev => {
@@ -523,9 +543,8 @@ const App: React.FC = () => {
   };
 
   const handleAddProduct = () => {
-    const productLines = formData.products.length;
-    const remarkLines = countLines(formData.remarks);
-    if (productLines + 1 + remarkLines > PRODUCTS_REMARKS_LIMIT) {
+    const totalLines = formData.products.length + 1 + calculateVisualLines(formData.remarks);
+    if (totalLines > PRODUCTS_REMARKS_LIMIT) {
         alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
         return;
     }
