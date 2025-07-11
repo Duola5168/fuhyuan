@@ -27,6 +27,13 @@ const initialFormData: WorkOrderData = {
   technicianSignature: null,
 };
 
+// --- Utility Functions ---
+const chunk = <T,>(arr: T[], size: number): T[][] =>
+  Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
+    arr.slice(i * size, i * size + size)
+  );
+
+
 // --- Component Definitions ---
 // By defining these components outside the App component, we prevent them from being
 // re-created on every state change, which fixes the input focus and signature pad issues.
@@ -106,8 +113,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} />
             <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} />
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">拍照插入圖片 (最多4張)</label>
-                <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} maxPhotos={4}/>
+                <label className="block text-sm font-medium text-slate-700 mb-1">拍照插入圖片</label>
+                <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} />
             </div>
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">服務人員簽認</label>
@@ -139,10 +146,33 @@ interface ReportViewProps {
     isGeneratingPdf: boolean;
 }
 
+const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string[], pageNumber: number, totalPages: number, data: WorkOrderData }) => {
+    const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
+    const pageTitle = totalPages > 1
+        ? `施工照片 (第 ${pageNumber} / ${totalPages} 頁) - ${data.serviceUnit} (${formattedDate})`
+        : `施工照片 - ${data.serviceUnit} (${formattedDate})`;
+
+    return (
+        <div id={`pdf-photo-page-${pageNumber - 1}`} className="p-8 bg-white" style={{ width: '210mm', height: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+            <div className="text-center mb-4 flex-shrink-0">
+                <h3 className="text-xl font-semibold text-slate-700">{pageTitle}</h3>
+            </div>
+            <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow">
+                {photos.map((photo, index) => (
+                    <div key={index} className="flex items-center justify-center border border-slate-200 p-1 bg-slate-50 rounded-md overflow-hidden">
+                        <img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" />
+                    </div>
+                ))}
+                {/* Fill remaining grid cells if less than 4 photos to maintain layout */}
+                {Array(4 - photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
+            </div>
+        </div>
+    );
+};
+
 const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, onReset, isGeneratingPdf }) => {
     // This is the improved layout for both the hidden PDF render and the visible report.
     const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
-        const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
         const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
         const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[144px] whitespace-pre-wrap w-full overflow-hidden";
         
@@ -223,34 +253,22 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
         );
     };
 
-    const PdfPage2Content = () => {
-        const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
-        return (
-            <div id="pdf-page-2" className="p-8 bg-white" style={{ width: '210mm', height: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-                <div className="text-center mb-4 flex-shrink-0">
-                    <h3 className="text-xl font-semibold text-slate-700">
-                        施工照片 - {data.serviceUnit} ({formattedDate})
-                    </h3>
-                </div>
-                <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow">
-                    {data.photos.slice(0, 4).map((photo, index) => (
-                        <div key={index} className="flex items-center justify-center border border-slate-200 p-1 bg-slate-50 rounded-md overflow-hidden">
-                            <img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" />
-                        </div>
-                    ))}
-                    {/* Fill remaining grid cells if less than 4 photos to maintain layout */}
-                    {Array(4 - data.photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
-                </div>
-            </div>
-        );
-    };
+    const photoChunks = chunk(data.photos, 4);
     
     return (
     <>
       {/* Hidden container for high-quality PDF rendering */}
       <div className="pdf-render-container">
         <ReportLayout isForPdf={true} />
-        {data.photos.length > 0 && <PdfPage2Content />}
+        {photoChunks.map((photoChunk, index) => (
+            <PdfPhotoPage
+                key={index}
+                photos={photoChunk}
+                pageNumber={index + 1}
+                totalPages={photoChunks.length}
+                data={data}
+            />
+        ))}
       </div>
       
       {/* Visible Report for the user, scaled down to fit viewport */}
@@ -338,15 +356,17 @@ const App: React.FC = () => {
       pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, Math.min(page1Height, pdfHeight));
 
       if (formData.photos.length > 0) {
-        const page2Element = document.getElementById('pdf-page-2');
-        if (page2Element) {
-          pdf.addPage();
-          // Removed useCORS: true here as well.
-          const canvas2 = await html2canvas(page2Element, { scale: 3 });
-          const imgData2 = canvas2.toDataURL('image/png');
-          const imgProps2 = pdf.getImageProperties(imgData2);
-          const page2Height = (imgProps2.height * pdfWidth) / imgProps2.width;
-          pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, Math.min(page2Height, pdfHeight));
+        const photoChunks = chunk(formData.photos, 4);
+        for (let i = 0; i < photoChunks.length; i++) {
+          const photoPageElement = document.getElementById(`pdf-photo-page-${i}`);
+          if (photoPageElement) {
+              pdf.addPage();
+              const canvas = await html2canvas(photoPageElement, { scale: 3 });
+              const imgData = canvas.toDataURL('image/png');
+              const imgProps = pdf.getImageProperties(imgData);
+              const pageHeight = (imgProps.height * pdfWidth) / imgProps.width;
+              pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(pageHeight, pdfHeight));
+          }
         }
       }
 
