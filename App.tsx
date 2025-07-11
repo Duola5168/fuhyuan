@@ -137,9 +137,10 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 
 interface ReportViewProps {
     data: WorkOrderData;
-    onGeneratePdf: (action: 'preview' | 'download') => void;
+    onDownloadPdf: () => void;
     onSharePdf: () => void;
     onReset: () => void;
+    onEdit: () => void;
     isGeneratingPdf: boolean;
 }
 
@@ -166,7 +167,7 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string
     );
 };
 
-const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onSharePdf, onReset, isGeneratingPdf }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf, onReset, onEdit, isGeneratingPdf }) => {
     const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
         const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
         const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[144px] whitespace-pre-wrap w-full overflow-hidden";
@@ -177,7 +178,6 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onSharePdf
               className="p-8 bg-white"
               style={{
                   width: '210mm',
-                  // min-height is removed here to prevent html2canvas memory issues. The PDF generator will fit the content to the page.
                   boxSizing: 'border-box',
                   display: 'flex',
                   flexDirection: 'column',
@@ -266,9 +266,9 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onSharePdf
       </div>
 
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-end items-center">
-            <button onClick={() => onGeneratePdf('preview')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">預覽 PDF</button>
-            <button onClick={() => onGeneratePdf('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
+            <button onClick={onDownloadPdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
             <button onClick={onSharePdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享 PDF</button>
+            <button onClick={onEdit} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
             <button onClick={onReset} className="px-6 py-2 text-sm bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">建立新服務單</button>
       </div>
     </>
@@ -281,7 +281,6 @@ const App: React.FC = () => {
   const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -313,14 +312,14 @@ const App: React.FC = () => {
     setIsSubmitted(true);
     window.scrollTo(0, 0);
   };
+  
+  const handleEdit = () => {
+      setIsSubmitted(false);
+  };
 
   const handleReset = () => {
     setFormData(initialFormData);
     setIsSubmitted(false);
-    if (pdfPreviewUrl) {
-      URL.revokeObjectURL(pdfPreviewUrl);
-    }
-    setPdfPreviewUrl(null);
   };
   
   const generatePdfBlob = async (): Promise<Blob | null> => {
@@ -330,12 +329,12 @@ const App: React.FC = () => {
       const pdfWidth = 210;
       const pdfHeight = 297;
       const options = {
-          scale: 2, // Higher scale for better quality, but balanced for performance
+          scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
       };
       const imageType = 'image/jpeg';
-      const imageQuality = 0.92; // High quality JPEG
+      const imageQuality = 0.92;
 
       const page1Element = document.getElementById('pdf-page-1');
       if (!page1Element) throw new Error('Report page 1 element not found');
@@ -368,16 +367,12 @@ const App: React.FC = () => {
     }
   };
   
-  const generatePdf = async (action: 'preview' | 'download') => {
+  const handleDownloadPdf = async () => {
     if (isGeneratingPdf) return;
     setIsGeneratingPdf(true);
 
     const blob = await generatePdfBlob();
     if (blob) {
-      if (action === 'preview') {
-        if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl); // Clean up old URL
-        setPdfPreviewUrl(URL.createObjectURL(blob));
-      } else {
         const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -386,7 +381,6 @@ const App: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
-      }
     }
     setIsGeneratingPdf(false);
   };
@@ -409,12 +403,10 @@ const App: React.FC = () => {
       text: `請查收 ${formData.serviceUnit} 的工作服務單。`,
     };
     
-    // Check if the Web Share API is available and can share files
     if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
         await navigator.share(shareData);
       } catch (error) {
-        // Log error, but don't alert if it's an AbortError (user cancelled share)
         if (error.name !== 'AbortError') {
             console.error('Error sharing PDF:', error);
             alert('分享失敗，請稍後再試。');
@@ -432,9 +424,10 @@ const App: React.FC = () => {
            {isSubmitted ? (
              <ReportView 
                 data={formData}
-                onGeneratePdf={generatePdf}
+                onDownloadPdf={handleDownloadPdf}
                 onSharePdf={handleSharePdf}
                 onReset={handleReset}
+                onEdit={handleEdit}
                 isGeneratingPdf={isGeneratingPdf}
               />
             ) : (
@@ -459,26 +452,6 @@ const App: React.FC = () => {
               </div>
             </div>
         )}
-
-        {pdfPreviewUrl && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-40 p-4" onClick={() => setPdfPreviewUrl(null)}>
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex-shrink-0 p-4 border-b flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">PDF 預覽</h3>
-                        <button 
-                            onClick={() => setPdfPreviewUrl(null)}
-                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-medium"
-                        >
-                            關閉
-                        </button>
-                    </div>
-                    <div className="flex-grow bg-slate-200">
-                        <iframe src={pdfPreviewUrl} className="w-full h-full border-none" title="PDF Preview"></iframe>
-                    </div>
-                </div>
-            </div>
-        )}
-
     </div>
   );
 };
