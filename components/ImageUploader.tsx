@@ -3,7 +3,6 @@ import React, { useRef } from 'react';
 interface ImageUploaderProps {
   photos: string[];
   onPhotosChange: (photos: string[]) => void;
-  maxPhotos: number;
 }
 
 const CameraIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -19,20 +18,12 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange, maxPhotos }) => {
+const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canUploadMore = photos.length < maxPhotos;
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      let filesToProcess = Array.from(event.target.files);
-      const availableSlots = maxPhotos - photos.length;
-
-      if (filesToProcess.length > availableSlots) {
-        alert(`您最多只能再上傳 ${availableSlots} 張照片。`);
-        filesToProcess = filesToProcess.slice(0, availableSlots);
-      }
-      
+      const filesToProcess = Array.from(event.target.files);
       const newPhotosDataUrls: string[] = [];
       let filesRead = 0;
 
@@ -65,10 +56,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange, m
   };
 
   const triggerFileInput = () => {
-    if (!canUploadMore) {
-      alert(`已達到 ${maxPhotos} 張照片的上限。`);
-      return;
-    }
     fileInputRef.current?.click();
   };
 
@@ -86,11 +73,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange, m
       <button
         type="button"
         onClick={triggerFileInput}
-        disabled={!canUploadMore}
-        className="w-full flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-400 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+        className="w-full flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-400 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         <CameraIcon className="w-6 h-6 mr-2" />
-        拍照或上傳圖片 ({photos.length}/{maxPhotos})
+        拍照或上傳圖片 ({photos.length})
       </button>
 
       {photos.length > 0 && (
