@@ -320,7 +320,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
       {/* HEADER */}
       {showMainHeaderAndCustomerInfo && (
         <>
-          <div className="text-center mb-10 flex-shrink-0">
+          <div className="text-center mb-6 flex-shrink-0">
             <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
             <h2 className="text-2xl font-semibold text-gray-600 mt-2">
               工作服務單
@@ -328,17 +328,31 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-12 gap-x-6 gap-y-4">
-            <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
-            <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
-            <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
-            <div className="col-span-12"><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</div>
+          <div className="border border-slate-300 text-sm mb-6">
+            <div className="grid grid-cols-12">
+              <div className="col-span-12 flex border-b border-slate-300">
+                <div className="bg-slate-50 p-2 font-semibold text-slate-700 w-32 flex-shrink-0 text-center">工作日期及時間</div>
+                <div className="p-2 border-l border-slate-300 flex-grow">{formattedDateTime}</div>
+              </div>
+              <div className="col-span-7 flex border-b border-slate-300">
+                <div className="bg-slate-50 p-2 font-semibold text-slate-700 w-32 flex-shrink-0 text-center">服務單位</div>
+                <div className="p-2 border-l border-slate-300 flex-grow">{data.serviceUnit || 'N/A'}</div>
+              </div>
+              <div className="col-span-5 flex border-b border-slate-300 border-l">
+                 <div className="bg-slate-50 p-2 font-semibold text-slate-700 w-24 flex-shrink-0 text-center">接洽人</div>
+                 <div className="p-2 border-l border-slate-300 flex-grow">{data.contactPerson || 'N/A'}</div>
+              </div>
+               <div className="col-span-12 flex">
+                <div className="bg-slate-50 p-2 font-semibold text-slate-700 w-32 flex-shrink-0 text-center">連絡電話</div>
+                <div className="p-2 border-l border-slate-300 flex-grow">{data.contactPhone || 'N/A'}</div>
+              </div>
+            </div>
           </div>
         </>
       )}
 
       {/* BODY */}
-      <div className="flex-grow text-base text-gray-800 space-y-5 pt-5">
+      <div className="flex-grow text-base text-gray-800 space-y-5">
         {showTasksAndStatus && (
           <>
             <div>
@@ -657,9 +671,9 @@ const App: React.FC = () => {
         if (!fullElement) throw new Error('Full report element not found for rendering');
         
         const fullCanvas = await html2canvas(fullElement, options);
-        const fullImgProps = pdf.getImageProperties(fullCanvas.toDataURL(imageType, imageQuality));
-        // Calculate height to maintain aspect ratio, but don't exceed A4 height
-        const fullHeight = Math.min(pdfHeight, (fullImgProps.height * pdfWidth) / fullImgProps.width);
+        // Recalculate height to maintain aspect ratio and prevent stretching
+        const imgProps = fullCanvas.getContextAttributes();
+        const fullHeight = (fullCanvas.height * pdfWidth) / fullCanvas.width;
         pdf.addImage(fullCanvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, fullHeight);
         pageCount++;
       }
