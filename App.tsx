@@ -8,6 +8,8 @@ declare const jsPDF: any;
 declare const html2canvas: any;
 
 const A4_SAFE_HEIGHT_MM = 280; // A4 height is 297mm, leave some margin
+const TASKS_STATUS_LIMIT = 20;
+const PRODUCTS_REMARKS_LIMIT = 20;
 
 const getFormattedDateTime = () => {
   const now = new Date();
@@ -43,6 +45,8 @@ const chunk = <T,>(arr: T[], size: number): T[][] =>
     arr.slice(i * size, i * size + size)
   );
 
+const countLines = (str: string) => str ? str.split('\n').length : 0;
+
 
 // --- Component Definitions ---
 interface FormFieldProps {
@@ -52,13 +56,13 @@ interface FormFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   type?: 'text' | 'textarea' | 'datetime-local' | 'tel';
   required?: boolean;
-  placeholder?: string;
   rows?: number;
   autoSize?: boolean;
+  cornerHint?: string;
 }
 
 const FormField: React.FC<FormFieldProps> = ({
-  label, id, value, onChange, type = 'text', required = false, placeholder, rows: initialRows = 3, autoSize = false,
+  label, id, value, onChange, type = 'text', required = false, rows = 3, autoSize = false, cornerHint,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,20 +77,22 @@ const FormField: React.FC<FormFieldProps> = ({
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
-        {label}
-      </label>
-      <div className="mt-1">
+      <div className="flex justify-between items-baseline mb-1">
+        <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+          {label}
+        </label>
+        {cornerHint && <span className="text-xs text-slate-500 font-mono">{cornerHint}</span>}
+      </div>
+      <div>
         {type === 'textarea' ? (
           <textarea
             ref={textareaRef}
             id={id}
             name={id}
-            rows={autoSize ? 1 : initialRows}
+            rows={autoSize ? 1 : rows}
             value={value}
             onChange={onChange}
             required={required}
-            placeholder={placeholder}
             className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             style={autoSize ? { overflowY: 'hidden', resize: 'none' } : {}}
           />
@@ -147,7 +153,11 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     onCustomerSignatureSave,
     onCustomerSignatureClear,
     onSubmit
-}) => (
+}) => {
+    const tasksStatusTotal = countLines(formData.tasks) + countLines(formData.status);
+    const productsRemarksTotal = formData.products.length + countLines(formData.remarks);
+
+    return (
      <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
         <div className="text-center">
             <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
@@ -158,11 +168,14 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="服務單位" id="serviceUnit" value={formData.serviceUnit} onChange={onInputChange} required />
             <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
             <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
-            <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} rows={8} placeholder="單行40字,行數8行" />
-            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} placeholder="單行40字,行數8行" />
+            <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`} />
+            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} />
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">產品項目</label>
+              <div className="flex justify-between items-baseline mb-2">
+                <label className="block text-sm font-medium text-slate-700">產品項目</label>
+                <span className="text-xs text-slate-500 font-mono">{`${productsRemarksTotal}/${PRODUCTS_REMARKS_LIMIT} 行`}</span>
+              </div>
               <div className="space-y-4">
                 {formData.products.map((product, index) => (
                     <div key={product.id} className="grid grid-cols-12 gap-x-3 gap-y-4 p-4 border border-slate-200 rounded-lg relative">
@@ -246,7 +259,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             </div>
         </div>
     </form>
-);
+)};
 
 
 // --- Report Components ---
@@ -468,21 +481,38 @@ const App: React.FC = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
-    // Enforce line limit for tasks and status
-    if (name === 'tasks' || name === 'status') {
-      const lines = value.split('\n');
-      if (lines.length > 8) {
-        const truncatedValue = lines.slice(0, 8).join('\n');
-        setFormData((prev) => ({ ...prev, [name]: truncatedValue }));
-        return; // Exit to prevent setting the longer value
-      }
-    }
 
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+    setFormData(prev => {
+        const currentData = { ...prev, [name]: value };
+
+        // --- SHARED LINE LIMIT LOGIC ---
+        if (name === 'tasks' || name === 'status') {
+            const tasksLines = countLines(currentData.tasks);
+            const statusLines = countLines(currentData.status);
+            if (tasksLines + statusLines > TASKS_STATUS_LIMIT) {
+                const otherFieldName = name === 'tasks' ? 'status' : 'tasks';
+                const otherLines = countLines(prev[otherFieldName]);
+                const allowedLines = TASKS_STATUS_LIMIT - otherLines;
+                const truncatedValue = value.split('\n').slice(0, Math.max(0, allowedLines)).join('\n');
+                return { ...prev, [name]: truncatedValue };
+            }
+        }
+        
+        if (name === 'remarks') {
+            const productLines = prev.products.length;
+            const remarkLines = countLines(value);
+            if (productLines + remarkLines > PRODUCTS_REMARKS_LIMIT) {
+                const allowedLines = PRODUCTS_REMARKS_LIMIT - productLines;
+                const truncatedValue = value.split('\n').slice(0, Math.max(0, allowedLines)).join('\n');
+                return { ...prev, remarks: truncatedValue };
+            }
+        }
+
+        return currentData;
+    });
+  }, []);
   
   const handleProductChange = (index: number, field: keyof Omit<ProductItem, 'id'>, value: string | number) => {
     setFormData(prev => {
@@ -493,6 +523,12 @@ const App: React.FC = () => {
   };
 
   const handleAddProduct = () => {
+    const productLines = formData.products.length;
+    const remarkLines = countLines(formData.remarks);
+    if (productLines + 1 + remarkLines > PRODUCTS_REMARKS_LIMIT) {
+        alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
+        return;
+    }
     const newProduct: ProductItem = {
       id: `product-${Date.now()}`,
       name: '',
