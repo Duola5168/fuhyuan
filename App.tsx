@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { WorkOrderData } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -110,7 +111,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} />
             <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} />
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">拍照插入圖片</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">拍照插入圖片</label>
                 <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} />
             </div>
             <div>
@@ -258,18 +259,20 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
       </div>
       
       <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto">
-        <div className="w-[210mm] max-w-full mx-auto sm:scale-100 origin-top">
+        <div className="w-full max-w-[210mm] mx-auto sm:scale-100 origin-top">
             <div className="shadow-lg">
                 <ReportLayout isForPdf={false} />
             </div>
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-end items-center">
-            <button onClick={onDownloadPdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
-            <button onClick={onSharePdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享 PDF</button>
-            <button onClick={onEdit} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
-            <button onClick={onReset} className="px-6 py-2 text-sm bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">建立新服務單</button>
+      <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
+            <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
+            <div className="flex flex-wrap gap-3">
+              <button onClick={onDownloadPdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
+              <button onClick={onSharePdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享 PDF</button>
+              <button onClick={onEdit} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
+            </div>
       </div>
     </>
     );
@@ -318,8 +321,10 @@ const App: React.FC = () => {
   };
 
   const handleReset = () => {
-    setFormData(initialFormData);
-    setIsSubmitted(false);
+    if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
+        setFormData(initialFormData);
+        setIsSubmitted(false);
+    }
   };
   
   const generatePdfBlob = async (): Promise<Blob | null> => {
