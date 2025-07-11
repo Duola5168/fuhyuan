@@ -140,41 +140,89 @@ interface ReportViewProps {
 }
 
 const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, onReset, isGeneratingPdf }) => {
-    const PdfPage1Content = () => (
-      <div id="pdf-page-1" className="p-8 space-y-6 bg-white" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box' }}>
-        <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
-            <h2 className="text-xl font-semibold text-slate-600 mt-1">工作服務單</h2>
-        </div>
-        <div className="border-t border-slate-200 pt-6 grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
-            <div className="col-span-2"><strong>工作日期及時間:</strong> {data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW') : 'N/A'}</div>
-            <div><strong>服務單位:</strong> {data.serviceUnit || 'N/A'}</div>
-            <div><strong>接洽人:</strong> {data.contactPerson || 'N/A'}</div>
-            <div className="col-span-2"><strong>連絡電話:</strong> {data.contactPhone || 'N/A'}</div>
-            <div className="col-span-2"><strong>處理事項:</strong> <p className="mt-1 whitespace-pre-wrap">{data.tasks || 'N/A'}</p></div>
-            <div className="col-span-2"><strong>處理情形:</strong> <p className="mt-1 whitespace-pre-wrap">{data.status || 'N/A'}</p></div>
-            <div className="col-span-2"><strong>備註:</strong> <p className="mt-1 whitespace-pre-wrap">{data.remarks || 'N/A'}</p></div>
+    // This is the improved layout for both the hidden PDF render and the visible report.
+    const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
+        const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
+        const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[60px] whitespace-pre-wrap w-full";
+        
+        return (
+            <div
+              id={isForPdf ? "pdf-page-1" : undefined}
+              className="p-8 bg-white"
+              style={{
+                  width: '210mm',
+                  minHeight: '297mm',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'" // A common font stack
+              }}
+            >
+                {/* Header */}
+                <div className="text-center mb-10 flex-shrink-0">
+                    <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
+                    <h2 className="text-2xl font-semibold text-gray-600 mt-2">工作服務單</h2>
+                </div>
 
-            <div className="col-span-1 pt-4">
-                <strong>服務人員簽認:</strong>
-                {data.technicianSignature ? (
-                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block">
-                        <img src={data.technicianSignature} alt="technician-signature" className="h-20 w-auto" />
+                {/* Main Content (grows to fill space) */}
+                <div className="flex-grow text-base text-gray-800 space-y-5">
+                    <div className="grid grid-cols-12 gap-x-6 gap-y-4">
+                        <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
+                        <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
+                        <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
+                        <div className="col-span-12"><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</div>
                     </div>
-                ) : <p className="mt-2">未簽名</p>}
-            </div>
-            <div className="col-span-1 pt-4">
-                <strong>客戶簽認:</strong>
-                {data.signature ? (
-                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block">
-                        <img src={data.signature} alt="customer-signature" className="h-20 w-auto" />
+
+                    <div className="pt-2">
+                        <strong className="text-base">處理事項：</strong>
+                        <div className={textSectionClass}>{data.tasks || 'N/A'}</div>
                     </div>
-                ) : <p className="mt-2">未簽名</p>}
+                    <div className="pt-2">
+                        <strong className="text-base">處理情形：</strong>
+                        <div className={textSectionClass}>{data.status || 'N/A'}</div>
+                    </div>
+                    <div className="pt-2">
+                        <strong className="text-base">備註：</strong>
+                        <div className={textSectionClass}>{data.remarks || 'N/A'}</div>
+                    </div>
+
+                    {/* On-screen photo display (not for PDF page 1) */}
+                    {!isForPdf && data.photos.length > 0 && (
+                        <div className="pt-2">
+                            <strong className="text-base">現場照片：</strong>
+                            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                {data.photos.map((photo, index) => (
+                                    <img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Signature Footer */}
+                <div className="flex-shrink-0 pt-12 mt-auto grid grid-cols-2 gap-x-12 text-base">
+                    <div className="text-center">
+                        <strong>服務人員簽認：</strong>
+                        <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+                            {data.technicianSignature ? (
+                                <img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />
+                            ) : <span className="text-slate-400">未簽名</span>}
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <strong>客戶簽認：</strong>
+                        <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+                            {data.signature ? (
+                                <img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />
+                            ) : <span className="text-slate-400">未簽名</span>}
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-      </div>
-    );
-    
+        );
+    };
+
     const PdfPage2Content = () => {
         const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
         return (
@@ -186,7 +234,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
                 </div>
                 <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow">
                     {data.photos.slice(0, 4).map((photo, index) => (
-                        <div key={index} className="flex items-center justify-center border border-slate-100 p-1 overflow-hidden">
+                        <div key={index} className="flex items-center justify-center border border-slate-200 p-1 bg-slate-50 rounded-md overflow-hidden">
                             <img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" />
                         </div>
                     ))}
@@ -201,52 +249,19 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
     <>
       {/* Hidden container for high-quality PDF rendering */}
       <div className="pdf-render-container">
-        <PdfPage1Content />
+        <ReportLayout isForPdf={true} />
         {data.photos.length > 0 && <PdfPage2Content />}
       </div>
       
-      {/* Visible Report for the user */}
-      <div className="p-6 sm:p-8 space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
-          <h2 className="text-xl font-semibold text-slate-600 mt-1">工作服務單</h2>
-        </div>
-        <div className="border-t border-slate-200 pt-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
-          <div className="md:col-span-2"><strong>工作日期及時間:</strong> {data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW') : 'N/A'}</div>
-          <div><strong>服務單位:</strong> {data.serviceUnit || 'N/A'}</div>
-          <div><strong>接洽人:</strong> {data.contactPerson || 'N/A'}</div>
-          <div className="md:col-span-2"><strong>連絡電話:</strong> {data.contactPhone || 'N/A'}</div>
-          <div className="md:col-span-2"><strong>處理事項:</strong> <p className="mt-1 whitespace-pre-wrap">{data.tasks || 'N/A'}</p></div>
-          <div className="md:col-span-2"><strong>處理情形:</strong> <p className="mt-1 whitespace-pre-wrap">{data.status || 'N/A'}</p></div>
-          <div className="md:col-span-2"><strong>備註:</strong> <p className="mt-1 whitespace-pre-wrap">{data.remarks || 'N/A'}</p></div>
-          <div className="md:col-span-2">
-            <strong>現場照片:</strong>
-            {data.photos.length > 0 ? (
-              <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {data.photos.map((photo, index) => (
-                  <img key={index} src={photo} alt={`photo-${index}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />
-                ))}
-              </div>
-            ) : <p>無</p>}
-          </div>
-          <div className="pt-4">
-              <strong>服務人員簽認:</strong>
-              {data.technicianSignature ? (
-                  <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block">
-                      <img src={data.technicianSignature} alt="technician-signature" className="h-24 w-auto" />
-                  </div>
-              ) : <p className="mt-2">未簽名</p>}
-          </div>
-          <div className="pt-4">
-              <strong>客戶簽認:</strong>
-              {data.signature ? (
-                  <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block">
-                      <img src={data.signature} alt="customer-signature" className="h-24 w-auto" />
-                  </div>
-              ) : <p className="mt-2">未簽名</p>}
-          </div>
+      {/* Visible Report for the user, scaled down to fit viewport */}
+      <div className="p-4 sm:p-6 bg-slate-50/50">
+        <div className="max-w-[210mm] mx-auto scale-[0.9] sm:scale-100 origin-top">
+            <div className="shadow-lg">
+                <ReportLayout isForPdf={false} />
+            </div>
         </div>
       </div>
+
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-end items-center">
             <button onClick={() => onGeneratePdf('preview')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">預覽 PDF</button>
             <button onClick={() => onGeneratePdf('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
@@ -315,7 +330,8 @@ const App: React.FC = () => {
       const page1Element = document.getElementById('pdf-page-1');
       if (!page1Element) throw new Error('Report page 1 element not found');
 
-      const canvas1 = await html2canvas(page1Element, { scale: 3, useCORS: true });
+      // Removed useCORS: true as it's not needed for data URLs and can cause issues.
+      const canvas1 = await html2canvas(page1Element, { scale: 3 });
       const imgData1 = canvas1.toDataURL('image/png');
       const imgProps1 = pdf.getImageProperties(imgData1);
       const page1Height = (imgProps1.height * pdfWidth) / imgProps1.width;
@@ -325,7 +341,8 @@ const App: React.FC = () => {
         const page2Element = document.getElementById('pdf-page-2');
         if (page2Element) {
           pdf.addPage();
-          const canvas2 = await html2canvas(page2Element, { scale: 3, useCORS: true });
+          // Removed useCORS: true here as well.
+          const canvas2 = await html2canvas(page2Element, { scale: 3 });
           const imgData2 = canvas2.toDataURL('image/png');
           const imgProps2 = pdf.getImageProperties(imgData2);
           const page2Height = (imgProps2.height * pdfWidth) / imgProps2.width;
@@ -377,8 +394,8 @@ ${formData.remarks || 'N/A'}
   };
   
   return (
-    <div className="min-h-screen py-8 sm:py-12">
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden">
+    <div className="min-h-screen bg-slate-100">
+        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
            {isSubmitted ? (
              <ReportView 
                 data={formData}
