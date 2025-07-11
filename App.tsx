@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import type { WorkOrderData } from './types';
+import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
 
@@ -15,11 +15,19 @@ const getFormattedDateTime = () => {
   return now.toISOString().slice(0, 16);
 };
 
+const initialProduct: ProductItem = {
+    id: `product-${Date.now()}`,
+    name: '',
+    quantity: 1,
+    serialNumber: '',
+};
+
 const initialFormData: WorkOrderData = {
   dateTime: getFormattedDateTime(),
   serviceUnit: '',
   contactPerson: '',
   contactPhone: '',
+  products: [initialProduct],
   tasks: '',
   status: '',
   remarks: '',
@@ -76,9 +84,26 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
   </div>
 );
 
+// --- Icons for Product Section ---
+const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+);
+
+const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
+
 interface WorkOrderFormProps {
     formData: WorkOrderData;
     onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    onProductChange: (index: number, field: keyof Omit<ProductItem, 'id'>, value: string | number) => void;
+    onAddProduct: () => void;
+    onRemoveProduct: (index: number) => void;
     onPhotosChange: (photos: string[]) => void;
     onTechnicianSignatureSave: (signature: string) => void;
     onTechnicianSignatureClear: () => void;
@@ -90,6 +115,9 @@ interface WorkOrderFormProps {
 const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     formData,
     onInputChange,
+    onProductChange,
+    onAddProduct,
+    onRemoveProduct,
     onPhotosChange,
     onTechnicianSignatureSave,
     onTechnicianSignatureClear,
@@ -109,7 +137,68 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
             <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} />
             <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} />
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">產品項目</label>
+              <div className="space-y-4">
+                {formData.products.map((product, index) => (
+                    <div key={product.id} className="grid grid-cols-12 gap-x-3 gap-y-4 p-4 border border-slate-200 rounded-lg relative">
+                        <div className="col-span-12 sm:col-span-6">
+                            <label htmlFor={`product-name-${index}`} className="block text-xs font-medium text-slate-600">產品品名</label>
+                            <input
+                                id={`product-name-${index}`}
+                                type="text"
+                                value={product.name}
+                                onChange={(e) => onProductChange(index, 'name', e.target.value)}
+                                className="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            />
+                        </div>
+                        <div className="col-span-6 sm:col-span-2">
+                            <label htmlFor={`product-quantity-${index}`} className="block text-xs font-medium text-slate-600">數量</label>
+                            <select
+                                id={`product-quantity-${index}`}
+                                value={product.quantity}
+                                onChange={(e) => onProductChange(index, 'quantity', parseInt(e.target.value, 10))}
+                                className="mt-1 block w-full pl-3 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                            >
+                                {Array.from({ length: 20 }, (_, i) => i + 1).map(q => <option key={q} value={q}>{q}</option>)}
+                            </select>
+                        </div>
+                        <div className="col-span-6 sm:col-span-4">
+                             <label htmlFor={`product-serial-${index}`} className="block text-xs font-medium text-slate-600">序號</label>
+                            <input
+                                id={`product-serial-${index}`}
+                                type="text"
+                                value={product.serialNumber}
+                                onChange={(e) => onProductChange(index, 'serialNumber', e.target.value)}
+                                className="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            />
+                        </div>
+                        {formData.products.length > 1 && (
+                            <button
+                                type="button"
+                                onClick={() => onRemoveProduct(index)}
+                                className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-600 rounded-full hover:bg-red-100"
+                                aria-label="Remove product"
+                            >
+                                <TrashIcon className="w-5 h-5"/>
+                            </button>
+                        )}
+                    </div>
+                ))}
+                <button
+                    type="button"
+                    onClick={onAddProduct}
+                    className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-slate-300 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 focus:outline-none"
+                >
+                    <PlusIcon className="w-5 h-5 mr-2" />
+                    新增項目
+                </button>
+              </div>
+            </div>
+
             <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} />
+            
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">拍照插入圖片</label>
                 <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} />
@@ -172,6 +261,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
     const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
         const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
         const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[144px] whitespace-pre-wrap w-full overflow-hidden";
+        const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
         
         return (
             <div
@@ -204,10 +294,38 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
                         <strong className="text-base">處理情形：</strong>
                         <div className={textSectionClass}>{data.status || 'N/A'}</div>
                     </div>
+
+                    {hasProducts && (
+                      <div className="pt-2">
+                          <strong className="text-base">產品項目：</strong>
+                          <div className="mt-2 border border-slate-200 rounded-md overflow-hidden">
+                              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                                  <thead className="bg-slate-50">
+                                      <tr>
+                                          <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">產品品名</th>
+                                          <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">數量</th>
+                                          <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">序號</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-200 bg-white">
+                                      {data.products.filter(p => p.name.trim() !== '').map((product, index) => (
+                                          <tr key={index}>
+                                              <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
+                                              <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
+                                              <td className="px-3 py-2 whitespace-nowrap">{product.serialNumber || 'N/A'}</td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
+                      </div>
+                    )}
+
                     <div className="pt-2">
                         <strong className="text-base">備註：</strong>
                         <div className={textSectionClass}>{data.remarks || 'N/A'}</div>
                     </div>
+
                     {!isForPdf && data.photos.length > 0 && (
                         <div className="pt-2">
                             <strong className="text-base">現場照片：</strong>
@@ -289,6 +407,32 @@ const App: React.FC = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+  
+  const handleProductChange = (index: number, field: keyof Omit<ProductItem, 'id'>, value: string | number) => {
+    setFormData(prev => {
+        const newProducts = [...prev.products];
+        newProducts[index] = { ...newProducts[index], [field]: value };
+        return { ...prev, products: newProducts };
+    });
+  };
+
+  const handleAddProduct = () => {
+    const newProduct: ProductItem = {
+      id: `product-${Date.now()}`,
+      name: '',
+      quantity: 1,
+      serialNumber: '',
+    };
+    setFormData(prev => ({ ...prev, products: [...prev.products, newProduct] }));
+  };
+
+  const handleRemoveProduct = (index: number) => {
+    if (formData.products.length <= 1) return; // Prevent removing the last item
+    setFormData(prev => ({
+        ...prev,
+        products: prev.products.filter((_, i) => i !== index),
+    }));
+  };
 
   const handleCustomerSignatureSave = (signature: string) => {
     setFormData((prev) => ({ ...prev, signature }));
@@ -322,7 +466,16 @@ const App: React.FC = () => {
 
   const handleReset = () => {
     if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
-        setFormData(initialFormData);
+        setFormData({
+            ...initialFormData,
+            products: [{
+                id: `product-${Date.now()}`,
+                name: '',
+                quantity: 1,
+                serialNumber: '',
+            }],
+            dateTime: getFormattedDateTime() // Reset time to now
+        });
         setIsSubmitted(false);
     }
   };
@@ -439,6 +592,9 @@ const App: React.FC = () => {
              <WorkOrderForm 
                 formData={formData}
                 onInputChange={handleInputChange}
+                onProductChange={handleProductChange}
+                onAddProduct={handleAddProduct}
+                onRemoveProduct={handleRemoveProduct}
                 onPhotosChange={handlePhotosChange}
                 onTechnicianSignatureSave={handleTechnicianSignatureSave}
                 onTechnicianSignatureClear={handleTechnicianSignatureClear}
