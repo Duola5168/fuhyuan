@@ -27,14 +27,20 @@ const initialFormData: WorkOrderData = {
   technicianSignature: null,
 };
 
-const FormField: React.FC<{
+// --- Component Definitions ---
+// By defining these components outside the App component, we prevent them from being
+// re-created on every state change, which fixes the input focus and signature pad issues.
+
+interface FormFieldProps {
   label: string;
   id: keyof WorkOrderData;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   type?: 'text' | 'textarea' | 'datetime-local' | 'tel';
   required?: boolean;
-}> = ({ label, id, value, onChange, type = 'text', required = false }) => (
+}
+
+const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type = 'text', required = false }) => (
   <div>
     <label htmlFor={id} className="block text-sm font-medium text-slate-700">
       {label}
@@ -65,122 +71,75 @@ const FormField: React.FC<{
   </div>
 );
 
-const App: React.FC = () => {
-  const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+interface WorkOrderFormProps {
+    formData: WorkOrderData;
+    onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    onPhotosChange: (photos: string[]) => void;
+    onTechnicianSignatureSave: (signature: string) => void;
+    onTechnicianSignatureClear: () => void;
+    onCustomerSignatureSave: (signature: string) => void;
+    onCustomerSignatureClear: () => void;
+    onSubmit: (e: React.FormEvent) => void;
+}
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
+    formData,
+    onInputChange,
+    onPhotosChange,
+    onTechnicianSignatureSave,
+    onTechnicianSignatureClear,
+    onCustomerSignatureSave,
+    onCustomerSignatureClear,
+    onSubmit
+}) => (
+     <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
+        <div className="text-center">
+            <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
+            <h2 className="text-xl font-semibold text-slate-600 mt-1">工作服務單</h2>
+        </div>
+        <div className="space-y-6">
+            <FormField label="工作日期及時間" id="dateTime" type="datetime-local" value={formData.dateTime} onChange={onInputChange} required />
+            <FormField label="服務單位" id="serviceUnit" value={formData.serviceUnit} onChange={onInputChange} required />
+            <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
+            <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
+            <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} />
+            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} />
+            <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} />
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">拍照插入圖片 (最多4張)</label>
+                <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} maxPhotos={4}/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">服務人員簽認</label>
+                <SignaturePad onSave={onTechnicianSignatureSave} onClear={onTechnicianSignatureClear} />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">客戶簽認</label>
+                <SignaturePad onSave={onCustomerSignatureSave} onClear={onCustomerSignatureClear} />
+            </div>
+        </div>
+        <div className="pt-5">
+            <div className="flex justify-end">
+                <button
+                    type="submit"
+                    className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    產生服務單報告
+                </button>
+            </div>
+        </div>
+    </form>
+);
 
-  const handleSignatureSave = (signature: string) => {
-    setFormData((prev) => ({ ...prev, signature }));
-  };
+interface ReportViewProps {
+    data: WorkOrderData;
+    onGeneratePdf: (action: 'preview' | 'download') => void;
+    onShare: (platform: 'line' | 'email') => void;
+    onReset: () => void;
+    isGeneratingPdf: boolean;
+}
 
-  const handleSignatureClear = () => {
-    setFormData((prev) => ({ ...prev, signature: null }));
-  };
-  
-  const handleTechnicianSignatureSave = (signature: string) => {
-    setFormData((prev) => ({ ...prev, technicianSignature: signature }));
-  };
-
-  const handleTechnicianSignatureClear = () => {
-    setFormData((prev) => ({ ...prev, technicianSignature: null }));
-  };
-
-  const handlePhotosChange = (photos: string[]) => {
-    setFormData((prev) => ({ ...prev, photos }));
-  };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitted(true);
-    window.scrollTo(0, 0);
-  };
-
-  const handleReset = () => {
-    setFormData(initialFormData);
-    setIsSubmitted(false);
-  };
-
-  const generatePdf = async (action: 'preview' | 'download') => {
-    if (isGeneratingPdf) return;
-    setIsGeneratingPdf(true);
-    try {
-      const { jsPDF: JSPDF } = (window as any).jspdf;
-      const pdf = new JSPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-      
-      const page1Element = document.getElementById('pdf-page-1');
-      if (!page1Element) throw new Error('Report page 1 element not found');
-
-      const canvas1 = await html2canvas(page1Element, { scale: 3, useCORS: true });
-      const imgData1 = canvas1.toDataURL('image/png');
-      const imgProps1 = pdf.getImageProperties(imgData1);
-      const page1Height = (imgProps1.height * pdfWidth) / imgProps1.width;
-      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, page1Height);
-
-      if (formData.photos.length > 0) {
-        const page2Element = document.getElementById('pdf-page-2');
-        if (page2Element) {
-          pdf.addPage();
-          const canvas2 = await html2canvas(page2Element, { scale: 3, useCORS: true });
-          const imgData2 = canvas2.toDataURL('image/png');
-          const imgProps2 = pdf.getImageProperties(imgData2);
-          const page2Height = (imgProps2.height * pdfWidth) / imgProps2.width;
-          pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, Math.min(page2Height, pdfHeight));
-        }
-      }
-
-      if (action === 'preview') {
-        pdf.output('dataurlnewwindow');
-      } else {
-        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-        pdf.save(fileName);
-      }
-    } catch (error) {
-      console.error("Failed to generate PDF:", error);
-      alert("無法產生PDF，請檢查主控台中的錯誤訊息。");
-    } finally {
-      setIsGeneratingPdf(false);
-    }
-  };
-
-  const handleShare = (platform: 'line' | 'email') => {
-    const subject = `富元機電工作服務單 - ${formData.serviceUnit}`;
-    const body = `
-工作服務單
------------------
-服務單位: ${formData.serviceUnit}
-接洽人: ${formData.contactPerson || 'N/A'}
-連絡電話: ${formData.contactPhone || 'N/A'}
-日期時間: ${formData.dateTime ? new Date(formData.dateTime).toLocaleString('zh-TW') : 'N/A'}
------------------
-處理事項:
-${formData.tasks || 'N/A'}
------------------
-處理情形:
-${formData.status || 'N/A'}
------------------
-備註:
-${formData.remarks || 'N/A'}
-`.trim().replace(/\n/g, '%0A');
-
-    if (platform === 'line') {
-      const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(body.replace(/%0A/g, '\n'))}`;
-      window.open(lineUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`;
-      window.open(mailtoUrl);
-    }
-  };
-
-
-  const ReportView: React.FC<{ data: WorkOrderData }> = ({ data }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, onReset, isGeneratingPdf }) => {
     const PdfPage1Content = () => (
       <div id="pdf-page-1" className="p-8 space-y-6 bg-white" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box' }}>
         <div className="text-center">
@@ -216,19 +175,27 @@ ${formData.remarks || 'N/A'}
       </div>
     );
     
-    const PdfPage2Content = () => (
-        <div id="pdf-page-2" className="bg-white" style={{ width: '210mm', height: '297mm', boxSizing: 'border-box' }}>
-            <div className="grid grid-cols-2 grid-rows-2 h-full w-full">
-                {data.photos.slice(0, 4).map((photo, index) => (
-                    <div key={index} className="flex items-center justify-center border border-slate-100 p-2">
-                        <img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" />
-                    </div>
-                ))}
-                {/* Fill remaining grid cells if less than 4 photos to maintain layout */}
-                {Array(4 - data.photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
+    const PdfPage2Content = () => {
+        const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
+        return (
+            <div id="pdf-page-2" className="p-8 bg-white" style={{ width: '210mm', height: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+                <div className="text-center mb-4 flex-shrink-0">
+                    <h3 className="text-xl font-semibold text-slate-700">
+                        施工照片 - {data.serviceUnit} ({formattedDate})
+                    </h3>
+                </div>
+                <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow">
+                    {data.photos.slice(0, 4).map((photo, index) => (
+                        <div key={index} className="flex items-center justify-center border border-slate-100 p-1 overflow-hidden">
+                            <img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" />
+                        </div>
+                    ))}
+                    {/* Fill remaining grid cells if less than 4 photos to maintain layout */}
+                    {Array(4 - data.photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
     
     return (
     <>
@@ -281,69 +248,187 @@ ${formData.remarks || 'N/A'}
         </div>
       </div>
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-end items-center">
-            <button onClick={() => generatePdf('preview')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">預覽 PDF</button>
-            <button onClick={() => generatePdf('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
-            <button onClick={() => handleShare('line')} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">分享 (LINE)</button>
-            <button onClick={() => handleShare('email')} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">分享 (Email)</button>
-            <button onClick={handleReset} className="px-6 py-2 text-sm bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">建立新服務單</button>
+            <button onClick={() => onGeneratePdf('preview')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">預覽 PDF</button>
+            <button onClick={() => onGeneratePdf('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
+            <button onClick={() => onShare('line')} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">分享 (LINE)</button>
+            <button onClick={() => onShare('email')} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">分享 (Email)</button>
+            <button onClick={onReset} className="px-6 py-2 text-sm bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">建立新服務單</button>
       </div>
-      {isGeneratingPdf && (
-        <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-lg font-semibold text-slate-700">正在產生 PDF...</p>
-            <p className="text-sm text-slate-500">請稍候</p>
-          </div>
-        </div>
-      )}
     </>
     );
+};
+
+// --- Main App Component ---
+
+const App: React.FC = () => {
+  const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCustomerSignatureSave = (signature: string) => {
+    setFormData((prev) => ({ ...prev, signature }));
+  };
+
+  const handleCustomerSignatureClear = () => {
+    setFormData((prev) => ({ ...prev, signature: null }));
   };
   
-  const WorkOrderForm: React.FC = () => (
-     <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
-        <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
-            <h2 className="text-xl font-semibold text-slate-600 mt-1">工作服務單</h2>
-        </div>
-        <div className="space-y-6">
-            <FormField label="工作日期及時間" id="dateTime" type="datetime-local" value={formData.dateTime} onChange={handleInputChange} required />
-            <FormField label="服務單位" id="serviceUnit" value={formData.serviceUnit} onChange={handleInputChange} required />
-            <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={handleInputChange} />
-            <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={handleInputChange} />
-            <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={handleInputChange} />
-            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={handleInputChange} />
-            <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={handleInputChange} />
-            <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">拍照插入圖片 (最多4張)</label>
-                <ImageUploader photos={formData.photos} onPhotosChange={handlePhotosChange} maxPhotos={4}/>
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">服務人員簽認</label>
-                <SignaturePad onSave={handleTechnicianSignatureSave} onClear={handleTechnicianSignatureClear} />
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">客戶簽認</label>
-                <SignaturePad onSave={handleSignatureSave} onClear={handleSignatureClear} />
-            </div>
-        </div>
-        <div className="pt-5">
-            <div className="flex justify-end">
-                <button
-                    type="submit"
-                    className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                    產生服務單報告
-                </button>
-            </div>
-        </div>
-    </form>
-  );
+  const handleTechnicianSignatureSave = (signature: string) => {
+    setFormData((prev) => ({ ...prev, technicianSignature: signature }));
+  };
 
+  const handleTechnicianSignatureClear = () => {
+    setFormData((prev) => ({ ...prev, technicianSignature: null }));
+  };
+
+  const handlePhotosChange = (photos: string[]) => {
+    setFormData((prev) => ({ ...prev, photos }));
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitted(true);
+    window.scrollTo(0, 0);
+  };
+
+  const handleReset = () => {
+    setFormData(initialFormData);
+    setIsSubmitted(false);
+    setPdfPreviewUrl(null);
+  };
+
+  const generatePdf = async (action: 'preview' | 'download') => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+    try {
+      const { jsPDF: JSPDF } = (window as any).jspdf;
+      const pdf = new JSPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      
+      const page1Element = document.getElementById('pdf-page-1');
+      if (!page1Element) throw new Error('Report page 1 element not found');
+
+      const canvas1 = await html2canvas(page1Element, { scale: 3, useCORS: true });
+      const imgData1 = canvas1.toDataURL('image/png');
+      const imgProps1 = pdf.getImageProperties(imgData1);
+      const page1Height = (imgProps1.height * pdfWidth) / imgProps1.width;
+      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, Math.min(page1Height, pdfHeight));
+
+      if (formData.photos.length > 0) {
+        const page2Element = document.getElementById('pdf-page-2');
+        if (page2Element) {
+          pdf.addPage();
+          const canvas2 = await html2canvas(page2Element, { scale: 3, useCORS: true });
+          const imgData2 = canvas2.toDataURL('image/png');
+          const imgProps2 = pdf.getImageProperties(imgData2);
+          const page2Height = (imgProps2.height * pdfWidth) / imgProps2.width;
+          pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, Math.min(page2Height, pdfHeight));
+        }
+      }
+
+      if (action === 'preview') {
+        setPdfPreviewUrl(pdf.output('datauristring'));
+      } else {
+        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+        pdf.save(fileName);
+      }
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      alert("無法產生PDF，請檢查主控台中的錯誤訊息。");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  const handleShare = (platform: 'line' | 'email') => {
+    const subject = `富元機電工作服務單 - ${formData.serviceUnit}`;
+    const body = `
+工作服務單
+-----------------
+服務單位: ${formData.serviceUnit}
+接洽人: ${formData.contactPerson || 'N/A'}
+連絡電話: ${formData.contactPhone || 'N/A'}
+日期時間: ${formData.dateTime ? new Date(formData.dateTime).toLocaleString('zh-TW') : 'N/A'}
+-----------------
+處理事項:
+${formData.tasks || 'N/A'}
+-----------------
+處理情形:
+${formData.status || 'N/A'}
+-----------------
+備註:
+${formData.remarks || 'N/A'}
+`.trim().replace(/\n/g, '%0A');
+
+    if (platform === 'line') {
+      const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(body.replace(/%0A/g, '\n'))}`;
+      window.open(lineUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`;
+      window.open(mailtoUrl);
+    }
+  };
+  
   return (
     <div className="min-h-screen py-8 sm:py-12">
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden">
-           {isSubmitted ? <ReportView data={formData} /> : <WorkOrderForm />}
+           {isSubmitted ? (
+             <ReportView 
+                data={formData}
+                onGeneratePdf={generatePdf}
+                onShare={handleShare}
+                onReset={handleReset}
+                isGeneratingPdf={isGeneratingPdf}
+              />
+            ) : (
+             <WorkOrderForm 
+                formData={formData}
+                onInputChange={handleInputChange}
+                onPhotosChange={handlePhotosChange}
+                onTechnicianSignatureSave={handleTechnicianSignatureSave}
+                onTechnicianSignatureClear={handleTechnicianSignatureClear}
+                onCustomerSignatureSave={handleCustomerSignatureSave}
+                onCustomerSignatureClear={handleCustomerSignatureClear}
+                onSubmit={handleSubmit}
+             />
+            )}
         </div>
+        
+        {isGeneratingPdf && (
+            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="text-center">
+                <p className="text-lg font-semibold text-slate-700">正在產生 PDF...</p>
+                <p className="text-sm text-slate-500">請稍候</p>
+              </div>
+            </div>
+        )}
+
+        {pdfPreviewUrl && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-40 p-4" onClick={() => setPdfPreviewUrl(null)}>
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex-shrink-0 p-4 border-b flex justify-between items-center">
+                        <h3 className="text-lg font-semibold">PDF 預覽</h3>
+                        <button 
+                            onClick={() => setPdfPreviewUrl(null)}
+                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-medium"
+                        >
+                            關閉
+                        </button>
+                    </div>
+                    <div className="flex-grow bg-slate-200">
+                        <iframe src={pdfPreviewUrl} className="w-full h-full border-none" title="PDF Preview"></iframe>
+                    </div>
+                </div>
+            </div>
+        )}
+
     </div>
   );
 };
