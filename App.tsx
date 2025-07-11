@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -7,7 +8,7 @@ import ImageUploader from './components/ImageUploader';
 declare const jsPDF: any;
 declare const html2canvas: any;
 
-const A4_SAFE_HEIGHT_MM = 280; // A4 height is 297mm, leave some margin
+const TOTAL_CONTENT_LINES_LIMIT = 20;
 const TASKS_STATUS_LIMIT = 18;
 const PRODUCTS_REMARKS_LIMIT = 16;
 
@@ -624,19 +625,16 @@ const App: React.FC = () => {
       };
       const imageType = 'image/jpeg';
       const imageQuality = 0.92;
-
-      // 1. Measure the full content
-      const fullElement = document.getElementById('pdf-pdf-full');
-      if (!fullElement) throw new Error('Full report element not found for measurement');
-      
-      const fullCanvas = await html2canvas(fullElement, options);
-      const fullImgProps = pdf.getImageProperties(fullCanvas.toDataURL(imageType, imageQuality));
-      const fullHeight = (fullImgProps.height * pdfWidth) / fullImgProps.width;
-
       let pageCount = 0;
 
-      // 2. Decide whether to split the page
-      if (fullHeight > A4_SAFE_HEIGHT_MM) {
+      // --- NEW LOGIC: Decide based on total line count ---
+      const tasksLines = calculateVisualLines(formData.tasks);
+      const statusLines = calculateVisualLines(formData.status);
+      const productsLines = formData.products.filter(p => p.name.trim() !== '').length;
+      const remarksLines = calculateVisualLines(formData.remarks);
+      const totalContentLines = tasksLines + statusLines + productsLines + remarksLines;
+
+      if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
         // --- SPLIT PAGE LOGIC ---
         const page1Element = document.getElementById('pdf-pdf-page1');
         const page2Element = document.getElementById('pdf-pdf-page2');
@@ -655,11 +653,18 @@ const App: React.FC = () => {
 
       } else {
         // --- SINGLE PAGE LOGIC ---
+        const fullElement = document.getElementById('pdf-pdf-full');
+        if (!fullElement) throw new Error('Full report element not found for rendering');
+        
+        const fullCanvas = await html2canvas(fullElement, options);
+        const fullImgProps = pdf.getImageProperties(fullCanvas.toDataURL(imageType, imageQuality));
+        // Calculate height to maintain aspect ratio, but don't exceed A4 height
+        const fullHeight = Math.min(pdfHeight, (fullImgProps.height * pdfWidth) / fullImgProps.width);
         pdf.addImage(fullCanvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, fullHeight);
         pageCount++;
       }
       
-      // 3. Add photo pages
+      // Add photo pages
       if (formData.photos.length > 0) {
         const photoChunks = chunk(formData.photos, 4);
         for (let i = 0; i < photoChunks.length; i++) {
@@ -721,8 +726,6 @@ const App: React.FC = () => {
       try {
         await navigator.share(shareData);
       } catch (error) {
-        // This is a special type of error that means the user canceled the share dialog.
-        // We shouldn't show an error message for this.
         const abortError = error as DOMException;
         if (abortError.name !== 'AbortError') {
             console.error('Error sharing PDF:', error);
