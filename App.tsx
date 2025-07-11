@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
@@ -51,38 +51,60 @@ interface FormFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   type?: 'text' | 'textarea' | 'datetime-local' | 'tel';
   required?: boolean;
+  placeholder?: string;
+  rows?: number;
+  autoSize?: boolean;
 }
 
-const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type = 'text', required = false }) => (
-  <div>
-    <label htmlFor={id} className="block text-sm font-medium text-slate-700">
-      {label}
-    </label>
-    <div className="mt-1">
-      {type === 'textarea' ? (
-        <textarea
-          id={id}
-          name={id}
-          rows={3}
-          value={value}
-          onChange={onChange}
-          required={required}
-          className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        />
-      ) : (
-        <input
-          id={id}
-          name={id}
-          type={type}
-          value={value}
-          onChange={onChange}
-          required={required}
-          className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        />
-      )}
+const FormField: React.FC<FormFieldProps> = ({
+  label, id, value, onChange, type = 'text', required = false, placeholder, rows: initialRows = 3, autoSize = false,
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Effect for auto-sizing
+  useEffect(() => {
+    if (autoSize && textareaRef.current) {
+      const textarea = textareaRef.current;
+      textarea.style.height = 'auto'; // Reset height
+      textarea.style.height = `${textarea.scrollHeight}px`; // Set to scroll height
+    }
+  }, [autoSize, value]); // Re-run when value changes
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+        {label}
+      </label>
+      <div className="mt-1">
+        {type === 'textarea' ? (
+          <textarea
+            ref={textareaRef}
+            id={id}
+            name={id}
+            rows={autoSize ? 1 : initialRows}
+            value={value}
+            onChange={onChange}
+            required={required}
+            placeholder={placeholder}
+            className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            style={autoSize ? { overflowY: 'hidden', resize: 'none' } : {}}
+          />
+        ) : (
+          <input
+            id={id}
+            name={id}
+            type={type}
+            value={value}
+            onChange={onChange}
+            required={required}
+            className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
+
 
 // --- Icons for Product Section ---
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -135,8 +157,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="服務單位" id="serviceUnit" value={formData.serviceUnit} onChange={onInputChange} required />
             <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
             <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
-            <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} />
-            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} />
+            <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} rows={8} placeholder="單行40字,行數8行" />
+            <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} placeholder="單行40字,行數8行" />
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">產品項目</label>
@@ -197,7 +219,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
               </div>
             </div>
 
-            <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} />
+            <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} autoSize />
             
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">拍照插入圖片</label>
@@ -260,7 +282,9 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string
 const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf, onReset, onEdit, isGeneratingPdf }) => {
     const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
         const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-        const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[144px] whitespace-pre-wrap w-full overflow-hidden";
+        const baseTextSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full";
+        const constrainedTextSectionClass = `${baseTextSectionClass} min-h-[144px] overflow-hidden`; // For tasks/status
+        const remarksSectionClass = `${baseTextSectionClass} min-h-[72px]`; // For remarks, allowing it to grow
         const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
         
         return (
@@ -288,11 +312,11 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
                     </div>
                     <div className="pt-2">
                         <strong className="text-base">處理事項：</strong>
-                        <div className={textSectionClass}>{data.tasks || 'N/A'}</div>
+                        <div className={constrainedTextSectionClass}>{data.tasks || 'N/A'}</div>
                     </div>
                     <div className="pt-2">
                         <strong className="text-base">處理情形：</strong>
-                        <div className={textSectionClass}>{data.status || 'N/A'}</div>
+                        <div className={constrainedTextSectionClass}>{data.status || 'N/A'}</div>
                     </div>
 
                     {hasProducts && (
@@ -323,7 +347,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
 
                     <div className="pt-2">
                         <strong className="text-base">備註：</strong>
-                        <div className={textSectionClass}>{data.remarks || 'N/A'}</div>
+                        <div className={remarksSectionClass}>{data.remarks || 'N/A'}</div>
                     </div>
 
                     {!isForPdf && data.photos.length > 0 && (
@@ -405,6 +429,17 @@ const App: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // Enforce line limit for tasks and status
+    if (name === 'tasks' || name === 'status') {
+      const lines = value.split('\n');
+      if (lines.length > 8) {
+        const truncatedValue = lines.slice(0, 8).join('\n');
+        setFormData((prev) => ({ ...prev, [name]: truncatedValue }));
+        return; // Exit to prevent setting the longer value
+      }
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
   
@@ -501,7 +536,8 @@ const App: React.FC = () => {
       const imgData1 = canvas1.toDataURL(imageType, imageQuality);
       const imgProps1 = pdf.getImageProperties(imgData1);
       const page1Height = (imgProps1.height * pdfWidth) / imgProps1.width;
-      pdf.addImage(imgData1, 'JPEG', 0, 0, pdfWidth, Math.min(page1Height, pdfHeight));
+      // Allow page 1 to be longer than A4 to accommodate remarks, but cap other pages
+      pdf.addImage(imgData1, 'JPEG', 0, 0, pdfWidth, page1Height);
 
       if (formData.photos.length > 0) {
         const photoChunks = chunk(formData.photos, 4);
