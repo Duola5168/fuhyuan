@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
@@ -7,6 +6,8 @@ import ImageUploader from './components/ImageUploader';
 // Add type declarations for CDN libraries
 declare const jsPDF: any;
 declare const html2canvas: any;
+
+const A4_SAFE_HEIGHT_MM = 280; // A4 height is 297mm, leave some margin
 
 const getFormattedDateTime = () => {
   const now = new Date();
@@ -46,7 +47,7 @@ const chunk = <T,>(arr: T[], size: number): T[][] =>
 // --- Component Definitions ---
 interface FormFieldProps {
   label: string;
-  id: keyof WorkOrderData;
+  id: keyof WorkOrderData | string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   type?: 'text' | 'textarea' | 'datetime-local' | 'tel';
@@ -247,14 +248,144 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     </form>
 );
 
-interface ReportViewProps {
-    data: WorkOrderData;
-    onDownloadPdf: () => void;
-    onSharePdf: () => void;
-    onReset: () => void;
-    onEdit: () => void;
-    isGeneratingPdf: boolean;
-}
+
+// --- Report Components ---
+
+type ReportLayoutProps = {
+  data: WorkOrderData;
+  mode: 'screen' | 'pdf-full' | 'pdf-page1' | 'pdf-page2';
+};
+
+const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
+  const isPdf = mode.startsWith('pdf');
+  const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+  const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
+
+  const showCoreInfo = mode !== 'pdf-page2';
+  const showProductsAndRemarks = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page2';
+  const showSignatures = mode !== 'pdf-page2'; // Show on screen, full, and page1
+  const showCopiedSignatures = mode === 'pdf-page2'; // Show only on page2
+
+  return (
+    <div
+      id={isPdf ? `pdf-${mode}` : undefined}
+      className="p-8 bg-white"
+      style={{
+        width: isPdf ? '210mm' : '100%',
+        minHeight: isPdf ? '297mm' : 'auto', // Ensure it fills page for page1/2
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'"
+      }}
+    >
+      {/* HEADER */}
+      {showCoreInfo && (
+        <div className="text-center mb-10 flex-shrink-0">
+          <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
+          <h2 className="text-2xl font-semibold text-gray-600 mt-2">工作服務單</h2>
+        </div>
+      )}
+
+      {mode === 'pdf-page2' && (
+        <div className="text-center mb-10 flex-shrink-0">
+          <h2 className="text-2xl font-semibold text-gray-600 mt-2">產品項目與備註</h2>
+        </div>
+      )}
+
+      {/* BODY */}
+      <div className="flex-grow text-base text-gray-800 space-y-5">
+        {showCoreInfo && (
+          <div className="grid grid-cols-12 gap-x-6 gap-y-4">
+            <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
+            <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
+            <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
+            <div className="col-span-12"><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</div>
+          </div>
+        )}
+
+        {showCoreInfo && (
+          <>
+            <div className="pt-2">
+              <strong className="text-base">處理事項：</strong>
+              <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.tasks || 'N/A'}</div>
+            </div>
+            <div className="pt-2">
+              <strong className="text-base">處理情形：</strong>
+              <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.status || 'N/A'}</div>
+            </div>
+          </>
+        )}
+
+        {showProductsAndRemarks && hasProducts && (
+          <div className="pt-2">
+            <strong className="text-base">產品項目：</strong>
+            <div className="mt-2 border border-slate-200 rounded-md overflow-hidden">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">產品品名</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">數量</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">序號</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {data.products.filter(p => p.name.trim() !== '').map((product, index) => (
+                    <tr key={index}>
+                      <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{product.serialNumber || 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {showProductsAndRemarks && (
+          <div className="pt-2">
+            <strong className="text-base">備註：</strong>
+            <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.remarks || 'N/A'}</div>
+          </div>
+        )}
+
+        {mode === 'screen' && data.photos.length > 0 && (
+          <div className="pt-2">
+            <strong className="text-base">現場照片：</strong>
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {data.photos.map((photo, index) => (
+                <img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER - Signatures */}
+      {(showSignatures || showCopiedSignatures) && (
+        <div className="flex-shrink-0 pt-12 mt-auto grid grid-cols-2 gap-x-12 text-base">
+          <div className="text-center">
+            <strong>服務人員簽認：</strong>
+            <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+              {data.technicianSignature ? (
+                <img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />
+              ) : <span className="text-slate-400">未簽名</span>}
+            </div>
+          </div>
+          <div className="text-center">
+            <strong>客戶簽認：</strong>
+            <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+              {data.signature ? (
+                <img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />
+              ) : <span className="text-slate-400">未簽名</span>}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string[], pageNumber: number, totalPages: number, data: WorkOrderData }) => {
     const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
@@ -279,116 +410,25 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string
     );
 };
 
+interface ReportViewProps {
+    data: WorkOrderData;
+    onDownloadPdf: () => void;
+    onSharePdf: () => void;
+    onReset: () => void;
+    onEdit: () => void;
+    isGeneratingPdf: boolean;
+}
+
 const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf, onReset, onEdit, isGeneratingPdf }) => {
-    const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
-        const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-        const baseTextSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full";
-        const constrainedTextSectionClass = `${baseTextSectionClass} min-h-[144px] overflow-hidden`; // For tasks/status
-        const remarksSectionClass = `${baseTextSectionClass} min-h-[72px]`; // For remarks, allowing it to grow
-        const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
-        
-        return (
-            <div
-              id={isForPdf ? "pdf-page-1" : undefined}
-              className="p-8 bg-white"
-              style={{
-                  width: isForPdf ? '210mm' : '100%', // Use 100% width for screen, fixed for PDF
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'"
-              }}
-            >
-                <div className="text-center mb-10 flex-shrink-0">
-                    <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
-                    <h2 className="text-2xl font-semibold text-gray-600 mt-2">工作服務單</h2>
-                </div>
-                <div className="flex-grow text-base text-gray-800 space-y-5">
-                    <div className="grid grid-cols-12 gap-x-6 gap-y-4">
-                        <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
-                        <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
-                        <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
-                        <div className="col-span-12"><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</div>
-                    </div>
-                    <div className="pt-2">
-                        <strong className="text-base">處理事項：</strong>
-                        <div className={constrainedTextSectionClass}>{data.tasks || 'N/A'}</div>
-                    </div>
-                    <div className="pt-2">
-                        <strong className="text-base">處理情形：</strong>
-                        <div className={constrainedTextSectionClass}>{data.status || 'N/A'}</div>
-                    </div>
-
-                    {hasProducts && (
-                      <div className="pt-2">
-                          <strong className="text-base">產品項目：</strong>
-                          <div className="mt-2 border border-slate-200 rounded-md overflow-hidden">
-                              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                                  <thead className="bg-slate-50">
-                                      <tr>
-                                          <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">產品品名</th>
-                                          <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">數量</th>
-                                          <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">序號</th>
-                                      </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-200 bg-white">
-                                      {data.products.filter(p => p.name.trim() !== '').map((product, index) => (
-                                          <tr key={index}>
-                                              <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
-                                              <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
-                                              <td className="px-3 py-2 whitespace-nowrap">{product.serialNumber || 'N/A'}</td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                              </table>
-                          </div>
-                      </div>
-                    )}
-
-                    <div className="pt-2">
-                        <strong className="text-base">備註：</strong>
-                        <div className={remarksSectionClass}>{data.remarks || 'N/A'}</div>
-                    </div>
-
-                    {!isForPdf && data.photos.length > 0 && (
-                        <div className="pt-2">
-                            <strong className="text-base">現場照片：</strong>
-                            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                {data.photos.map((photo, index) => (
-                                    <img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-                <div className="flex-shrink-0 pt-12 mt-auto grid grid-cols-2 gap-x-12 text-base">
-                    <div className="text-center">
-                        <strong>服務人員簽認：</strong>
-                        <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
-                            {data.technicianSignature ? (
-                                <img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />
-                            ) : <span className="text-slate-400">未簽名</span>}
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <strong>客戶簽認：</strong>
-                        <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
-                            {data.signature ? (
-                                <img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />
-                            ) : <span className="text-slate-400">未簽名</span>}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
     const photoChunks = chunk(data.photos, 4);
     
     return (
     <>
+      {/* Hidden container for pre-rendering PDF layouts */}
       <div className="pdf-render-container">
-        <ReportLayout isForPdf={true} />
+        <ReportLayout data={data} mode="pdf-full" />
+        <ReportLayout data={data} mode="pdf-page1" />
+        <ReportLayout data={data} mode="pdf-page2" />
         {photoChunks.map((photoChunk, index) => (
             <PdfPhotoPage
                 key={index}
@@ -400,14 +440,16 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
         ))}
       </div>
       
+      {/* Visible report on screen */}
       <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto">
-        <div className="w-full max-w-[210mm] mx-auto sm:scale-100 origin-top">
+        <div className="w-full max-w-[800px] mx-auto origin-top">
             <div className="shadow-lg">
-                <ReportLayout isForPdf={false} />
+                <ReportLayout data={data} mode="screen" />
             </div>
         </div>
       </div>
 
+      {/* Action buttons */}
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
             <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-3">
@@ -469,25 +511,25 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleCustomerSignatureSave = (signature: string) => {
+  const handleCustomerSignatureSave = useCallback((signature: string) => {
     setFormData((prev) => ({ ...prev, signature }));
-  };
+  }, []);
 
-  const handleCustomerSignatureClear = () => {
+  const handleCustomerSignatureClear = useCallback(() => {
     setFormData((prev) => ({ ...prev, signature: null }));
-  };
+  }, []);
   
-  const handleTechnicianSignatureSave = (signature: string) => {
+  const handleTechnicianSignatureSave = useCallback((signature: string) => {
     setFormData((prev) => ({ ...prev, technicianSignature: signature }));
-  };
+  }, []);
 
-  const handleTechnicianSignatureClear = () => {
+  const handleTechnicianSignatureClear = useCallback(() => {
     setFormData((prev) => ({ ...prev, technicianSignature: null }));
-  };
+  }, []);
 
-  const handlePhotosChange = (photos: string[]) => {
+  const handlePhotosChange = useCallback((photos: string[]) => {
     setFormData((prev) => ({ ...prev, photos }));
-  };
+  }, []);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -529,27 +571,51 @@ const App: React.FC = () => {
       const imageType = 'image/jpeg';
       const imageQuality = 0.92;
 
-      const page1Element = document.getElementById('pdf-page-1');
-      if (!page1Element) throw new Error('Report page 1 element not found');
+      // 1. Measure the full content
+      const fullElement = document.getElementById('pdf-pdf-full');
+      if (!fullElement) throw new Error('Full report element not found for measurement');
+      
+      const fullCanvas = await html2canvas(fullElement, options);
+      const fullImgProps = pdf.getImageProperties(fullCanvas.toDataURL(imageType, imageQuality));
+      const fullHeight = (fullImgProps.height * pdfWidth) / fullImgProps.width;
 
-      const canvas1 = await html2canvas(page1Element, options);
-      const imgData1 = canvas1.toDataURL(imageType, imageQuality);
-      const imgProps1 = pdf.getImageProperties(imgData1);
-      const page1Height = (imgProps1.height * pdfWidth) / imgProps1.width;
-      // Allow page 1 to be longer than A4 to accommodate remarks, but cap other pages
-      pdf.addImage(imgData1, 'JPEG', 0, 0, pdfWidth, page1Height);
+      let pageCount = 0;
 
+      // 2. Decide whether to split the page
+      if (fullHeight > A4_SAFE_HEIGHT_MM) {
+        // --- SPLIT PAGE LOGIC ---
+        const page1Element = document.getElementById('pdf-pdf-page1');
+        const page2Element = document.getElementById('pdf-pdf-page2');
+        if (!page1Element || !page2Element) throw new Error('Split page elements not found');
+        
+        // Add Page 1
+        const canvas1 = await html2canvas(page1Element, options);
+        pdf.addImage(canvas1.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        pageCount++;
+
+        // Add Page 2
+        pdf.addPage();
+        const canvas2 = await html2canvas(page2Element, options);
+        pdf.addImage(canvas2.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        pageCount++;
+
+      } else {
+        // --- SINGLE PAGE LOGIC ---
+        pdf.addImage(fullCanvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, fullHeight);
+        pageCount++;
+      }
+      
+      // 3. Add photo pages
       if (formData.photos.length > 0) {
         const photoChunks = chunk(formData.photos, 4);
         for (let i = 0; i < photoChunks.length; i++) {
           const photoPageElement = document.getElementById(`pdf-photo-page-${i}`);
           if (photoPageElement) {
-              pdf.addPage();
+              if (pageCount > 0) pdf.addPage();
               const canvas = await html2canvas(photoPageElement, options);
               const imgData = canvas.toDataURL(imageType, imageQuality);
-              const imgProps = pdf.getImageProperties(imgData);
-              const pageHeight = (imgProps.height * pdfWidth) / imgProps.width;
-              pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pageHeight, pdfHeight));
+              pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+              pageCount++;
           }
         }
       }
@@ -601,7 +667,10 @@ const App: React.FC = () => {
       try {
         await navigator.share(shareData);
       } catch (error) {
-        if (error.name !== 'AbortError') {
+        // This is a special type of error that means the user canceled the share dialog.
+        // We shouldn't show an error message for this.
+        const abortError = error as DOMException;
+        if (abortError.name !== 'AbortError') {
             console.error('Error sharing PDF:', error);
             alert('分享失敗，請稍後再試。');
         }
