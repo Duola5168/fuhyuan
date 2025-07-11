@@ -13,6 +13,12 @@ const CameraIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
+const UploadIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+  </svg>
+);
+
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -20,7 +26,8 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -56,28 +63,51 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange })
     onPhotosChange(updatedPhotos);
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
+  const triggerCameraInput = () => {
+    cameraInputRef.current?.click();
+  };
+  
+  const triggerUploadInput = () => {
+    uploadInputRef.current?.click();
   };
 
   return (
     <div>
       <input
         type="file"
-        ref={fileInputRef}
+        ref={cameraInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*"
+        capture="environment"
+      />
+       <input
+        type="file"
+        ref={uploadInputRef}
         onChange={handleFileChange}
         className="hidden"
         accept="image/*"
         multiple
       />
-      <button
-        type="button"
-        onClick={triggerFileInput}
-        className="w-full flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-400 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-      >
-        <CameraIcon className="w-6 h-6 mr-2" />
-        拍照或上傳圖片 ({photos.length})
-      </button>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={triggerCameraInput}
+          className="flex-1 flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-400 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <CameraIcon className="w-6 h-6 mr-2" />
+          拍照
+        </button>
+        <button
+          type="button"
+          onClick={triggerUploadInput}
+          className="flex-1 flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-400 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <UploadIcon className="w-6 h-6 mr-2" />
+          上傳圖片
+        </button>
+      </div>
+      <p className="text-sm text-slate-500 mt-2 text-center">已上傳 {photos.length} 張照片</p>
 
       {photos.length > 0 && (
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
