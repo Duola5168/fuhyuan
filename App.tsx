@@ -292,7 +292,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
               id={isForPdf ? "pdf-page-1" : undefined}
               className="p-8 bg-white"
               style={{
-                  width: '210mm',
+                  width: isForPdf ? '210mm' : '100%', // Use 100% width for screen, fixed for PDF
                   boxSizing: 'border-box',
                   display: 'flex',
                   flexDirection: 'column',
