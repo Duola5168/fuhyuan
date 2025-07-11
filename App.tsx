@@ -261,10 +261,11 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
   const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
   const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
 
-  const showCoreInfo = mode !== 'pdf-page2';
+  // Flags for what to display based on the mode
+  const showMainHeaderAndCustomerInfo = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1' || mode === 'pdf-page2';
+  const showTasksAndStatus = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1';
   const showProductsAndRemarks = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page2';
-  const showSignatures = mode !== 'pdf-page2'; // Show on screen, full, and page1
-  const showCopiedSignatures = mode === 'pdf-page2'; // Show only on page2
+  const showSignatures = true; // Signatures are part of every layout
 
   return (
     <div
@@ -280,37 +281,34 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
       }}
     >
       {/* HEADER */}
-      {showCoreInfo && (
-        <div className="text-center mb-10 flex-shrink-0">
-          <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
-          <h2 className="text-2xl font-semibold text-gray-600 mt-2">工作服務單</h2>
-        </div>
-      )}
+      {showMainHeaderAndCustomerInfo && (
+        <>
+          <div className="text-center mb-10 flex-shrink-0">
+            <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
+            <h2 className="text-2xl font-semibold text-gray-600 mt-2">
+              工作服務單
+              {mode === 'pdf-page2' && ' (產品項目與備註)'}
+            </h2>
+          </div>
 
-      {mode === 'pdf-page2' && (
-        <div className="text-center mb-10 flex-shrink-0">
-          <h2 className="text-2xl font-semibold text-gray-600 mt-2">產品項目與備註</h2>
-        </div>
-      )}
-
-      {/* BODY */}
-      <div className="flex-grow text-base text-gray-800 space-y-5">
-        {showCoreInfo && (
           <div className="grid grid-cols-12 gap-x-6 gap-y-4">
             <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
             <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
             <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
             <div className="col-span-12"><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</div>
           </div>
-        )}
+        </>
+      )}
 
-        {showCoreInfo && (
+      {/* BODY */}
+      <div className="flex-grow text-base text-gray-800 space-y-5 pt-5">
+        {showTasksAndStatus && (
           <>
-            <div className="pt-2">
+            <div>
               <strong className="text-base">處理事項：</strong>
               <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.tasks || 'N/A'}</div>
             </div>
-            <div className="pt-2">
+            <div>
               <strong className="text-base">處理情形：</strong>
               <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.status || 'N/A'}</div>
             </div>
@@ -318,7 +316,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
         )}
 
         {showProductsAndRemarks && hasProducts && (
-          <div className="pt-2">
+          <div>
             <strong className="text-base">產品項目：</strong>
             <div className="mt-2 border border-slate-200 rounded-md overflow-hidden">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -344,14 +342,14 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
         )}
 
         {showProductsAndRemarks && (
-          <div className="pt-2">
+          <div>
             <strong className="text-base">備註：</strong>
             <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.remarks || 'N/A'}</div>
           </div>
         )}
 
         {mode === 'screen' && data.photos.length > 0 && (
-          <div className="pt-2">
+          <div>
             <strong className="text-base">現場照片：</strong>
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
               {data.photos.map((photo, index) => (
@@ -363,7 +361,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
       </div>
 
       {/* FOOTER - Signatures */}
-      {(showSignatures || showCopiedSignatures) && (
+      {showSignatures && (
         <div className="flex-shrink-0 pt-12 mt-auto grid grid-cols-2 gap-x-12 text-base">
           <div className="text-center">
             <strong>服務人員簽認：</strong>
@@ -386,6 +384,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
     </div>
   );
 };
+
 
 const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string[], pageNumber: number, totalPages: number, data: WorkOrderData }) => {
     const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
