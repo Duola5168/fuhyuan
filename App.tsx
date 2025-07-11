@@ -35,9 +35,6 @@ const chunk = <T,>(arr: T[], size: number): T[][] =>
 
 
 // --- Component Definitions ---
-// By defining these components outside the App component, we prevent them from being
-// re-created on every state change, which fixes the input focus and signature pad issues.
-
 interface FormFieldProps {
   label: string;
   id: keyof WorkOrderData;
@@ -141,7 +138,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 interface ReportViewProps {
     data: WorkOrderData;
     onGeneratePdf: (action: 'preview' | 'download') => void;
-    onShare: (platform: 'line' | 'email') => void;
+    onSharePdf: () => void;
     onReset: () => void;
     isGeneratingPdf: boolean;
 }
@@ -163,15 +160,13 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string
                         <img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" />
                     </div>
                 ))}
-                {/* Fill remaining grid cells if less than 4 photos to maintain layout */}
                 {Array(4 - photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
             </div>
         </div>
     );
 };
 
-const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, onReset, isGeneratingPdf }) => {
-    // This is the improved layout for both the hidden PDF render and the visible report.
+const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onSharePdf, onReset, isGeneratingPdf }) => {
     const ReportLayout = ({ isForPdf }: { isForPdf: boolean }) => {
         const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
         const textSectionClass = "mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 min-h-[144px] whitespace-pre-wrap w-full overflow-hidden";
@@ -182,20 +177,17 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
               className="p-8 bg-white"
               style={{
                   width: '210mm',
-                  minHeight: '297mm',
+                  // min-height is removed here to prevent html2canvas memory issues. The PDF generator will fit the content to the page.
                   boxSizing: 'border-box',
                   display: 'flex',
                   flexDirection: 'column',
-                  fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'" // A common font stack
+                  fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'"
               }}
             >
-                {/* Header */}
                 <div className="text-center mb-10 flex-shrink-0">
                     <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
                     <h2 className="text-2xl font-semibold text-gray-600 mt-2">工作服務單</h2>
                 </div>
-
-                {/* Main Content (grows to fill space) */}
                 <div className="flex-grow text-base text-gray-800 space-y-5">
                     <div className="grid grid-cols-12 gap-x-6 gap-y-4">
                         <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
@@ -203,7 +195,6 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
                         <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
                         <div className="col-span-12"><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</div>
                     </div>
-
                     <div className="pt-2">
                         <strong className="text-base">處理事項：</strong>
                         <div className={textSectionClass}>{data.tasks || 'N/A'}</div>
@@ -216,8 +207,6 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
                         <strong className="text-base">備註：</strong>
                         <div className={textSectionClass}>{data.remarks || 'N/A'}</div>
                     </div>
-
-                    {/* On-screen photo display (not for PDF page 1) */}
                     {!isForPdf && data.photos.length > 0 && (
                         <div className="pt-2">
                             <strong className="text-base">現場照片：</strong>
@@ -229,8 +218,6 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
                         </div>
                     )}
                 </div>
-
-                {/* Signature Footer */}
                 <div className="flex-shrink-0 pt-12 mt-auto grid grid-cols-2 gap-x-12 text-base">
                     <div className="text-center">
                         <strong>服務人員簽認：</strong>
@@ -257,7 +244,6 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
     
     return (
     <>
-      {/* Hidden container for high-quality PDF rendering */}
       <div className="pdf-render-container">
         <ReportLayout isForPdf={true} />
         {photoChunks.map((photoChunk, index) => (
@@ -271,9 +257,8 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
         ))}
       </div>
       
-      {/* Visible Report for the user, scaled down to fit viewport */}
-      <div className="p-4 sm:p-6 bg-slate-50/50">
-        <div className="max-w-[210mm] mx-auto scale-[0.9] sm:scale-100 origin-top">
+      <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto">
+        <div className="w-[210mm] max-w-full mx-auto sm:scale-100 origin-top">
             <div className="shadow-lg">
                 <ReportLayout isForPdf={false} />
             </div>
@@ -283,8 +268,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onGeneratePdf, onShare, o
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-end items-center">
             <button onClick={() => onGeneratePdf('preview')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">預覽 PDF</button>
             <button onClick={() => onGeneratePdf('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
-            <button onClick={() => onShare('line')} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">分享 (LINE)</button>
-            <button onClick={() => onShare('email')} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">分享 (Email)</button>
+            <button onClick={onSharePdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享 PDF</button>
             <button onClick={onReset} className="px-6 py-2 text-sm bg-indigo-600 text-white font-semibold rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">建立新服務單</button>
       </div>
     </>
@@ -333,27 +317,34 @@ const App: React.FC = () => {
   const handleReset = () => {
     setFormData(initialFormData);
     setIsSubmitted(false);
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl);
+    }
     setPdfPreviewUrl(null);
   };
-
-  const generatePdf = async (action: 'preview' | 'download') => {
-    if (isGeneratingPdf) return;
-    setIsGeneratingPdf(true);
+  
+  const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
       const { jsPDF: JSPDF } = (window as any).jspdf;
       const pdf = new JSPDF('p', 'mm', 'a4');
       const pdfWidth = 210;
       const pdfHeight = 297;
-      
+      const options = {
+          scale: 2, // Higher scale for better quality, but balanced for performance
+          useCORS: true,
+          backgroundColor: '#ffffff',
+      };
+      const imageType = 'image/jpeg';
+      const imageQuality = 0.92; // High quality JPEG
+
       const page1Element = document.getElementById('pdf-page-1');
       if (!page1Element) throw new Error('Report page 1 element not found');
 
-      // Removed useCORS: true as it's not needed for data URLs and can cause issues.
-      const canvas1 = await html2canvas(page1Element, { scale: 3 });
-      const imgData1 = canvas1.toDataURL('image/png');
+      const canvas1 = await html2canvas(page1Element, options);
+      const imgData1 = canvas1.toDataURL(imageType, imageQuality);
       const imgProps1 = pdf.getImageProperties(imgData1);
       const page1Height = (imgProps1.height * pdfWidth) / imgProps1.width;
-      pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, Math.min(page1Height, pdfHeight));
+      pdf.addImage(imgData1, 'JPEG', 0, 0, pdfWidth, Math.min(page1Height, pdfHeight));
 
       if (formData.photos.length > 0) {
         const photoChunks = chunk(formData.photos, 4);
@@ -361,56 +352,78 @@ const App: React.FC = () => {
           const photoPageElement = document.getElementById(`pdf-photo-page-${i}`);
           if (photoPageElement) {
               pdf.addPage();
-              const canvas = await html2canvas(photoPageElement, { scale: 3 });
-              const imgData = canvas.toDataURL('image/png');
+              const canvas = await html2canvas(photoPageElement, options);
+              const imgData = canvas.toDataURL(imageType, imageQuality);
               const imgProps = pdf.getImageProperties(imgData);
               const pageHeight = (imgProps.height * pdfWidth) / imgProps.width;
-              pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(pageHeight, pdfHeight));
+              pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(pageHeight, pdfHeight));
           }
         }
       }
-
-      if (action === 'preview') {
-        setPdfPreviewUrl(pdf.output('datauristring'));
-      } else {
-        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-        pdf.save(fileName);
-      }
+      return pdf.output('blob');
     } catch (error) {
-      console.error("Failed to generate PDF:", error);
-      alert("無法產生PDF，請檢查主控台中的錯誤訊息。");
-    } finally {
-      setIsGeneratingPdf(false);
+      console.error("Failed to generate PDF blob:", error);
+      alert("無法產生PDF，可能是內容過於複雜。請檢查主控台中的錯誤訊息。");
+      return null;
     }
   };
+  
+  const generatePdf = async (action: 'preview' | 'download') => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
 
-  const handleShare = (platform: 'line' | 'email') => {
-    const subject = `富元機電工作服務單 - ${formData.serviceUnit}`;
-    const body = `
-工作服務單
------------------
-服務單位: ${formData.serviceUnit}
-接洽人: ${formData.contactPerson || 'N/A'}
-連絡電話: ${formData.contactPhone || 'N/A'}
-日期時間: ${formData.dateTime ? new Date(formData.dateTime).toLocaleString('zh-TW') : 'N/A'}
------------------
-處理事項:
-${formData.tasks || 'N/A'}
------------------
-處理情形:
-${formData.status || 'N/A'}
------------------
-備註:
-${formData.remarks || 'N/A'}
-`.trim().replace(/\n/g, '%0A');
-
-    if (platform === 'line') {
-      const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(body.replace(/%0A/g, '\n'))}`;
-      window.open(lineUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`;
-      window.open(mailtoUrl);
+    const blob = await generatePdfBlob();
+    if (blob) {
+      if (action === 'preview') {
+        if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl); // Clean up old URL
+        setPdfPreviewUrl(URL.createObjectURL(blob));
+      } else {
+        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+      }
     }
+    setIsGeneratingPdf(false);
+  };
+
+  const handleSharePdf = async () => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+
+    const blob = await generatePdfBlob();
+    if (!blob) {
+      setIsGeneratingPdf(false);
+      return;
+    }
+
+    const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    const shareData = {
+      files: [file],
+      title: `工作服務單 - ${formData.serviceUnit}`,
+      text: `請查收 ${formData.serviceUnit} 的工作服務單。`,
+    };
+    
+    // Check if the Web Share API is available and can share files
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (error) {
+        // Log error, but don't alert if it's an AbortError (user cancelled share)
+        if (error.name !== 'AbortError') {
+            console.error('Error sharing PDF:', error);
+            alert('分享失敗，請稍後再試。');
+        }
+      }
+    } else {
+      alert('您的瀏覽器不支援檔案分享。請先下載PDF後再手動分享。');
+    }
+    setIsGeneratingPdf(false);
   };
   
   return (
@@ -420,7 +433,7 @@ ${formData.remarks || 'N/A'}
              <ReportView 
                 data={formData}
                 onGeneratePdf={generatePdf}
-                onShare={handleShare}
+                onSharePdf={handleSharePdf}
                 onReset={handleReset}
                 isGeneratingPdf={isGeneratingPdf}
               />
@@ -441,7 +454,7 @@ ${formData.remarks || 'N/A'}
         {isGeneratingPdf && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="text-center">
-                <p className="text-lg font-semibold text-slate-700">正在產生 PDF...</p>
+                <p className="text-lg font-semibold text-slate-700">正在處理 PDF...</p>
                 <p className="text-sm text-slate-500">請稍候</p>
               </div>
             </div>
