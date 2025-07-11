@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 
 interface ImageUploaderProps {
@@ -67,7 +68,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange })
         onChange={handleFileChange}
         className="hidden"
         accept="image/*"
-        capture="environment"
         multiple
       />
       <button
