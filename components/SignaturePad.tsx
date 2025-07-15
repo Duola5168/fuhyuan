@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 
 interface SignaturePadProps {
+  signatureDataUrl: string | null;
   onSave: (signature: string) => void;
   onClear: () => void;
 }
@@ -19,7 +20,7 @@ const ClearIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 
-const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onClear }) => {
+const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, onClear }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
@@ -45,6 +46,13 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onClear }) => {
     }
   }, []);
   
+  useEffect(() => {
+    // When signatureDataUrl changes (e.g., loading a draft), update the 'hasSigned' state
+    // so the placeholder text correctly disappears.
+    setHasSigned(!!signatureDataUrl);
+  }, [signatureDataUrl]);
+
+
   const getCoordinates = (event: React.MouseEvent | React.TouchEvent): { offsetX: number; offsetY: number } => {
     const canvas = canvasRef.current;
     if (!canvas) return { offsetX: 0, offsetY: 0 };
@@ -60,6 +68,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onClear }) => {
   };
 
   const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
+    if (signatureDataUrl) return; // Don't draw if a signature is already displayed
     event.preventDefault();
     const context = getCanvasContext();
     if (context) {
@@ -72,6 +81,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onClear }) => {
   };
 
   const draw = (event: React.MouseEvent | React.TouchEvent) => {
+    if (signatureDataUrl) return;
     event.preventDefault();
     if (!isDrawing) return;
     const context = getCanvasContext();
@@ -83,12 +93,13 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onClear }) => {
   };
 
   const stopDrawing = () => {
+    if (signatureDataUrl) return;
     const context = getCanvasContext();
     if(context) {
         context.closePath();
     }
     setIsDrawing(false);
-    if (canvasRef.current) {
+    if (canvasRef.current && hasSigned) {
       onSave(canvasRef.current.toDataURL('image/png'));
     }
   };
@@ -97,30 +108,38 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onClear }) => {
     const context = getCanvasContext();
     if (context && canvasRef.current) {
       context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      setHasSigned(false);
-      onClear();
     }
+    setHasSigned(false);
+    onClear();
   };
 
   return (
     <div className="w-full">
       <div className="relative w-full h-[200px] bg-slate-200/50 rounded-lg border-2 border-dashed border-slate-400 touch-none overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={stopDrawing}
-          className="absolute top-0 left-0"
-        />
-        {!hasSigned && (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500 pointer-events-none">
-                <PenIcon className="w-8 h-8 mr-2" />
-                <span className="text-lg">請在此處簽名</span>
-            </div>
+        {signatureDataUrl ? (
+          <div className="w-full h-full flex items-center justify-center p-2 bg-white">
+            <img src={signatureDataUrl} alt="已儲存的簽名" className="max-w-full max-h-full object-contain" />
+          </div>
+        ) : (
+          <>
+            <canvas
+              ref={canvasRef}
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
+              onTouchStart={startDrawing}
+              onTouchMove={draw}
+              onTouchEnd={stopDrawing}
+              className="absolute top-0 left-0"
+            />
+            {!hasSigned && (
+                <div className="absolute inset-0 flex items-center justify-center text-slate-500 pointer-events-none">
+                    <PenIcon className="w-8 h-8 mr-2" />
+                    <span className="text-lg">請在此處簽名</span>
+                </div>
+            )}
+          </>
         )}
       </div>
       <div className="mt-3 flex justify-end">
@@ -130,7 +149,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onClear }) => {
           className="flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           <ClearIcon className="w-5 h-5 mr-2" />
-          清除
+          {signatureDataUrl ? '重新簽名' : '清除'}
         </button>
       </div>
     </div>
