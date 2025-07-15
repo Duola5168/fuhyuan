@@ -298,16 +298,16 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         defaultValue=""
                         className="w-full sm:w-auto px-3 py-2 border border-slate-300 text-slate-700 rounded-md shadow-sm text-base font-medium bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
-                         <option value="" disabled>載入/管理範本</option>
+                         <option value="" disabled>載入/管理暫存</option>
                          {draftNames.length > 0 && (
-                             <optgroup label="選擇範本載入">
+                             <optgroup label="選擇暫存載入">
                                 {draftNames.map(name => (
                                     <option key={name} value={name}>{name}</option>
                                 ))}
                             </optgroup>
                          )}
                          <optgroup label="操作">
-                            <option value="__DELETE__">刪除範本...</option>
+                            <option value="__DELETE__">刪除暫存...</option>
                          </optgroup>
                     </select>
 
@@ -316,7 +316,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         onClick={onSaveAsDraft}
                         className="flex-1 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-base font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                        另存為範本
+                        另存新檔
                     </button>
                     <button
                         type="button"
@@ -690,7 +690,7 @@ export const App: React.FC = () => {
   }, [clearCurrentForm]);
 
   const handleSaveAsDraft = useCallback(() => {
-    const draftName = prompt("請為此範本命名：");
+    const draftName = prompt("請為此暫存命名：");
     if (!draftName) {
         return; // User cancelled
     }
@@ -699,25 +699,25 @@ export const App: React.FC = () => {
     const isOverwriting = !!currentDrafts[draftName];
 
     if (!isOverwriting && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
-        alert(`無法儲存新範本，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理範本」中刪除一個舊範本。`);
+        alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理暫存」中刪除一個舊暫存。`);
         return;
     }
 
-    if (isOverwriting && !window.confirm(`範本 "${draftName}" 已存在。您要覆蓋它嗎？`)) {
+    if (isOverwriting && !window.confirm(`暫存 "${draftName}" 已存在。您要覆蓋它嗎？`)) {
         return;
     }
 
     const newDrafts = { ...currentDrafts, [draftName]: formData };
     setNamedDrafts(newDrafts);
     localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-    alert(`範本 "${draftName}" 已成功儲存！`);
+    alert(`暫存 "${draftName}" 已成功儲存！`);
   }, [formData, namedDrafts]);
 
   const handleLoadDraft = useCallback((name: string) => {
     if (namedDrafts[name]) {
-        if (window.confirm(`您確定要載入範本 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
+        if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
             setFormData(namedDrafts[name]);
-            alert(`範本 "${name}" 已載入。`);
+            alert(`暫存 "${name}" 已載入。`);
         }
     }
   }, [namedDrafts]);
@@ -729,18 +729,18 @@ export const App: React.FC = () => {
         return;
     }
 
-    const nameToDelete = prompt(`請輸入您想刪除的範本名稱：\n\n${draftNames.join('\n')}`);
+    const nameToDelete = prompt(`請輸入您想刪除的暫存名稱：\n\n${draftNames.join('\n')}`);
     if (!nameToDelete) {
         return; // User cancelled
     }
     
     if (namedDrafts[nameToDelete]) {
-        if (window.confirm(`您確定要永久刪除範本 "${nameToDelete}" 嗎？此操作無法復原。`)) {
+        if (window.confirm(`您確定要永久刪除暫存 "${nameToDelete}" 嗎？此操作無法復原。`)) {
             const newDrafts = { ...namedDrafts };
             delete newDrafts[nameToDelete];
             setNamedDrafts(newDrafts);
             localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-            alert(`範本 "${nameToDelete}" 已被刪除。`);
+            alert(`暫存 "${nameToDelete}" 已被刪除。`);
         }
     } else {
         alert(`找不到名為 "${nameToDelete}" 的範本。`);
@@ -748,7 +748,7 @@ export const App: React.FC = () => {
   }, [namedDrafts]);
 
   const handleClearData = useCallback(() => {
-    if (window.confirm("您確定要清除目前表單的所有欄位嗎？\n此操作不會影響任何已儲存的範本。")) {
+    if (window.confirm("您確定要清除目前表單的所有欄位嗎？\n此操作不會影響任何已儲存的暫存。")) {
         clearCurrentForm();
         alert('目前的表單資料已清除。');
     }
