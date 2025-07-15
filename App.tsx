@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -11,7 +12,8 @@ declare const html2canvas: any;
 const TOTAL_CONTENT_LINES_LIMIT = 20;
 const TASKS_STATUS_LIMIT = 18;
 const PRODUCTS_REMARKS_LIMIT = 16;
-const LOCAL_STORAGE_KEY = 'workOrderDraft';
+const NAMED_DRAFTS_STORAGE_KEY = 'workOrderNamedDrafts';
+const MAX_DRAFTS = 3;
 
 
 const getFormattedDateTime = () => {
@@ -159,8 +161,11 @@ interface WorkOrderFormProps {
     onCustomerSignatureSave: (signature: string) => void;
     onCustomerSignatureClear: () => void;
     onSubmit: (e: React.FormEvent) => void;
-    onSaveDraft: () => void;
+    onSaveAsDraft: () => void;
+    onLoadDraft: (name: string) => void;
+    onDeleteDraft: () => void;
     onClearData: () => void;
+    namedDrafts: { [name: string]: WorkOrderData };
 }
 
 const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
@@ -175,11 +180,15 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     onCustomerSignatureSave,
     onCustomerSignatureClear,
     onSubmit,
-    onSaveDraft,
-    onClearData
+    onSaveAsDraft,
+    onLoadDraft,
+    onDeleteDraft,
+    onClearData,
+    namedDrafts
 }) => {
     const tasksStatusTotal = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status);
     const productsRemarksTotal = formData.products.length + calculateVisualLines(formData.remarks);
+    const draftNames = Object.keys(namedDrafts);
 
     return (
      <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
@@ -274,18 +283,45 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
         </div>
         <div className="pt-5">
             <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
-                 <div className="flex gap-3 w-full sm:w-auto">
+                 <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+                    <select
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '__DELETE__') {
+                                onDeleteDraft();
+                            } else if (value) {
+                                onLoadDraft(value);
+                            }
+                            // Reset select to default visual state
+                            e.target.value = '';
+                        }}
+                        defaultValue=""
+                        className="w-full sm:w-auto px-3 py-2 border border-slate-300 text-slate-700 rounded-md shadow-sm text-base font-medium bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                         <option value="" disabled>載入/管理範本</option>
+                         {draftNames.length > 0 && (
+                             <optgroup label="選擇範本載入">
+                                {draftNames.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </optgroup>
+                         )}
+                         <optgroup label="操作">
+                            <option value="__DELETE__">刪除範本...</option>
+                         </optgroup>
+                    </select>
+
                     <button
                         type="button"
-                        onClick={onSaveDraft}
-                        className="w-1/2 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-base font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        onClick={onSaveAsDraft}
+                        className="flex-1 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-base font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                        暫存資料
+                        另存為範本
                     </button>
                     <button
                         type="button"
                         onClick={onClearData}
-                        className="w-1/2 sm:w-auto px-4 py-2 border border-red-600 text-red-600 rounded-md shadow-sm text-base font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        className="flex-1 sm:w-auto px-4 py-2 border border-red-600 text-red-600 rounded-md shadow-sm text-base font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                     >
                         清除資料
                     </button>
@@ -527,29 +563,37 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
 // --- Main App Component ---
 
 export const App: React.FC = () => {
-  const [formData, setFormData] = useState<WorkOrderData>(() => {
-    try {
-        const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (savedData) {
-            const parsedData = JSON.parse(savedData);
-            if (parsedData && typeof parsedData === 'object' && parsedData.serviceUnit !== undefined) {
-                console.log("Loaded draft from localStorage.");
-                return parsedData;
-            }
-        }
-    } catch (error) {
-        console.error("Failed to load or parse draft from localStorage.", error);
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-    }
-    return initialFormData;
-  });
-
+  const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
+  const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
+
+    try {
+        const savedDrafts = localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY);
+        if (savedDrafts) {
+            setNamedDrafts(JSON.parse(savedDrafts));
+        }
+    } catch (error) {
+        console.error("Failed to load named drafts from localStorage.", error);
+    }
   }, []);
+
+  const clearCurrentForm = useCallback(() => {
+    setFormData({
+        ...initialFormData,
+        products: [{
+            id: `product-${Date.now()}`,
+            name: '',
+            quantity: 1,
+            serialNumber: '',
+        }],
+        dateTime: getFormattedDateTime()
+    });
+  }, []);
+
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -638,43 +682,77 @@ export const App: React.FC = () => {
       setIsSubmitted(false);
   };
   
-  const resetFormAndStorage = useCallback(() => {
-      setFormData({
-          ...initialFormData,
-          products: [{
-              id: `product-${Date.now()}`,
-              name: '',
-              quantity: 1,
-              serialNumber: '',
-          }],
-          dateTime: getFormattedDateTime()
-      });
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
-      setIsSubmitted(false);
-  }, []);
-
   const handleReset = useCallback(() => {
     if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
-        resetFormAndStorage();
+        clearCurrentForm();
+        setIsSubmitted(false);
     }
-  }, [resetFormAndStorage]);
+  }, [clearCurrentForm]);
 
-  const handleSaveDraft = useCallback(() => {
-    try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(formData));
-        alert('資料已成功暫存！下次開啟將會自動載入。');
-    } catch (error) {
-        console.error("Failed to save draft to localStorage:", error);
-        alert('暫存失敗。您的瀏覽器儲存空間可能已滿或功能被禁用。');
+  const handleSaveAsDraft = useCallback(() => {
+    const draftName = prompt("請為此範本命名：");
+    if (!draftName) {
+        return; // User cancelled
     }
-  }, [formData]);
+
+    const currentDrafts = { ...namedDrafts };
+    const isOverwriting = !!currentDrafts[draftName];
+
+    if (!isOverwriting && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
+        alert(`無法儲存新範本，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理範本」中刪除一個舊範本。`);
+        return;
+    }
+
+    if (isOverwriting && !window.confirm(`範本 "${draftName}" 已存在。您要覆蓋它嗎？`)) {
+        return;
+    }
+
+    const newDrafts = { ...currentDrafts, [draftName]: formData };
+    setNamedDrafts(newDrafts);
+    localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+    alert(`範本 "${draftName}" 已成功儲存！`);
+  }, [formData, namedDrafts]);
+
+  const handleLoadDraft = useCallback((name: string) => {
+    if (namedDrafts[name]) {
+        if (window.confirm(`您確定要載入範本 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
+            setFormData(namedDrafts[name]);
+            alert(`範本 "${name}" 已載入。`);
+        }
+    }
+  }, [namedDrafts]);
+
+  const handleDeleteDraft = useCallback(() => {
+    const draftNames = Object.keys(namedDrafts);
+    if (draftNames.length === 0) {
+        alert("目前沒有已儲存的範本可以刪除。");
+        return;
+    }
+
+    const nameToDelete = prompt(`請輸入您想刪除的範本名稱：\n\n${draftNames.join('\n')}`);
+    if (!nameToDelete) {
+        return; // User cancelled
+    }
+    
+    if (namedDrafts[nameToDelete]) {
+        if (window.confirm(`您確定要永久刪除範本 "${nameToDelete}" 嗎？此操作無法復原。`)) {
+            const newDrafts = { ...namedDrafts };
+            delete newDrafts[nameToDelete];
+            setNamedDrafts(newDrafts);
+            localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+            alert(`範本 "${nameToDelete}" 已被刪除。`);
+        }
+    } else {
+        alert(`找不到名為 "${nameToDelete}" 的範本。`);
+    }
+  }, [namedDrafts]);
 
   const handleClearData = useCallback(() => {
-    if (window.confirm("您確定要清除所有欄位資料嗎？此操作將同時移除暫存紀錄且無法復原。")) {
-        resetFormAndStorage();
-        alert('資料已清除。');
+    if (window.confirm("您確定要清除目前表單的所有欄位嗎？\n此操作不會影響任何已儲存的範本。")) {
+        clearCurrentForm();
+        alert('目前的表單資料已清除。');
     }
-  }, [resetFormAndStorage]);
+  }, [clearCurrentForm]);
 
   const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
@@ -827,8 +905,11 @@ export const App: React.FC = () => {
                 onCustomerSignatureSave={handleCustomerSignatureSave}
                 onCustomerSignatureClear={handleCustomerSignatureClear}
                 onSubmit={handleSubmit}
-                onSaveDraft={handleSaveDraft}
+                onSaveAsDraft={handleSaveAsDraft}
+                onLoadDraft={handleLoadDraft}
+                onDeleteDraft={handleDeleteDraft}
                 onClearData={handleClearData}
+                namedDrafts={namedDrafts}
              />
             )}
         </div>
