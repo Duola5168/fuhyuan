@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useEffect, useState } from 'react';
 
 interface SignaturePadProps {
@@ -23,13 +24,13 @@ const ClearIcon: React.FC<{ className?: string }> = ({ className }) => (
 const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, onClear }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [hasSigned, setHasSigned] = useState(false);
 
   const getCanvasContext = (): CanvasRenderingContext2D | null => {
       const canvas = canvasRef.current;
       return canvas ? canvas.getContext('2d') : null;
   };
 
+  // Effect to initialize canvas dimensions and context
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
@@ -46,10 +47,22 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
     }
   }, []);
   
+  // Effect to draw the signature when loaded from a draft or cleared
   useEffect(() => {
-    // When signatureDataUrl changes (e.g., loading a draft), update the 'hasSigned' state
-    // so the placeholder text correctly disappears.
-    setHasSigned(!!signatureDataUrl);
+    const canvas = canvasRef.current;
+    const context = getCanvasContext();
+    if (!canvas || !context) return;
+
+    // Always clear the canvas first
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (signatureDataUrl) {
+      const image = new Image();
+      image.onload = () => {
+        context.drawImage(image, 0, 0);
+      };
+      image.src = signatureDataUrl;
+    }
   }, [signatureDataUrl]);
 
 
@@ -68,7 +81,6 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
   };
 
   const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
-    if (signatureDataUrl) return; // Don't draw if a signature is already displayed
     event.preventDefault();
     const context = getCanvasContext();
     if (context) {
@@ -76,12 +88,10 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
       context.beginPath();
       context.moveTo(offsetX, offsetY);
       setIsDrawing(true);
-      setHasSigned(true);
     }
   };
 
   const draw = (event: React.MouseEvent | React.TouchEvent) => {
-    if (signatureDataUrl) return;
     event.preventDefault();
     if (!isDrawing) return;
     const context = getCanvasContext();
@@ -93,53 +103,42 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
   };
 
   const stopDrawing = () => {
-    if (signatureDataUrl) return;
+    if (!isDrawing) return;
     const context = getCanvasContext();
     if(context) {
         context.closePath();
     }
     setIsDrawing(false);
-    if (canvasRef.current && hasSigned) {
+    if (canvasRef.current) {
       onSave(canvasRef.current.toDataURL('image/png'));
     }
   };
   
   const handleClear = () => {
-    const context = getCanvasContext();
-    if (context && canvasRef.current) {
-      context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    }
-    setHasSigned(false);
+    // Parent state will be set to null, and the useEffect will clear the canvas
     onClear();
   };
 
   return (
     <div className="w-full">
       <div className="relative w-full h-[200px] bg-slate-200/50 rounded-lg border-2 border-dashed border-slate-400 touch-none overflow-hidden">
-        {signatureDataUrl ? (
-          <div className="w-full h-full flex items-center justify-center p-2 bg-white">
-            <img src={signatureDataUrl} alt="已儲存的簽名" className="max-w-full max-h-full object-contain" />
-          </div>
-        ) : (
-          <>
-            <canvas
-              ref={canvasRef}
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-              onTouchStart={startDrawing}
-              onTouchMove={draw}
-              onTouchEnd={stopDrawing}
-              className="absolute top-0 left-0"
-            />
-            {!hasSigned && (
-                <div className="absolute inset-0 flex items-center justify-center text-slate-500 pointer-events-none">
-                    <PenIcon className="w-8 h-8 mr-2" />
-                    <span className="text-lg">請在此處簽名</span>
-                </div>
-            )}
-          </>
+        <canvas
+          ref={canvasRef}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+      
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          className="absolute top-0 left-0"
+        />
+        {!signatureDataUrl && (
+            <div className="absolute inset-0 flex items-center justify-center text-slate-500 pointer-events-none">
+                <PenIcon className="w-8 h-8 mr-2" />
+                <span className="text-lg">請在此處簽名</span>
+            </div>
         )}
       </div>
       <div className="mt-3 flex justify-end">
