@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -711,7 +712,13 @@ export const App: React.FC = () => {
     const newDrafts = { ...currentDrafts, [draftName]: formData };
     setNamedDrafts(newDrafts);
     localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-    alert(`暫存 "${draftName}" 已成功儲存！`);
+    alert(
+`✅ 暫存 "${draftName}" 已成功儲存！
+
+---
+重要提醒：
+暫存資料如用戶清理瀏覽器cookie暫存,資料將消失無法復原,請注意!`
+    );
   }, [formData, namedDrafts]);
 
   const handleLoadDraft = useCallback((name: string) => {
