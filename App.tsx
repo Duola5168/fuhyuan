@@ -1,12 +1,11 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
-
-// Add type declarations for CDN libraries
-declare const jsPDF: any;
-declare const html2canvas: any;
+import BrowserCompatibilityChecker from './components/BrowserCompatibilityChecker';
 
 const TOTAL_CONTENT_LINES_LIMIT = 20;
 const TASKS_STATUS_LIMIT = 18;
@@ -96,7 +95,7 @@ const FormField: React.FC<FormFieldProps> = ({
   return (
     <div>
       <div className="flex justify-between items-baseline mb-1">
-        <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+        <label htmlFor={id as string} className="block text-sm font-medium text-slate-700">
           {label}
         </label>
         {cornerHint && <span className="text-xs text-slate-500 font-mono">{cornerHint}</span>}
@@ -105,8 +104,8 @@ const FormField: React.FC<FormFieldProps> = ({
         {type === 'textarea' ? (
           <textarea
             ref={textareaRef}
-            id={id}
-            name={id}
+            id={id as string}
+            name={id as string}
             rows={autoSize ? 1 : rows}
             value={value}
             onChange={onChange}
@@ -116,8 +115,8 @@ const FormField: React.FC<FormFieldProps> = ({
           />
         ) : (
           <input
-            id={id}
-            name={id}
+            id={id as string}
+            name={id as string}
             type={type}
             value={value}
             onChange={onChange}
@@ -614,8 +613,7 @@ const App: React.FC = () => {
   
   const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
-      const { jsPDF: JSPDF } = (window as any).jspdf;
-      const pdf = new JSPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = 210;
       const pdfHeight = 297;
       const options = {
@@ -740,6 +738,7 @@ const App: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-slate-100">
+        <BrowserCompatibilityChecker />
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
            {isSubmitted ? (
              <ReportView 
