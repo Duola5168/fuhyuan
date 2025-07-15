@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
+import BrowserCompatibilityChecker from './components/BrowserCompatibilityChecker';
 
 // Add type declarations for CDN libraries
 declare const jsPDF: any;
@@ -740,6 +741,7 @@ const App: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-slate-100">
+        <BrowserCompatibilityChecker />
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
            {isSubmitted ? (
              <ReportView 
