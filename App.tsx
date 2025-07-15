@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -274,11 +275,11 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             </div>
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">服務人員簽認</label>
-                <SignaturePad onSave={onTechnicianSignatureSave} onClear={onTechnicianSignatureClear} />
+                <SignaturePad signatureDataUrl={formData.technicianSignature} onSave={onTechnicianSignatureSave} onClear={onTechnicianSignatureClear} />
             </div>
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">客戶簽認</label>
-                <SignaturePad onSave={onCustomerSignatureSave} onClear={onCustomerSignatureClear} />
+                <SignaturePad signatureDataUrl={formData.signature} onSave={onCustomerSignatureSave} onClear={onCustomerSignatureClear} />
             </div>
         </div>
         <div className="pt-5">
