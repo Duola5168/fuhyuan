@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -10,6 +11,8 @@ declare const html2canvas: any;
 const TOTAL_CONTENT_LINES_LIMIT = 20;
 const TASKS_STATUS_LIMIT = 18;
 const PRODUCTS_REMARKS_LIMIT = 16;
+const LOCAL_STORAGE_KEY = 'workOrderDraft';
+
 
 const getFormattedDateTime = () => {
   const now = new Date();
@@ -156,6 +159,8 @@ interface WorkOrderFormProps {
     onCustomerSignatureSave: (signature: string) => void;
     onCustomerSignatureClear: () => void;
     onSubmit: (e: React.FormEvent) => void;
+    onSaveDraft: () => void;
+    onClearData: () => void;
 }
 
 const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
@@ -169,7 +174,9 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     onTechnicianSignatureClear,
     onCustomerSignatureSave,
     onCustomerSignatureClear,
-    onSubmit
+    onSubmit,
+    onSaveDraft,
+    onClearData
 }) => {
     const tasksStatusTotal = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status);
     const productsRemarksTotal = formData.products.length + calculateVisualLines(formData.remarks);
@@ -266,7 +273,23 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             </div>
         </div>
         <div className="pt-5">
-            <div className="flex justify-end">
+            <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
+                 <div className="flex gap-3 w-full sm:w-auto">
+                    <button
+                        type="button"
+                        onClick={onSaveDraft}
+                        className="w-1/2 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-base font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        暫存資料
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onClearData}
+                        className="w-1/2 sm:w-auto px-4 py-2 border border-red-600 text-red-600 rounded-md shadow-sm text-base font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                        清除資料
+                    </button>
+                </div>
                 <button
                     type="submit"
                     className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -504,12 +527,28 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
 // --- Main App Component ---
 
 export const App: React.FC = () => {
-  const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
+  const [formData, setFormData] = useState<WorkOrderData>(() => {
+    try {
+        const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (savedData) {
+            const parsedData = JSON.parse(savedData);
+            if (parsedData && typeof parsedData === 'object' && parsedData.serviceUnit !== undefined) {
+                console.log("Loaded draft from localStorage.");
+                return parsedData;
+            }
+        }
+    } catch (error) {
+        console.error("Failed to load or parse draft from localStorage.", error);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+    }
+    return initialFormData;
+  });
+
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
-    alert("[提醒]請記得使用chrome.Edge.Firefox等瀏覽器開啟連結,避免無法產出PDF,謝謝!");
+    alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
   }, []);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -598,23 +637,45 @@ export const App: React.FC = () => {
   const handleEdit = () => {
       setIsSubmitted(false);
   };
-
-  const handleReset = () => {
-    if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
-        setFormData({
-            ...initialFormData,
-            products: [{
-                id: `product-${Date.now()}`,
-                name: '',
-                quantity: 1,
-                serialNumber: '',
-            }],
-            dateTime: getFormattedDateTime() // Reset time to now
-        });
-        setIsSubmitted(false);
-    }
-  };
   
+  const resetFormAndStorage = useCallback(() => {
+      setFormData({
+          ...initialFormData,
+          products: [{
+              id: `product-${Date.now()}`,
+              name: '',
+              quantity: 1,
+              serialNumber: '',
+          }],
+          dateTime: getFormattedDateTime()
+      });
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setIsSubmitted(false);
+  }, []);
+
+  const handleReset = useCallback(() => {
+    if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
+        resetFormAndStorage();
+    }
+  }, [resetFormAndStorage]);
+
+  const handleSaveDraft = useCallback(() => {
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(formData));
+        alert('資料已成功暫存！下次開啟將會自動載入。');
+    } catch (error) {
+        console.error("Failed to save draft to localStorage:", error);
+        alert('暫存失敗。您的瀏覽器儲存空間可能已滿或功能被禁用。');
+    }
+  }, [formData]);
+
+  const handleClearData = useCallback(() => {
+    if (window.confirm("您確定要清除所有欄位資料嗎？此操作將同時移除暫存紀錄且無法復原。")) {
+        resetFormAndStorage();
+        alert('資料已清除。');
+    }
+  }, [resetFormAndStorage]);
+
   const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
       const { jsPDF: JSPDF } = (window as any).jspdf;
@@ -766,6 +827,8 @@ export const App: React.FC = () => {
                 onCustomerSignatureSave={handleCustomerSignatureSave}
                 onCustomerSignatureClear={handleCustomerSignatureClear}
                 onSubmit={handleSubmit}
+                onSaveDraft={handleSaveDraft}
+                onClearData={handleClearData}
              />
             )}
         </div>
