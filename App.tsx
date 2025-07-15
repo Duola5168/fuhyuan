@@ -725,7 +725,7 @@ export const App: React.FC = () => {
   const handleDeleteDraft = useCallback(() => {
     const draftNames = Object.keys(namedDrafts);
     if (draftNames.length === 0) {
-        alert("目前沒有已儲存的範本可以刪除。");
+        alert("目前沒有已儲存的暫存可以刪除。");
         return;
     }
 
@@ -743,7 +743,7 @@ export const App: React.FC = () => {
             alert(`暫存 "${nameToDelete}" 已被刪除。`);
         }
     } else {
-        alert(`找不到名為 "${nameToDelete}" 的範本。`);
+        alert(`找不到名為 "${nameToDelete}" 的暫存。`);
     }
   }, [namedDrafts]);
 
