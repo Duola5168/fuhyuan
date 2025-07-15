@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -504,10 +503,14 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
 
 // --- Main App Component ---
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  useEffect(() => {
+    alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
+  }, []);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -778,5 +781,3 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-export default App;
