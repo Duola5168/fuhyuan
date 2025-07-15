@@ -509,7 +509,7 @@ export const App: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
-    alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
+    alert("[提醒]請記得使用chrome.Edge.Firefox等瀏覽器開啟連結,避免無法產出PDF,謝謝!");
   }, []);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
