@@ -206,6 +206,84 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 
+// --- 新增：互動式彈出視窗元件 ---
+interface DraftActionModalProps {
+  isOpen: boolean;
+  action: 'delete' | 'export' | null;
+  drafts: string[];
+  onClose: () => void;
+  onConfirm: (draftName: string) => void;
+}
+
+const DraftActionModal: React.FC<DraftActionModalProps> = ({ isOpen, action, drafts, onClose, onConfirm }) => {
+  const [selectedDraft, setSelectedDraft] = useState('');
+
+  useEffect(() => {
+    if (isOpen && drafts.length > 0) {
+      setSelectedDraft(drafts[0]);
+    }
+  }, [isOpen, drafts]);
+
+  if (!isOpen || !action) return null;
+
+  const title = action === 'delete' ? '刪除本機暫存' : '匯出至 Google 雲端硬碟';
+  const buttonText = action === 'delete' ? '確認刪除' : '匯出';
+  const buttonClass = action === 'delete' 
+    ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
+    : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500';
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedDraft) {
+      onConfirm(selectedDraft);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm transform transition-all">
+        <form onSubmit={handleSubmit}>
+          <div className="p-6">
+            <h3 id="modal-title" className="text-lg font-medium leading-6 text-gray-900">{title}</h3>
+            <div className="mt-4">
+              <label htmlFor="draft-select" className="text-sm text-gray-500 mb-2 block">請從下方選擇要操作的暫存檔：</label>
+              {drafts.length > 0 ? (
+                <select
+                  id="draft-select"
+                  value={selectedDraft}
+                  onChange={(e) => setSelectedDraft(e.target.value)}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                >
+                  {drafts.map(name => <option key={name} value={name}>{name}</option>)}
+                </select>
+              ) : (
+                <p className="text-sm text-center text-gray-600 bg-gray-100 p-4 rounded-md">沒有可用的暫存檔。</p>
+              )}
+            </div>
+          </div>
+          <div className="bg-gray-50 px-6 py-4 flex flex-row-reverse gap-3">
+            <button
+              type="submit"
+              disabled={!selectedDraft}
+              className={`inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm ${buttonClass} disabled:opacity-50`}
+            >
+              {buttonText}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              取消
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+
 interface WorkOrderFormProps {
     formData: WorkOrderData;
     onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -747,6 +825,10 @@ export const App: React.FC = () => {
   const [gisReady, setGisReady] = useState(false);
   const [tokenClient, setTokenClient] = useState<any>(null);
   const pickerApiLoaded = useRef(false);
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState<'delete' | 'export' | null>(null);
 
   // --- Google API Initialization ---
   useEffect(() => {
@@ -999,35 +1081,6 @@ export const App: React.FC = () => {
     }
   }, [namedDrafts]);
 
-  const handleDeleteDraft = useCallback(() => {
-    const draftNames = Object.keys(namedDrafts);
-    if (draftNames.length === 0) {
-        // 沒有暫存可刪除時的提示文字
-        alert("目前沒有已儲存的暫存可以刪除。");
-        return;
-    }
-
-    // 刪除暫存時的提示文字
-    const nameToDelete = prompt(`請輸入您想刪除的暫存名稱：\n\n${draftNames.join('\n')}`);
-    if (!nameToDelete) {
-        return;
-    }
-    
-    if (namedDrafts[nameToDelete]) {
-        // 確認刪除的提示文字
-        if (window.confirm(`您確定要永久刪除暫存 "${nameToDelete}" 嗎？此操作無法復原。`)) {
-            const newDrafts = { ...namedDrafts };
-            delete newDrafts[nameToDelete];
-            setNamedDrafts(newDrafts);
-            localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-            // 刪除成功後的提示文字
-            alert(`暫存 "${nameToDelete}" 已被刪除。`);
-        }
-    } else {
-        // 找不到暫存時的提示文字
-        alert(`找不到名為 "${nameToDelete}" 的暫存。`);
-    }
-  }, [namedDrafts]);
 
   const handleClearData = useCallback(() => {
     // 清除表單資料的確認提示文字
@@ -1060,78 +1113,34 @@ export const App: React.FC = () => {
         }
     });
   }, [tokenClient]);
-
-  const handleImportFromDrive = useCallback(async () => {
-    if (!gapiReady || !gisReady) {
-        alert("Google Drive 功能正在初始化，請稍候再試。");
-        return;
+  
+  const handleOpenDraftActionModal = useCallback((action: 'delete' | 'export') => {
+    const draftNames = Object.keys(namedDrafts);
+    if (draftNames.length === 0) {
+      alert(action === 'delete' ? "目前沒有已儲存的暫存可以刪除。" : "目前沒有本機暫存可以匯出。請先「另存新檔」。");
+      return;
     }
+    setModalAction(action);
+    setIsModalOpen(true);
+  }, [namedDrafts]);
+  
+  const handleDeleteDraft = useCallback(() => {
+    handleOpenDraftActionModal('delete');
+  }, [handleOpenDraftActionModal]);
+  
+  const handleExportToDrive = useCallback(() => {
+    handleOpenDraftActionModal('export');
+  }, [handleOpenDraftActionModal]);
 
-    try {
-        await getAuthToken();
-
-        if (!pickerApiLoaded.current) {
-            await new Promise<void>((resolve) => gapi.load('picker', () => {
-                pickerApiLoaded.current = true;
-                resolve()
-            }));
-        }
-
-        const view = new google.picker.View(google.picker.ViewId.DOCS);
-        view.setMimeTypes("application/json");
-
-        const picker = new google.picker.PickerBuilder()
-            .enableFeature(google.picker.Feature.NAV_HIDDEN)
-            .setAppId(CLIENT_ID.split('-')[0])
-            .setOAuthToken(gapi.client.getToken().access_token)
-            .addView(view)
-            .setDeveloperKey(API_KEY)
-            .setCallback((data: any) => {
-                if (data[google.picker.Action.PICKED]) {
-                    const fileId = data[google.picker.Response.DOCUMENTS][0][google.picker.Document.ID];
-                    gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    }).then((res: any) => {
-                        if (window.confirm("您確定要從雲端硬碟載入此檔案嗎？\n這將會覆蓋目前表單的所有內容。")) {
-                            const importedData = migrateWorkOrderData(res.result);
-                            setFormData(importedData);
-                            alert(`檔案已成功從雲端硬碟匯入。`);
-                        }
-                    });
-                }
-            })
-            .build();
-        picker.setVisible(true);
-
-    } catch (error) {
-        console.error("Google Drive import failed", error);
-        alert("從 Google Drive 匯入失敗。請檢查主控台中的錯誤訊息。");
-    }
-  }, [gapiReady, gisReady, getAuthToken]);
-
-  const handleExportToDrive = useCallback(async () => {
-    if (!gapiReady || !gisReady) {
-        alert("Google Drive 功能正在初始化，請稍候再試。");
+  const performExportToDrive = useCallback(async (nameToExport: string) => {
+    if (!gapiReady || !gisReady || !namedDrafts[nameToExport]) {
+        alert("匯出功能未就緒或找不到暫存檔。");
         return;
     }
     
-    const draftNames = Object.keys(namedDrafts);
-    if (draftNames.length === 0) {
-        alert("目前沒有本機暫存可以匯出。請先「另存新檔」。");
-        return;
-    }
-
-    const nameToExport = prompt(`請選擇要匯出至雲端硬碟的本機暫存：\n\n${draftNames.join('\n')}`);
-    if (!nameToExport || !namedDrafts[nameToExport]) {
-        alert("無效的暫存名稱，或操作已取消。");
-        return;
-    }
-
     try {
         await getAuthToken();
         
-        // Exclude photos and signatures for smaller file size
         const { photos, signature, technicianSignature, ...dataToExport } = namedDrafts[nameToExport];
         const fileContent = JSON.stringify(dataToExport, null, 2);
         const blob = new Blob([fileContent], { type: 'application/json' });
@@ -1156,7 +1165,9 @@ export const App: React.FC = () => {
         if (res.ok) {
             alert(`暫存 "${nameToExport}" 已成功匯出至您的 Google 雲端硬碟！`);
         } else {
-            throw new Error(`Upload failed with status: ${res.statusText}`);
+            const errorBody = await res.json();
+            console.error("Google Drive API Error:", errorBody);
+            alert(`匯出失敗：${errorBody.error?.message || res.statusText}`);
         }
 
     } catch (error) {
@@ -1164,6 +1175,89 @@ export const App: React.FC = () => {
         alert("匯出至 Google Drive 失敗。請檢查主控台中的錯誤訊息。");
     }
   }, [gapiReady, gisReady, namedDrafts, getAuthToken]);
+
+  const handleConfirmDraftAction = (draftName: string) => {
+    if (modalAction === 'delete') {
+      if (namedDrafts[draftName]) {
+        if (window.confirm(`您確定要永久刪除暫存 "${draftName}" 嗎？此操作無法復原。`)) {
+            const newDrafts = { ...namedDrafts };
+            delete newDrafts[draftName];
+            setNamedDrafts(newDrafts);
+            localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+            alert(`暫存 "${draftName}" 已被刪除。`);
+        }
+      } else {
+        alert(`找不到名為 "${draftName}" 的暫存。`);
+      }
+    } else if (modalAction === 'export') {
+      performExportToDrive(draftName);
+    }
+    setIsModalOpen(false);
+    setModalAction(null);
+  };
+
+  const handleImportFromDrive = useCallback(async () => {
+    if (!gapiReady || !gisReady) {
+        alert("Google Drive 功能正在初始化，請稍候再試。");
+        return;
+    }
+
+    try {
+        await getAuthToken();
+
+        if (!pickerApiLoaded.current) {
+            await new Promise<void>((resolve, reject) => {
+                gapi.load('picker', (err: any) => {
+                  if (err) { reject(err); } 
+                  else {
+                    pickerApiLoaded.current = true;
+                    resolve()
+                  }
+                })
+            });
+        }
+
+        const view = new google.picker.View(google.picker.ViewId.DOCS);
+        view.setMimeTypes("application/json");
+
+        const picker = new google.picker.PickerBuilder()
+            .enableFeature(google.picker.Feature.NAV_HIDDEN)
+            .setAppId(CLIENT_ID.split('-')[0])
+            .setOAuthToken(gapi.client.getToken().access_token)
+            .addView(view)
+            .setDeveloperKey(API_KEY)
+            .setCallback((data: any) => {
+                if (data[google.picker.Action.PICKED]) {
+                    const fileId = data[google.picker.Response.DOCUMENTS][0][google.picker.Document.ID];
+                    gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    }).then((res: any) => {
+                        if (window.confirm("您確定要從雲端硬碟載入此檔案嗎？\n這將會覆蓋目前表單的所有內容。")) {
+                           try {
+                                const importedData = migrateWorkOrderData(res.result);
+                                setFormData(importedData);
+                                alert(`檔案已成功從雲端硬碟匯入。`);
+                           } catch (parseError) {
+                               console.error("Error processing imported data:", parseError);
+                               alert("匯入失敗：檔案內容可能已損毀或格式不符。");
+                           }
+                        }
+                    }, (err: any) => {
+                        console.error("Error fetching file content from Drive:", err);
+                        alert(`從雲端硬碟讀取檔案失敗。請確認您有此檔案的讀取權限，或檢查主控台的錯誤訊息。\n\n錯誤: ${err.result?.error?.message || '未知錯誤'}`);
+                    });
+                }
+            })
+            .build();
+        picker.setVisible(true);
+
+    } catch (error) {
+        console.error("Google Drive import failed", error);
+        const errorMessage = (error instanceof Error) ? error.message : "未知錯誤";
+        alert(`從 Google Drive 匯入失敗。請檢查主控台中的錯誤訊息。\n錯誤: ${errorMessage}`);
+    }
+  }, [gapiReady, gisReady, getAuthToken]);
 
 
   // --- PDF Generation and Sharing ---
@@ -1331,6 +1425,14 @@ export const App: React.FC = () => {
             )}
         </div>
         
+        <DraftActionModal
+          isOpen={isModalOpen}
+          action={modalAction}
+          drafts={Object.keys(namedDrafts)}
+          onClose={() => setIsModalOpen(false)}
+          onConfirm={handleConfirmDraftAction}
+        />
+
         {isGeneratingPdf && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="text-center">
