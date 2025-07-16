@@ -377,7 +377,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
     <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
       {/* // PDF 頁尾左側的文字，可在此修改 */}
-      <span>本表單由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
+      <span>本表單(V1.1)由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
       {totalPages && currentPage && (
         // 頁碼的字體大小，可在此修改。常用尺寸: text-xs, text-sm, text-base, text-lg
         <span className="font-mono text-base">{`${currentPage} / ${totalPages}`}</span>
