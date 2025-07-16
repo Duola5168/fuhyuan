@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -7,16 +8,18 @@ import ImageUploader from './components/ImageUploader';
 // Add type declarations for CDN libraries
 declare const jsPDF: any;
 declare const html2canvas: any;
-declare const google: any;
+// Add type declarations for Google APIs
 declare const gapi: any;
+declare const google: any;
+
 
 // --- GOOGLE DRIVE API 設定 ---
-// 請在此處填入您從 Google Cloud Platform 取得的 API Key 和 Client ID
-const API_KEY = "請填入您的API_KEY"; 
-const CLIENT_ID = "請填入您的CLIENT_ID";
+const API_KEY = "AIzaSyAfht6ocQcr3myRBRENVGyrxQuMRLmVFok";
+const CLIENT_ID = "442400601776-j23oihd97u8s7j0uo8kflvh1h6s2nqdu.apps.googleusercontent.com";
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 // ------------------------------
 
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 // --- 全域設定參數 ---
 
@@ -63,47 +66,6 @@ const initialFormData: WorkOrderData = {
 };
 
 // --- 工具函式 ---
-
-/**
- * 處理舊資料格式的遷移，確保與最新資料結構相容。
- * @param data 從暫存或雲端讀取的原始資料
- * @returns 符合最新 WorkOrderData 格式的資料
- */
-const migrateWorkOrderData = (data: any): WorkOrderData => {
-    // 進行深度複製，避免修改到原始物件
-    const draftData = JSON.parse(JSON.stringify(data));
-
-    if (draftData.products && Array.isArray(draftData.products)) {
-        draftData.products = draftData.products.map((p: any) => {
-            const product = {...p}; 
-            const quantity = product.quantity || 1;
-
-            // 遷移：將單一的 serialNumber 欄位轉換為 serialNumbers 陣列
-            if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
-                product.serialNumbers = [product.serialNumber || ''];
-                delete product.serialNumber;
-            }
-            
-            // 確保 serialNumbers 是一個陣列
-            if (!Array.isArray(product.serialNumbers)) {
-                product.serialNumbers = [];
-            }
-            
-            // 根據產品數量，自動補齊或刪減序號欄位
-            const currentLength = product.serialNumbers.length;
-            if (currentLength < quantity) {
-                product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
-            } else if (currentLength > quantity) {
-                product.serialNumbers = product.serialNumbers.slice(0, quantity);
-            }
-            
-            return product;
-        });
-    }
-    return draftData;
-};
-
-
 // 將陣列分塊的函式，用於將照片分頁
 const chunk = <T,>(arr: T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
@@ -125,6 +87,43 @@ const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number
         const wrappedLines = Math.ceil(line.length / avgCharsPerLine);
         return acc + Math.max(1, wrappedLines);
     }, 0);
+};
+
+/**
+ * 遷移舊版資料格式至新版
+ * @param data WorkOrderData
+ * @returns 遷移完成的 WorkOrderData
+ */
+const migrateWorkOrderData = (data: any): WorkOrderData => {
+    const migratedData = JSON.parse(JSON.stringify(data));
+    if (migratedData.products && Array.isArray(migratedData.products)) {
+        migratedData.products = migratedData.products.map((p: any) => {
+            const product = {...p}; 
+            const quantity = product.quantity || 1;
+
+            // Handle legacy serialNumber (singular) field
+            if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
+                product.serialNumbers = [product.serialNumber || ''];
+                delete product.serialNumber;
+            }
+            
+            // Ensure serialNumbers is an array
+            if (!Array.isArray(product.serialNumbers)) {
+                product.serialNumbers = [];
+            }
+            
+            // Sync serialNumbers array length with quantity
+            const currentLength = product.serialNumbers.length;
+            if (currentLength < quantity) {
+                product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
+            } else if (currentLength > quantity) {
+                product.serialNumbers = product.serialNumbers.slice(0, quantity);
+            }
+            
+            return product;
+        });
+    }
+    return migratedData;
 };
 
 
@@ -224,8 +223,8 @@ interface WorkOrderFormProps {
     onLoadDraft: (name: string) => void;
     onDeleteDraft: () => void;
     onClearData: () => void;
-    onExportToDrive: () => void;
     onImportFromDrive: () => void;
+    onExportToDrive: () => void;
     namedDrafts: { [name: string]: WorkOrderData };
 }
 
@@ -247,8 +246,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     onLoadDraft,
     onDeleteDraft,
     onClearData,
-    onExportToDrive,
     onImportFromDrive,
+    onExportToDrive,
     namedDrafts
 }) => {
     const tasksStatusTotal = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status);
@@ -384,7 +383,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         defaultValue=""
                         className="w-full sm:w-auto px-3 py-2 border border-slate-300 text-slate-700 rounded-md shadow-sm text-base font-medium bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
-                         {/* // 暫存管理下拉選單的預設提示文字 */}
                          <option value="" disabled>載入/管理暫存</option>
                          {draftNames.length > 0 && (
                              <optgroup label="從本機載入">
@@ -394,12 +392,11 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                             </optgroup>
                          )}
                          <optgroup label="雲端操作">
-                            <option value="__IMPORT_GDRIVE__">從雲端硬碟匯入...</option>
-                            <option value="__EXPORT_GDRIVE__">匯出至雲端硬碟...</option>
+                            <option value="__IMPORT_GDRIVE__">從 Google 雲端硬碟匯入...</option>
+                            <option value="__EXPORT_GDRIVE__">匯出暫存至 Google 雲端硬碟...</option>
                          </optgroup>
                          <optgroup label="本機管理">
-                            {/* // 刪除暫存的選項文字 */}
-                            <option value="__DELETE__">刪除暫存...</option>
+                            <option value="__DELETE__">刪除本機暫存...</option>
                          </optgroup>
                     </select>
 
@@ -744,201 +741,54 @@ export const App: React.FC = () => {
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-
-  const [gapiLoaded, setGapiLoaded] = useState(false);
-  const [gisLoaded, setGisLoaded] = useState(false);
-  const tokenClient = useRef<any>(null);
   
-  // --- Google Drive API 初始化 ---
+  // Google API state
+  const [gapiReady, setGapiReady] = useState(false);
+  const [gisReady, setGisReady] = useState(false);
+  const [tokenClient, setTokenClient] = useState<any>(null);
+  const pickerApiLoaded = useRef(false);
+
+  // --- Google API Initialization ---
   useEffect(() => {
-    const scriptGapi = document.createElement('script');
-    scriptGapi.src = 'https://apis.google.com/js/api.js';
-    scriptGapi.async = true;
-    scriptGapi.defer = true;
-    scriptGapi.onload = () => gapi.load('client:picker', () => setGapiLoaded(true));
-    document.body.appendChild(scriptGapi);
-
-    const scriptGis = document.createElement('script');
-    scriptGis.src = 'https://accounts.google.com/gsi/client';
-    scriptGis.async = true;
-    scriptGis.defer = true;
-    scriptGis.onload = () => setGisLoaded(true);
-    document.body.appendChild(scriptGis);
-  }, []);
-
-  useEffect(() => {
-    if (gapiLoaded && gisLoaded) {
-      tokenClient.current = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: '', // The callback is handled by the promise
-      });
-    }
-  }, [gapiLoaded, gisLoaded]);
-  
-  // --- Google Drive 功能 ---
-  
-  const initializeDriveApi = useCallback(async () => {
-    if (API_KEY === "請填入您的API_KEY" || CLIENT_ID === "請填入您的CLIENT_ID") {
-        alert("錯誤：Google Drive 功能尚未設定。\n請開發者在程式碼中填入 API Key 和 Client ID。");
-        return false;
-    }
-    
-    try {
-      await gapi.client.init({
-        apiKey: API_KEY,
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-      });
-      return true;
-    } catch(e) {
-      console.error("GAPI client init error", e);
-      alert("無法初始化 Google API Client。請檢查您的 API Key 設定。");
-      return false;
-    }
-  }, []);
-  
-  const requestAccessToken = useCallback(async () => {
-    if (!tokenClient.current) {
-        alert("Google 授權服務尚未準備就緒，請稍後再試。");
-        return;
-    }
-    return new Promise((resolve, reject) => {
-      tokenClient.current.callback = (resp: any) => {
-        if (resp.error) {
-          reject(resp);
-        } else {
-          resolve(resp);
-        }
-      };
-      
-      // If gapi.client.getToken() is null, we need to ask for consent
-      if (gapi.client.getToken() === null) {
-        tokenClient.current.requestAccessToken({ prompt: 'consent' });
-      } else {
-        tokenClient.current.requestAccessToken({ prompt: '' });
-      }
-    });
-  }, []);
-
-
-  const handleExportToDrive = useCallback(async () => {
-    const draftNames = Object.keys(namedDrafts);
-    if (draftNames.length === 0) {
-      alert("沒有本地暫存可匯出。請先使用「另存新檔」儲存一個暫存。");
-      return;
-    }
-    
-    const draftNameToExport = prompt(`請選擇要匯出到雲端硬碟的本地暫存：\n\n${draftNames.join('\n')}`);
-    if (!draftNameToExport || !namedDrafts[draftNameToExport]) {
-      if(draftNameToExport) alert(`找不到名為 "${draftNameToExport}" 的本地暫存。`);
-      return;
-    }
-
-    if (!await initializeDriveApi()) return;
-    
-    try {
-      await requestAccessToken();
-      
-      const draftData = namedDrafts[draftNameToExport];
-      // We only export text data to JSON, not images or signatures
-      const dataToExport = { ...draftData, photos: [], signature: null, technicianSignature: null };
-      const fileContent = JSON.stringify(dataToExport, null, 2);
-      const blob = new Blob([fileContent], { type: 'application/json' });
-      const fileName = `富元工作服務單-${draftNameToExport}.json`;
-
-      const boundary = '-------314159265358979323846';
-      const delimiter = "\r\n--" + boundary + "\r\n";
-      const close_delim = "\r\n--" + boundary + "--";
-
-      const reader = new FileReader();
-      reader.readAsBinaryString(blob);
-      reader.onload = async () => {
-        const contentType = blob.type || 'application/octet-stream';
-        const metadata = {
-          'name': fileName,
-          'mimeType': contentType,
-        };
-
-        const base64Data = btoa(reader.result as string);
-        const multipartRequestBody =
-            delimiter +
-            'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-            JSON.stringify(metadata) +
-            delimiter +
-            'Content-Type: ' + contentType + '\r\n' +
-            'Content-Transfer-Encoding: base64\r\n' +
-            '\r\n' +
-            base64Data +
-            close_delim;
-        
-        const request = gapi.client.request({
-            'path': '/upload/drive/v3/files',
-            'method': 'POST',
-            'params': {'uploadType': 'multipart'},
-            'headers': {
-                'Content-Type': 'multipart/related; boundary="' + boundary + '"'
-            },
-            'body': multipartRequestBody
+    // Load GAPI for Drive API
+    const gapiScript = document.createElement('script');
+    gapiScript.src = 'https://apis.google.com/js/api.js';
+    gapiScript.async = true;
+    gapiScript.defer = true;
+    gapiScript.onload = () => {
+        gapi.load('client', async () => {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: [DISCOVERY_DOC],
+            });
+            setGapiReady(true);
         });
+    };
+    document.body.appendChild(gapiScript);
 
-        await request;
-        alert(`✅ 成功將暫存 "${draftNameToExport}" 匯出至您的 Google 雲端硬碟！\n檔名為：${fileName}`);
-      };
-    } catch (error: any) {
-        console.error("Export to Drive error:", error);
-        if (error.result?.error?.message) {
-            alert(`匯出失敗：${error.result.error.message}`);
-        } else {
-            alert('匯出至雲端硬碟時發生錯誤，使用者可能已取消操作。');
-        }
-    }
-  }, [namedDrafts, initializeDriveApi, requestAccessToken]);
+    // Load GIS for OAuth2
+    const gisScript = document.createElement('script');
+    gisScript.src = 'https://accounts.google.com/gsi/client';
+    gisScript.async = true;
+    gisScript.defer = true;
+    gisScript.onload = () => {
+        const client = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: '', // Callback is handled by the promise
+        });
+        setTokenClient(client);
+        setGisReady(true);
+    };
+    document.body.appendChild(gisScript);
+    
+    return () => {
+        document.body.removeChild(gapiScript);
+        document.body.removeChild(gisScript);
+    };
 
-  const handleImportFromDrive = useCallback(async () => {
-    if (!await initializeDriveApi()) return;
+  }, []);
 
-    try {
-        await requestAccessToken();
-        const view = new google.picker.View(google.picker.ViewId.DOCS);
-        view.setMimeTypes("application/json");
-
-        const picker = new google.picker.PickerBuilder()
-            .enableFeature(google.picker.Feature.NAV_HIDDEN)
-            .setAppId(CLIENT_ID.split('-')[0])
-            .setOAuthToken(gapi.auth.getToken().access_token)
-            .addView(view)
-            .setDeveloperKey(API_KEY)
-            .setCallback(async (data: any) => {
-                if (data[google.picker.Action.PICKED]) {
-                    const fileId = data[google.picker.Response.DOCUMENTS][0][google.picker.Document.ID];
-                    const response = await gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    });
-                    
-                    const rawData = JSON.parse(response.body);
-
-                    if (window.confirm("您確定要從雲端硬碟載入此檔案嗎？\n這將會覆蓋目前表單的所有內容。")) {
-                         const migratedData = migrateWorkOrderData(rawData);
-                        setFormData(migratedData);
-                        alert("✅ 已成功從雲端硬碟載入暫存。");
-                    }
-                }
-            })
-            .build();
-        picker.setVisible(true);
-    } catch (error: any) {
-        console.error("Import from Drive error:", error);
-        if (error.result?.error?.message) {
-            alert(`匯入失敗：${error.result.error.message}`);
-        } else {
-            alert('從雲端硬碟匯入時發生錯誤，使用者可能已取消操作。');
-        }
-    }
-  }, [initializeDriveApi, requestAccessToken]);
-
-
-  // --- 本地暫存功能 ---
   useEffect(() => {
     // 應用程式載入時的提示訊息
     alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
@@ -1141,8 +991,8 @@ export const App: React.FC = () => {
     if (namedDrafts[name]) {
         // 載入暫存時的確認提示文字
         if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
-            const migratedData = migrateWorkOrderData(namedDrafts[name]);
-            setFormData(migratedData);
+            const draftData = migrateWorkOrderData(namedDrafts[name]);
+            setFormData(draftData);
             // 載入成功後的提示文字
             alert(`暫存 "${name}" 已載入。`);
         }
@@ -1187,7 +1037,136 @@ export const App: React.FC = () => {
         alert('目前的表單資料已清除。');
     }
   }, [clearCurrentForm]);
+  
+  // --- Google Drive Handlers ---
+  const getAuthToken = useCallback(() => {
+    return new Promise((resolve, reject) => {
+        if (!tokenClient) {
+            reject(new Error("Google Auth client is not ready."));
+            return;
+        }
+        
+        tokenClient.callback = (resp: any) => {
+            if (resp.error !== undefined) {
+                reject(resp);
+            }
+            resolve(resp);
+        };
+        
+        if (gapi.client.getToken() === null) {
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        } else {
+            tokenClient.requestAccessToken({ prompt: '' });
+        }
+    });
+  }, [tokenClient]);
 
+  const handleImportFromDrive = useCallback(async () => {
+    if (!gapiReady || !gisReady) {
+        alert("Google Drive 功能正在初始化，請稍候再試。");
+        return;
+    }
+
+    try {
+        await getAuthToken();
+
+        if (!pickerApiLoaded.current) {
+            await new Promise<void>((resolve) => gapi.load('picker', () => {
+                pickerApiLoaded.current = true;
+                resolve()
+            }));
+        }
+
+        const view = new google.picker.View(google.picker.ViewId.DOCS);
+        view.setMimeTypes("application/json");
+
+        const picker = new google.picker.PickerBuilder()
+            .enableFeature(google.picker.Feature.NAV_HIDDEN)
+            .setAppId(CLIENT_ID.split('-')[0])
+            .setOAuthToken(gapi.client.getToken().access_token)
+            .addView(view)
+            .setDeveloperKey(API_KEY)
+            .setCallback((data: any) => {
+                if (data[google.picker.Action.PICKED]) {
+                    const fileId = data[google.picker.Response.DOCUMENTS][0][google.picker.Document.ID];
+                    gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    }).then((res: any) => {
+                        if (window.confirm("您確定要從雲端硬碟載入此檔案嗎？\n這將會覆蓋目前表單的所有內容。")) {
+                            const importedData = migrateWorkOrderData(res.result);
+                            setFormData(importedData);
+                            alert(`檔案已成功從雲端硬碟匯入。`);
+                        }
+                    });
+                }
+            })
+            .build();
+        picker.setVisible(true);
+
+    } catch (error) {
+        console.error("Google Drive import failed", error);
+        alert("從 Google Drive 匯入失敗。請檢查主控台中的錯誤訊息。");
+    }
+  }, [gapiReady, gisReady, getAuthToken]);
+
+  const handleExportToDrive = useCallback(async () => {
+    if (!gapiReady || !gisReady) {
+        alert("Google Drive 功能正在初始化，請稍候再試。");
+        return;
+    }
+    
+    const draftNames = Object.keys(namedDrafts);
+    if (draftNames.length === 0) {
+        alert("目前沒有本機暫存可以匯出。請先「另存新檔」。");
+        return;
+    }
+
+    const nameToExport = prompt(`請選擇要匯出至雲端硬碟的本機暫存：\n\n${draftNames.join('\n')}`);
+    if (!nameToExport || !namedDrafts[nameToExport]) {
+        alert("無效的暫存名稱，或操作已取消。");
+        return;
+    }
+
+    try {
+        await getAuthToken();
+        
+        // Exclude photos and signatures for smaller file size
+        const { photos, signature, technicianSignature, ...dataToExport } = namedDrafts[nameToExport];
+        const fileContent = JSON.stringify(dataToExport, null, 2);
+        const blob = new Blob([fileContent], { type: 'application/json' });
+        const fileName = `富元工作服務單-${nameToExport}.json`;
+
+        const metadata = {
+            'name': fileName,
+            'mimeType': 'application/json',
+            'parents': ['root']
+        };
+
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.append('file', blob);
+
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: new Headers({ 'Authorization': 'Bearer ' + gapi.client.getToken().access_token }),
+            body: form,
+        });
+
+        if (res.ok) {
+            alert(`暫存 "${nameToExport}" 已成功匯出至您的 Google 雲端硬碟！`);
+        } else {
+            throw new Error(`Upload failed with status: ${res.statusText}`);
+        }
+
+    } catch (error) {
+        console.error("Google Drive export failed", error);
+        alert("匯出至 Google Drive 失敗。請檢查主控台中的錯誤訊息。");
+    }
+  }, [gapiReady, gisReady, namedDrafts, getAuthToken]);
+
+
+  // --- PDF Generation and Sharing ---
   const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
       const { jsPDF: JSPDF } = (window as any).jspdf;
@@ -1345,8 +1324,8 @@ export const App: React.FC = () => {
                 onLoadDraft={handleLoadDraft}
                 onDeleteDraft={handleDeleteDraft}
                 onClearData={handleClearData}
-                onExportToDrive={handleExportToDrive}
                 onImportFromDrive={handleImportFromDrive}
+                onExportToDrive={handleExportToDrive}
                 namedDrafts={namedDrafts}
              />
             )}
