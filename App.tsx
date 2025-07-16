@@ -1342,7 +1342,7 @@ export const App: React.FC = () => {
                         }
 
                         const fileName = doc.name || 'imported-draft';
-                        const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^富元工作服務單-/, '');
+                        const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^服務單暫存-/, '');
                         const newDraftName = prompt(`請為匯入的暫存檔命名：`, defaultDraftName);
 
                         if (!newDraftName) {
