@@ -9,27 +9,36 @@ import ImageUploader from './components/ImageUploader';
 declare const jsPDF: any;
 declare const html2canvas: any;
 
-const TOTAL_CONTENT_LINES_LIMIT = 20;
-const TASKS_STATUS_LIMIT = 18;
-const PRODUCTS_REMARKS_LIMIT = 16;
+// --- 全域設定參數 ---
+
+// 這裡可以設定服務單內容的總行數限制，超過此限制將會觸發分頁
+const TOTAL_CONTENT_LINES_LIMIT = 20; 
+// 這裡可以設定「處理事項」與「處理情形」的總行數限制
+const TASKS_STATUS_LIMIT = 18; 
+// 這裡可以設定「產品項目」與「備註」的總行數限制
+const PRODUCTS_REMARKS_LIMIT = 16; 
+// 用於 localStorage 儲存暫存檔的鍵值，通常不需要修改
 const NAMED_DRAFTS_STORAGE_KEY = 'workOrderNamedDrafts';
+// 這裡可以設定最多允許儲存幾份暫存檔
 const MAX_DRAFTS = 3;
 
 
 const getFormattedDateTime = () => {
   const now = new Date();
-  // Adjust for timezone offset to get local time in YYYY-MM-DDTHH:mm format
+  // 為了符合 <input type="datetime-local"> 的格式，需要調整時區
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
+// 預設的產品項目結構
 const initialProduct: ProductItem = {
     id: `product-${Date.now()}`,
-    name: '',
-    quantity: 1,
-    serialNumbers: [''],
+    name: '', // 預設產品品名
+    quantity: 1, // 預設產品數量
+    serialNumbers: [''], // 預設一個空的序號欄位
 };
 
+// 全新表單的初始資料
 const initialFormData: WorkOrderData = {
   dateTime: getFormattedDateTime(),
   serviceUnit: '',
@@ -44,18 +53,18 @@ const initialFormData: WorkOrderData = {
   technicianSignature: null,
 };
 
-// --- Utility Functions ---
+// --- 工具函式 ---
+// 將陣列分塊的函式，用於將照片分頁
 const chunk = <T,>(arr: T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
     arr.slice(i * size, i * size + size)
   );
 
 /**
- * Estimates the number of visual lines a string will take up in a textarea,
- * accounting for both manual line breaks and automatic wrapping.
- * @param str The string to measure.
- * @param avgCharsPerLine An estimated average number of characters that fit on one line.
- * @returns The estimated number of visual lines.
+ * 估算字串在 textarea 中會佔據的視覺行數
+ * @param str 要測量的字串
+ * @param avgCharsPerLine 每行平均字元數，可調整此數值來改變行數估算的靈敏度
+ * @returns 估算的視覺行數
  */
 const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number => {
     if (!str) return 0;
@@ -63,14 +72,13 @@ const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number
     if (manualLines.length === 1 && manualLines[0] === '') return 0;
     
     return manualLines.reduce((acc, line) => {
-        // An empty line or a line with content both count as at least 1 visual line.
         const wrappedLines = Math.ceil(line.length / avgCharsPerLine);
         return acc + Math.max(1, wrappedLines);
     }, 0);
 };
 
 
-// --- Component Definitions ---
+// --- 表單元件定義 ---
 interface FormFieldProps {
   label: string;
   id: keyof WorkOrderData | string;
@@ -88,20 +96,20 @@ const FormField: React.FC<FormFieldProps> = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Effect for auto-sizing
   useEffect(() => {
     if (autoSize && textareaRef.current) {
       const textarea = textareaRef.current;
-      textarea.style.height = 'auto'; // Reset height
-      textarea.style.height = `${textarea.scrollHeight}px`; // Set to scroll height
+      textarea.style.height = 'auto'; 
+      textarea.style.height = `${textarea.scrollHeight}px`; 
     }
-  }, [autoSize, value]); // Re-run when value changes
+  }, [autoSize, value]);
 
   return (
     <div>
       <div className="flex justify-between items-baseline mb-1">
         <label htmlFor={id} className="block text-sm font-medium text-slate-700">
           {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
         </label>
         {cornerHint && <span className="text-xs text-slate-500 font-mono">{cornerHint}</span>}
       </div>
@@ -111,7 +119,7 @@ const FormField: React.FC<FormFieldProps> = ({
             ref={textareaRef}
             id={id}
             name={id}
-            rows={autoSize ? 1 : rows}
+            rows={autoSize ? 1 : rows} // autoSize為true時，初始行數為1，否則使用傳入的rows
             value={value}
             onChange={onChange}
             required={required}
@@ -135,7 +143,7 @@ const FormField: React.FC<FormFieldProps> = ({
 };
 
 
-// --- Icons for Product Section ---
+// --- 圖示元件 ---
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -169,6 +177,7 @@ interface WorkOrderFormProps {
     namedDrafts: { [name: string]: WorkOrderData };
 }
 
+// 主要的表單元件
 const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     formData,
     onInputChange,
@@ -195,14 +204,18 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     return (
      <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
         <div className="text-center">
+            {/* // 表單主標題，可在此修改 */}
             <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
+            {/* // 表單副標題，可在此修改 */}
             <h2 className="text-xl font-semibold text-slate-600 mt-1">工作服務單</h2>
         </div>
         <div className="space-y-6">
+            {/* // 各個表單欄位的標籤文字都可以在 label 屬性中修改 */}
             <FormField label="工作日期及時間" id="dateTime" type="datetime-local" value={formData.dateTime} onChange={onInputChange} required />
             <FormField label="服務單位" id="serviceUnit" value={formData.serviceUnit} onChange={onInputChange} required />
             <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
             <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
+            {/* // cornerHint 是右上角的提示文字 */}
             <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`} />
             <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`}/>
             
@@ -232,6 +245,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                                 onChange={(e) => onProductChange(index, 'quantity', parseInt(e.target.value, 10))}
                                 className="mt-1 block w-full pl-3 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                             >
+                                {/* // 產品數量的下拉選單範圍，這裡設定為 1 到 20 */}
                                 {Array.from({ length: 20 }, (_, i) => i + 1).map(q => <option key={q} value={q}>{q}</option>)}
                             </select>
                         </div>
@@ -248,6 +262,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                                             type="text"
                                             value={serial}
                                             onChange={(e) => onProductSerialNumberChange(index, serialIndex, e.target.value)}
+                                            // 序號輸入框的提示文字
                                             placeholder={`第 ${serialIndex + 1} 組產品序號`}
                                             className="flex-1 min-w-0 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                         />
@@ -274,6 +289,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                     className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-slate-300 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 focus:outline-none"
                 >
                     <PlusIcon className="w-5 h-5 mr-2" />
+                    {/* // "新增項目"按鈕文字 */}
                     新增項目
                 </button>
               </div>
@@ -305,12 +321,12 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                             } else if (value) {
                                 onLoadDraft(value);
                             }
-                            // Reset select to default visual state
                             e.target.value = '';
                         }}
                         defaultValue=""
                         className="w-full sm:w-auto px-3 py-2 border border-slate-300 text-slate-700 rounded-md shadow-sm text-base font-medium bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
+                         {/* // 暫存管理下拉選單的預設提示文字 */}
                          <option value="" disabled>載入/管理暫存</option>
                          {draftNames.length > 0 && (
                              <optgroup label="選擇暫存載入">
@@ -320,6 +336,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                             </optgroup>
                          )}
                          <optgroup label="操作">
+                            {/* // 刪除暫存的選項文字 */}
                             <option value="__DELETE__">刪除暫存...</option>
                          </optgroup>
                     </select>
@@ -329,6 +346,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         onClick={onSaveAsDraft}
                         className="flex-1 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-base font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
+                        {/* // "另存新檔"按鈕文字 */}
                         另存新檔
                     </button>
                     <button
@@ -336,6 +354,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         onClick={onClearData}
                         className="flex-1 sm:w-auto px-4 py-2 border border-red-600 text-red-600 rounded-md shadow-sm text-base font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                     >
+                        {/* // "清除資料"按鈕文字 */}
                         清除資料
                     </button>
                 </div>
@@ -343,6 +362,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                     type="submit"
                     className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
+                    {/* // "產生服務單報告"按鈕文字 */}
                     產生服務單報告
                 </button>
             </div>
@@ -351,12 +371,15 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 )};
 
 
-// --- Report Components ---
+// --- 報告相關元件 ---
 
+// PDF 頁尾元件
 const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
     <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
+      {/* // PDF 頁尾左側的文字，可在此修改 */}
       <span>本表單由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
-      {totalPages && totalPages > 1 && currentPage && (
+      {totalPages && currentPage && (
+        // 頁碼的字體大小，可在此修改。常用尺寸: text-xs, text-sm, text-base, text-lg
         <span className="font-mono text-base">{`${currentPage} / ${totalPages}`}</span>
       )}
     </div>
@@ -370,17 +393,18 @@ type ReportLayoutProps = {
   totalPages?: number;
 };
 
+// 報告排版元件
 const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, totalPages }) => {
   const isPdf = mode.startsWith('pdf');
   const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
   const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
+  // 決定是否顯示經理核可欄位，目前設定為第二頁不顯示
   const showManagerApproval = mode !== 'pdf-page2';
 
-  // Flags for what to display based on the mode
   const showMainHeaderAndCustomerInfo = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1' || mode === 'pdf-page2';
   const showTasksAndStatus = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1';
   const showProductsAndRemarks = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page2';
-  const showSignatures = true; // Signatures are part of every layout
+  const showSignatures = true;
 
   return (
     <div
@@ -388,25 +412,29 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
       className="p-8 bg-white"
       style={{
         width: isPdf ? '210mm' : '100%',
-        minHeight: isPdf ? '297mm' : 'auto', // Ensure it fills page for page1/2
+        minHeight: isPdf ? '297mm' : 'auto',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'"
+        fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'" // PDF 使用的字體
       }}
     >
-      {/* HEADER */}
+      {/* 報告標頭 */}
       {showMainHeaderAndCustomerInfo && (
         <>
           <div className="text-center mb-10 flex-shrink-0">
+            {/* // 報告主標題 */}
             <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
             <h2 className="text-2xl font-semibold text-gray-600 mt-2">
+              {/* // 報告副標題 */}
               工作服務單
+              {/* // 第二頁的特殊標題後綴 */}
               {mode === 'pdf-page2' && ' (產品項目與備註)'}
             </h2>
           </div>
 
           <div className="grid grid-cols-12 gap-x-6 gap-y-4">
+            {/* // 報告中各欄位的標籤文字 */}
             <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
             <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
             <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
@@ -415,16 +443,18 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         </>
       )}
 
-      {/* BODY */}
+      {/* 報告主體 */}
       <div className="flex-grow text-base text-gray-800 space-y-5 pt-5">
         {showTasksAndStatus && (
           <>
             <div>
               <strong className="text-base">處理事項：</strong>
+              {/* // 處理事項的最小高度，可在此修改 'min-h-[9rem]' */}
               <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.tasks || '\u00A0'}</div>
             </div>
             <div>
               <strong className="text-base">處理情形：</strong>
+              {/* // 處理情形的最小高度，可在此修改 'min-h-[9rem]' */}
               <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.status || '\u00A0'}</div>
             </div>
           </>
@@ -437,6 +467,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
+                    {/* // 產品表格的欄位標題 */}
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">產品品名</th>
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">數量</th>
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">序號</th>
@@ -455,14 +486,16 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                               .filter(s => s);
 
                             if (serials.length === 0) {
-                              return 'N/A';
+                              return 'N/A'; // 如果沒有序號，顯示的文字
                             }
 
                             return (
                               <div className="flex flex-col">
                                 {serials.map((s, idx) => (
                                   <React.Fragment key={idx}>
+                                    {/* // 序號之間的分隔線與間距，可修改 my-1 (margin-top/bottom) */}
                                     {idx > 0 && <div className="border-t border-slate-200 my-1"></div>}
+                                    {/* // 序號前的編號格式 */}
                                     <span>{`#${idx + 1}: ${s}`}</span>
                                   </React.Fragment>
                                 ))}
@@ -472,7 +505,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                         </td>
                       </tr>
                     ))
-                  ) : (
+                  ) : ( // 如果沒有任何產品，預設顯示一筆空白列
                     <tr>
                       <td className="px-3 py-2 whitespace-nowrap">&nbsp;</td>
                       <td className="px-3 py-2 whitespace-nowrap">&nbsp;</td>
@@ -488,6 +521,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         {showProductsAndRemarks && (
           <div>
             <strong className="text-base">備註：</strong>
+            {/* // 備註欄位的最小高度，可在此修改 'min-h-[3rem]' */}
             <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[3rem]">{data.remarks || '\u00A0'}</div>
           </div>
         )}
@@ -504,15 +538,17 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         )}
       </div>
 
-      {/* SIGNATURES & FOOTER */}
+      {/* 簽名區 & 頁尾 */}
       {showSignatures && (
          <div className="pt-12 mt-auto">
+            {/* // 簽名區的排版，三欄或兩欄 */}
             <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-base`}>
                 {showManagerApproval && (
                   <div className="text-center">
                       <strong>經理核可：</strong>
+                      {/* // 簽名框的最小高度，可在此修改 'min-h-[100px]' */}
                       <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
-                          {/* Empty for manual signature */}
+                          {/* 留白供手寫簽名 */}
                       </div>
                   </div>
                 )}
@@ -540,9 +576,10 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
   );
 };
 
-
+// 照片頁元件
 const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount, pdfTotalPages }: { photos: string[], pageNumber:number, totalPhotoPages: number, data: WorkOrderData, textPageCount: number, pdfTotalPages: number }) => {
     const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
+    // 照片頁的標題格式
     const pageTitle = totalPhotoPages > 1
         ? `施工照片 (第 ${pageNumber} / ${totalPhotoPages} 頁) - ${data.serviceUnit} (${formattedDate})`
         : `施工照片 - ${data.serviceUnit} (${formattedDate})`;
@@ -565,6 +602,7 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount
     );
 };
 
+// 報告預覽畫面元件
 interface ReportViewProps {
     data: WorkOrderData;
     onDownloadPdf: () => void;
@@ -575,12 +613,11 @@ interface ReportViewProps {
 }
 
 const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf, onReset, onEdit, isGeneratingPdf }) => {
+    // 照片分頁，每頁 4 張，可在此修改
     const photoChunks = chunk(data.photos, 4);
 
-    // Replicate logic from generatePdfBlob to calculate page numbers ahead of time
     const tasksLines = calculateVisualLines(data.tasks);
     const statusLines = calculateVisualLines(data.status);
-    // Note: PDF splitting logic is based on visual rows (1 per product item), not quantity.
     const productsLines = data.products.filter(p => p.name.trim() !== '').length;
     const remarksLines = calculateVisualLines(data.remarks);
     const totalContentLines = tasksLines + statusLines + productsLines + remarksLines;
@@ -591,7 +628,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
 
     return (
     <>
-      {/* Hidden container for pre-rendering PDF layouts */}
+      {/* 隱藏的 PDF 渲染區 */}
       <div className="pdf-render-container">
         {totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? (
             <>
@@ -615,7 +652,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
         ))}
       </div>
       
-      {/* Visible report on screen */}
+      {/* 畫面上可見的報告預覽 */}
       <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto">
         <div className="w-full max-w-[800px] mx-auto origin-top">
             <div className="shadow-lg">
@@ -624,8 +661,9 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* 操作按鈕 */}
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
+            {/* // 報告頁面的按鈕文字，可在此修改 */}
             <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-3">
               <button onClick={onDownloadPdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
@@ -637,7 +675,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
     );
 };
 
-// --- Main App Component ---
+// --- 主應用程式元件 ---
 
 export const App: React.FC = () => {
   const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
@@ -646,6 +684,7 @@ export const App: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
+    // 應用程式載入時的提示訊息
     alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
 
     try {
@@ -675,26 +714,26 @@ export const App: React.FC = () => {
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    // Create a temporary copy to test the new value
     const tempState = {...formData, [name]: value};
 
     if (name === 'tasks' || name === 'status') {
         const totalLines = calculateVisualLines(tempState.tasks) + calculateVisualLines(tempState.status);
         if (totalLines > TASKS_STATUS_LIMIT) {
+            // 超出限制時的提示，若不想提示可註解掉
             // alert('「處理事項」與「處理情形」總行數已達上限。');
-            return; // Exit without calling setFormData
+            return; 
         }
     }
     
     if (name === 'remarks') {
         const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + calculateVisualLines(tempState.remarks);
         if (totalLines > PRODUCTS_REMARKS_LIMIT) {
+             // 超出限制時的提示，若不想提示可註解掉
             // alert('「產品項目」與「備註」總行數已達上限。');
-            return; // Exit without calling setFormData
+            return; 
         }
     }
 
-    // If all checks pass, update the state
     setFormData(tempState);
   }, [formData]);
   
@@ -705,8 +744,9 @@ export const App: React.FC = () => {
             const remarksLines = calculateVisualLines(prev.remarks);
             const otherProductsLines = prev.products.reduce((acc, p, i) => i === index ? acc : acc + p.quantity, 0);
             if (otherProductsLines + newQuantity + remarksLines > PRODUCTS_REMARKS_LIMIT) {
+                // 增加數量超出限制時的提示文字
                 alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法增加數量。`);
-                return prev; // Do not update state
+                return prev;
             }
         }
 
@@ -727,7 +767,7 @@ export const App: React.FC = () => {
             } else if (newQuantity < oldQuantity) {
                 productToUpdate.serialNumbers = currentSerialNumbers.slice(0, newQuantity);
             }
-        } else { // field === 'name'
+        } else {
             productToUpdate[field] = value;
         }
         
@@ -739,7 +779,7 @@ export const App: React.FC = () => {
       setFormData(prev => {
           const newProducts = [...prev.products];
           const productToUpdate = { ...newProducts[productIndex] };
-          productToUpdate.serialNumbers = [...productToUpdate.serialNumbers]; // ensure it's a new array
+          productToUpdate.serialNumbers = [...productToUpdate.serialNumbers];
           productToUpdate.serialNumbers[serialIndex] = value;
           newProducts[productIndex] = productToUpdate;
           return { ...prev, products: newProducts };
@@ -749,6 +789,7 @@ export const App: React.FC = () => {
   const handleAddProduct = () => {
     const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + 1 + calculateVisualLines(formData.remarks);
     if (totalLines > PRODUCTS_REMARKS_LIMIT) {
+        // 新增產品超出限制時的提示文字
         alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
         return;
     }
@@ -762,7 +803,7 @@ export const App: React.FC = () => {
   };
 
   const handleRemoveProduct = (index: number) => {
-    if (formData.products.length <= 1) return; // Prevent removing the last item
+    if (formData.products.length <= 1) return;
     setFormData(prev => ({
         ...prev,
         products: prev.products.filter((_, i) => i !== index),
@@ -800,6 +841,7 @@ export const App: React.FC = () => {
   };
   
   const handleReset = useCallback(() => {
+    // 建立新服務單的確認提示文字
     if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
         clearCurrentForm();
         setIsSubmitted(false);
@@ -807,15 +849,17 @@ export const App: React.FC = () => {
   }, [clearCurrentForm]);
 
   const handleSaveAsDraft = useCallback(() => {
+    // 儲存暫存時的提示文字
     const draftName = prompt("請為此暫存命名：");
     if (!draftName) {
-        return; // User cancelled
+        return;
     }
 
     const currentDrafts = { ...namedDrafts };
     const isOverwriting = !!currentDrafts[draftName];
 
     if (!isOverwriting && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
+        // 達到暫存上限時的提示文字
         alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理暫存」中刪除一個舊暫存。`);
         return;
     }
@@ -827,6 +871,7 @@ export const App: React.FC = () => {
     const newDrafts = { ...currentDrafts, [draftName]: formData };
     setNamedDrafts(newDrafts);
     localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+    // 儲存成功後的提示文字
     alert(
 `✅ 暫存 "${draftName}" 已成功儲存！
 
@@ -838,27 +883,25 @@ export const App: React.FC = () => {
 
   const handleLoadDraft = useCallback((name: string) => {
     if (namedDrafts[name]) {
+        // 載入暫存時的確認提示文字
         if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
-            const draftData = JSON.parse(JSON.stringify(namedDrafts[name])); // Deep copy
+            const draftData = JSON.parse(JSON.stringify(namedDrafts[name])); 
 
-            // MIGRATION LOGIC
+            // --- 舊資料格式遷移邏輯 ---
             if (draftData.products && Array.isArray(draftData.products)) {
                 draftData.products = draftData.products.map((p: any) => {
-                    const product = {...p}; // work on a copy
+                    const product = {...p}; 
                     const quantity = product.quantity || 1;
 
-                    // Case 1: Old format (has serialNumber, no serialNumbers)
                     if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
                         product.serialNumbers = [product.serialNumber || ''];
                         delete product.serialNumber;
                     }
                     
-                    // Ensure serialNumbers is an array
                     if (!Array.isArray(product.serialNumbers)) {
                         product.serialNumbers = [];
                     }
                     
-                    // Case 2: Sync array length with quantity
                     const currentLength = product.serialNumbers.length;
                     if (currentLength < quantity) {
                         product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
@@ -869,9 +912,10 @@ export const App: React.FC = () => {
                     return product;
                 });
             }
-            // END MIGRATION
+            // --- 遷移結束 ---
 
             setFormData(draftData);
+            // 載入成功後的提示文字
             alert(`暫存 "${name}" 已載入。`);
         }
     }
@@ -880,31 +924,38 @@ export const App: React.FC = () => {
   const handleDeleteDraft = useCallback(() => {
     const draftNames = Object.keys(namedDrafts);
     if (draftNames.length === 0) {
+        // 沒有暫存可刪除時的提示文字
         alert("目前沒有已儲存的暫存可以刪除。");
         return;
     }
 
+    // 刪除暫存時的提示文字
     const nameToDelete = prompt(`請輸入您想刪除的暫存名稱：\n\n${draftNames.join('\n')}`);
     if (!nameToDelete) {
-        return; // User cancelled
+        return;
     }
     
     if (namedDrafts[nameToDelete]) {
+        // 確認刪除的提示文字
         if (window.confirm(`您確定要永久刪除暫存 "${nameToDelete}" 嗎？此操作無法復原。`)) {
             const newDrafts = { ...namedDrafts };
             delete newDrafts[nameToDelete];
             setNamedDrafts(newDrafts);
             localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+            // 刪除成功後的提示文字
             alert(`暫存 "${nameToDelete}" 已被刪除。`);
         }
     } else {
+        // 找不到暫存時的提示文字
         alert(`找不到名為 "${nameToDelete}" 的暫存。`);
     }
   }, [namedDrafts]);
 
   const handleClearData = useCallback(() => {
+    // 清除表單資料的確認提示文字
     if (window.confirm("您確定要清除目前表單的所有欄位嗎？\n此操作不會影響任何已儲存的暫存。")) {
         clearCurrentForm();
+        // 清除成功後的提示文字
         alert('目前的表單資料已清除。');
     }
   }, [clearCurrentForm]);
@@ -912,19 +963,19 @@ export const App: React.FC = () => {
   const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
       const { jsPDF: JSPDF } = (window as any).jspdf;
+      // PDF 設定: 'p' 直向, 'mm' 單位, 'a4' 尺寸
       const pdf = new JSPDF('p', 'mm', 'a4');
       const pdfWidth = 210;
       const pdfHeight = 297;
       const options = {
-          scale: 2,
+          scale: 2, // 提高解析度，可設為 1.5, 2, 3 等
           useCORS: true,
-          backgroundColor: '#ffffff',
+          backgroundColor: '#ffffff', // 背景色
       };
-      const imageType = 'image/jpeg';
-      const imageQuality = 0.92;
+      const imageType = 'image/jpeg'; // 圖片格式
+      const imageQuality = 0.92; // 圖片品質 (0 to 1)
       let pageCount = 0;
 
-      // --- NEW LOGIC: Decide based on total line count ---
       const tasksLines = calculateVisualLines(formData.tasks);
       const statusLines = calculateVisualLines(formData.status);
       const productsLines = formData.products.filter(p => p.name.trim() !== '').length;
@@ -932,38 +983,35 @@ export const App: React.FC = () => {
       const totalContentLines = tasksLines + statusLines + productsLines + remarksLines;
 
       if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
-        // --- SPLIT PAGE LOGIC ---
+        // --- 多頁邏輯 ---
         const page1Element = document.getElementById('pdf-pdf-page1');
         const page2Element = document.getElementById('pdf-pdf-page2');
         if (!page1Element || !page2Element) throw new Error('Split page elements not found');
         
-        // Add Page 1
         const canvas1 = await html2canvas(page1Element, options);
         pdf.addImage(canvas1.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
         pageCount++;
 
-        // Add Page 2
         pdf.addPage();
         const canvas2 = await html2canvas(page2Element, options);
         pdf.addImage(canvas2.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
         pageCount++;
 
       } else {
-        // --- SINGLE PAGE LOGIC ---
+        // --- 單頁邏輯 ---
         const fullElement = document.getElementById('pdf-pdf-full');
         if (!fullElement) throw new Error('Full report element not found for rendering');
         
         const fullCanvas = await html2canvas(fullElement, options);
         const fullImgProps = pdf.getImageProperties(fullCanvas.toDataURL(imageType, imageQuality));
-        // Calculate height to maintain aspect ratio, but don't exceed A4 height
         const fullHeight = Math.min(pdfHeight, (fullImgProps.height * pdfWidth) / fullImgProps.width);
         pdf.addImage(fullCanvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, fullHeight);
         pageCount++;
       }
       
-      // Add photo pages
+      // --- 新增照片頁 ---
       if (formData.photos.length > 0) {
-        const photoChunks = chunk(formData.photos, 4);
+        const photoChunks = chunk(formData.photos, 4); // 每頁 4 張照片
         for (let i = 0; i < photoChunks.length; i++) {
           const photoPageElement = document.getElementById(`pdf-photo-page-${i}`);
           if (photoPageElement) {
@@ -978,6 +1026,7 @@ export const App: React.FC = () => {
       return pdf.output('blob');
     } catch (error) {
       console.error("Failed to generate PDF blob:", error);
+      // PDF 產生失敗時的提示文字
       alert("無法產生PDF，可能是內容過於複雜。請檢查主控台中的錯誤訊息。");
       return null;
     }
@@ -989,6 +1038,7 @@ export const App: React.FC = () => {
 
     const blob = await generatePdfBlob();
     if (blob) {
+        // 下載的 PDF 檔案名稱格式
         const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -1011,12 +1061,13 @@ export const App: React.FC = () => {
       return;
     }
 
+    // 分享時的 PDF 檔案名稱格式
     const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
     const file = new File([blob], fileName, { type: 'application/pdf' });
     const shareData = {
       files: [file],
-      title: `工作服務單 - ${formData.serviceUnit}`,
-      text: `請查收 ${formData.serviceUnit} 的工作服務單。`,
+      title: `工作服務單 - ${formData.serviceUnit}`, // 分享時的標題
+      text: `請查收 ${formData.serviceUnit} 的工作服務單。`, // 分享時的內文
     };
     
     if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
@@ -1026,10 +1077,11 @@ export const App: React.FC = () => {
         const abortError = error as DOMException;
         if (abortError.name !== 'AbortError') {
             console.error('Error sharing PDF:', error);
-            alert('分享失敗，請稍後再試。');
+            alert('分享失敗，請稍後再試。'); // 分享失敗的提示
         }
       }
     } else {
+      // 瀏覽器不支援分享時的提示
       alert('您的瀏覽器不支援檔案分享。請先下載PDF後再手動分享。');
     }
     setIsGeneratingPdf(false);
@@ -1073,6 +1125,7 @@ export const App: React.FC = () => {
         {isGeneratingPdf && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="text-center">
+                {/* // 正在產生 PDF 時的提示文字 */}
                 <p className="text-lg font-semibold text-slate-700">正在處理 PDF...</p>
                 <p className="text-sm text-slate-500">請稍候</p>
               </div>
