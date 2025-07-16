@@ -1226,27 +1226,47 @@ export const App: React.FC = () => {
             .setOAuthToken(gapi.client.getToken().access_token)
             .addView(view)
             .setDeveloperKey(API_KEY)
-            .setCallback((data: any) => {
+            .setCallback(async (data: any) => {
                 if (data[google.picker.Action.PICKED]) {
-                    const fileId = data[google.picker.Response.DOCUMENTS][0][google.picker.Document.ID];
-                    gapi.client.drive.files.get({
-                        fileId: fileId,
-                        alt: 'media'
-                    }).then((res: any) => {
-                        if (window.confirm("您確定要從雲端硬碟載入此檔案嗎？\n這將會覆蓋目前表單的所有內容。")) {
-                           try {
-                                const importedData = migrateWorkOrderData(res.result);
-                                setFormData(importedData);
-                                alert(`檔案已成功從雲端硬碟匯入。`);
-                           } catch (parseError) {
-                               console.error("Error processing imported data:", parseError);
-                               alert("匯入失敗：檔案內容可能已損毀或格式不符。");
-                           }
+                    try {
+                        const doc = data[google.picker.Response.DOCUMENTS][0];
+                        const fileId = doc[google.picker.Document.ID];
+                        const fileName = doc[google.picker.Document.NAME] || 'imported-draft';
+                        
+                        const res = await gapi.client.drive.files.get({
+                            fileId: fileId,
+                            alt: 'media'
+                        });
+
+                        const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^富元工作服務單-/, '');
+                        const newDraftName = prompt(`請為匯入的暫存檔命名：`, defaultDraftName);
+
+                        if (!newDraftName) {
+                            return; // User cancelled prompt
                         }
-                    }, (err: any) => {
-                        console.error("Error fetching file content from Drive:", err);
-                        alert(`從雲端硬碟讀取檔案失敗。請確認您有此檔案的讀取權限，或檢查主控台的錯誤訊息。\n\n錯誤: ${err.result?.error?.message || '未知錯誤'}`);
-                    });
+                        
+                        setNamedDrafts(currentDrafts => {
+                            if (currentDrafts[newDraftName] && !window.confirm(`暫存 "${newDraftName}" 已存在，要覆蓋它嗎？`)) {
+                                return currentDrafts; // Don't update if user cancels overwrite
+                            }
+    
+                            if (!currentDrafts[newDraftName] && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
+                                alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理暫存」中刪除一個舊暫存。`);
+                                return currentDrafts;
+                            }
+    
+                            const importedData = migrateWorkOrderData(res.result);
+                            const newDrafts = { ...currentDrafts, [newDraftName]: importedData };
+                            localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+                            alert(`✅ 暫存 "${newDraftName}" 已成功從雲端硬碟匯入並儲存至本機！`);
+                            return newDrafts;
+                        });
+
+                    } catch (err: any) {
+                        console.error("Error processing picked file:", err);
+                        const errorMessage = err.result?.error?.message || err.message || '未知錯誤';
+                        alert(`從雲端硬碟讀取或處理檔案失敗。\n\n錯誤: ${errorMessage}`);
+                    }
                 }
             })
             .build();
