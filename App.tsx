@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -11,7 +7,12 @@ import ImageUploader from './components/ImageUploader';
 // Add type declarations for CDN libraries
 declare const jsPDF: any;
 declare const html2canvas: any;
-declare const JSZip: any;
+
+declare global {
+  interface Window {
+    JSZip: any;
+  }
+}
 
 // --- 全域設定參數 ---
 
@@ -978,13 +979,18 @@ export const App: React.FC = () => {
   }, [namedDrafts]);
   
   const generateZipBlob = async (draftName: string): Promise<Blob | null> => {
+    if (typeof window.JSZip === 'undefined') {
+        alert("匯出功能所需的函式庫載入失敗。請檢查您的網路連線，或稍後再試。");
+        return null;
+    }
+
     if (!namedDrafts[draftName]) {
         alert(`找不到名為 "${draftName}" 的暫存。`);
         return null;
     }
     try {
         const draftData = namedDrafts[draftName];
-        const zip = new JSZip();
+        const zip = new window.JSZip();
         
         const exportData = JSON.parse(JSON.stringify(draftData));
 
@@ -1099,11 +1105,16 @@ export const App: React.FC = () => {
 
     try {
         if (file.name.endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed') {
+            if (typeof window.JSZip === 'undefined') {
+                alert("匯入功能所需的函式庫載入失敗。請檢查您的網路連線，或稍後再試。");
+                resetInput();
+                return;
+            }
             if (!window.confirm("您確定要匯入此 .zip 暫存檔嗎？\n這將會覆蓋目前表單的所有內容。")) {
                 resetInput();
                 return;
             }
-            const zip = await JSZip.loadAsync(file);
+            const zip = await window.JSZip.loadAsync(file);
             const dataFile = zip.file('work-order-data.json');
             if (!dataFile) {
                 throw new Error("ZIP 檔案中找不到 'work-order-data.json'。");
