@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -31,7 +26,7 @@ const initialProduct: ProductItem = {
     id: `product-${Date.now()}`,
     name: '',
     quantity: 1,
-    serialNumber: '',
+    serialNumbers: [''],
 };
 
 const initialFormData: WorkOrderData = {
@@ -156,7 +151,8 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
 interface WorkOrderFormProps {
     formData: WorkOrderData;
     onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-    onProductChange: (index: number, field: keyof Omit<ProductItem, 'id'>, value: string | number) => void;
+    onProductChange: (index: number, field: 'name' | 'quantity', value: string | number) => void;
+    onProductSerialNumberChange: (productIndex: number, serialIndex: number, value: string) => void;
     onAddProduct: () => void;
     onRemoveProduct: (index: number) => void;
     onPhotosChange: (photos: string[]) => void;
@@ -176,6 +172,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     formData,
     onInputChange,
     onProductChange,
+    onProductSerialNumberChange,
     onAddProduct,
     onRemoveProduct,
     onPhotosChange,
@@ -191,7 +188,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     namedDrafts
 }) => {
     const tasksStatusTotal = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status);
-    const productsRemarksTotal = formData.products.length + calculateVisualLines(formData.remarks);
+    const productsRemarksTotal = formData.products.reduce((acc, product) => acc + product.quantity, 0) + calculateVisualLines(formData.remarks);
     const draftNames = Object.keys(namedDrafts);
 
     return (
@@ -216,7 +213,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
               <div className="space-y-4">
                 {formData.products.map((product, index) => (
                     <div key={product.id} className="grid grid-cols-12 gap-x-3 gap-y-4 p-4 border border-slate-200 rounded-lg relative">
-                        <div className="col-span-12 sm:col-span-6">
+                        <div className="col-span-12 sm:col-span-8">
                             <label htmlFor={`product-name-${index}`} className="block text-xs font-medium text-slate-600">產品品名</label>
                             <input
                                 id={`product-name-${index}`}
@@ -226,7 +223,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                                 className="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                             />
                         </div>
-                        <div className="col-span-6 sm:col-span-2">
+                        <div className="col-span-12 sm:col-span-4">
                             <label htmlFor={`product-quantity-${index}`} className="block text-xs font-medium text-slate-600">數量</label>
                             <select
                                 id={`product-quantity-${index}`}
@@ -237,16 +234,27 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                                 {Array.from({ length: 20 }, (_, i) => i + 1).map(q => <option key={q} value={q}>{q}</option>)}
                             </select>
                         </div>
-                        <div className="col-span-6 sm:col-span-4">
-                             <label htmlFor={`product-serial-${index}`} className="block text-xs font-medium text-slate-600">序號</label>
-                            <input
-                                id={`product-serial-${index}`}
-                                type="text"
-                                value={product.serialNumber}
-                                onChange={(e) => onProductChange(index, 'serialNumber', e.target.value)}
-                                className="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                            />
+                        
+                        <div className="col-span-12">
+                            {(product.serialNumbers?.length || 0) > 0 && 
+                                <label className="block text-xs font-medium text-slate-600 mb-2">序號</label>
+                            }
+                            <div className="space-y-2">
+                                {(product.serialNumbers || []).map((serial, serialIndex) => (
+                                    <div key={serialIndex} className="flex items-center gap-2">
+                                        <span className="text-sm text-slate-500 font-mono w-8 text-right pr-2">#{serialIndex + 1}</span>
+                                        <input
+                                            type="text"
+                                            value={serial}
+                                            onChange={(e) => onProductSerialNumberChange(index, serialIndex, e.target.value)}
+                                            placeholder={`第 ${serialIndex + 1} 組產品序號`}
+                                            className="flex-1 min-w-0 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
+
                         {formData.products.length > 1 && (
                             <button
                                 type="button"
@@ -344,18 +352,24 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 
 // --- Report Components ---
 
-const PdfFooter: React.FC = () => (
-    <div className="flex-shrink-0 text-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
-      本表單由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339
+const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
+    <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
+      <span>本表單由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
+      {totalPages && totalPages > 1 && currentPage && (
+        <span className="font-mono">{`${currentPage} / ${totalPages}`}</span>
+      )}
     </div>
 );
+
 
 type ReportLayoutProps = {
   data: WorkOrderData;
   mode: 'screen' | 'pdf-full' | 'pdf-page1' | 'pdf-page2';
+  currentPage?: number;
+  totalPages?: number;
 };
 
-const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
+const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, totalPages }) => {
   const isPdf = mode.startsWith('pdf');
   const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
   const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
@@ -431,7 +445,13 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
                     <tr key={index}>
                       <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{product.serialNumber || 'N/A'}</td>
+                      <td className="px-3 py-2 whitespace-pre-wrap">
+                        {(product.serialNumbers || [])
+                            .map(s => s.trim())
+                            .filter(s => s)
+                            .join('\n') || 'N/A'
+                        }
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -486,7 +506,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
                     </div>
                 </div>
             </div>
-            {isPdf && <PdfFooter />}
+            {isPdf && <PdfFooter currentPage={currentPage} totalPages={totalPages} />}
          </div>
       )}
     </div>
@@ -494,10 +514,10 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
 };
 
 
-const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string[], pageNumber: number, totalPages: number, data: WorkOrderData }) => {
+const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount, pdfTotalPages }: { photos: string[], pageNumber:number, totalPhotoPages: number, data: WorkOrderData, textPageCount: number, pdfTotalPages: number }) => {
     const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
-    const pageTitle = totalPages > 1
-        ? `施工照片 (第 ${pageNumber} / ${totalPages} 頁) - ${data.serviceUnit} (${formattedDate})`
+    const pageTitle = totalPhotoPages > 1
+        ? `施工照片 (第 ${pageNumber} / ${totalPhotoPages} 頁) - ${data.serviceUnit} (${formattedDate})`
         : `施工照片 - ${data.serviceUnit} (${formattedDate})`;
 
     return (
@@ -513,7 +533,7 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPages, data }: { photos: string
                 ))}
                 {Array(4 - photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
             </div>
-            <PdfFooter />
+            <PdfFooter currentPage={textPageCount + pageNumber} totalPages={pdfTotalPages} />
         </div>
     );
 };
@@ -529,21 +549,41 @@ interface ReportViewProps {
 
 const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf, onReset, onEdit, isGeneratingPdf }) => {
     const photoChunks = chunk(data.photos, 4);
+
+    // Replicate logic from generatePdfBlob to calculate page numbers ahead of time
+    const tasksLines = calculateVisualLines(data.tasks);
+    const statusLines = calculateVisualLines(data.status);
+    // Note: PDF splitting logic is based on visual rows (1 per product item), not quantity.
+    const productsLines = data.products.filter(p => p.name.trim() !== '').length;
+    const remarksLines = calculateVisualLines(data.remarks);
+    const totalContentLines = tasksLines + statusLines + productsLines + remarksLines;
     
+    const textPages = totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? 2 : 1;
+    const photoPages = photoChunks.length;
+    const totalPages = textPages + photoPages;
+
     return (
     <>
       {/* Hidden container for pre-rendering PDF layouts */}
       <div className="pdf-render-container">
-        <ReportLayout data={data} mode="pdf-full" />
-        <ReportLayout data={data} mode="pdf-page1" />
-        <ReportLayout data={data} mode="pdf-page2" />
+        {totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? (
+            <>
+              <ReportLayout data={data} mode="pdf-page1" currentPage={1} totalPages={totalPages} />
+              <ReportLayout data={data} mode="pdf-page2" currentPage={2} totalPages={totalPages} />
+            </>
+        ) : (
+            <ReportLayout data={data} mode="pdf-full" currentPage={1} totalPages={totalPages} />
+        )}
+
         {photoChunks.map((photoChunk, index) => (
             <PdfPhotoPage
                 key={index}
                 photos={photoChunk}
                 pageNumber={index + 1}
-                totalPages={photoChunks.length}
+                totalPhotoPages={photoChunks.length}
                 data={data}
+                textPageCount={textPages}
+                pdfTotalPages={totalPages}
             />
         ))}
       </div>
@@ -598,7 +638,7 @@ export const App: React.FC = () => {
             id: `product-${Date.now()}`,
             name: '',
             quantity: 1,
-            serialNumber: '',
+            serialNumbers: [''],
         }],
         dateTime: getFormattedDateTime()
     });
@@ -620,7 +660,7 @@ export const App: React.FC = () => {
     }
     
     if (name === 'remarks') {
-        const totalLines = formData.products.length + calculateVisualLines(tempState.remarks);
+        const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + calculateVisualLines(tempState.remarks);
         if (totalLines > PRODUCTS_REMARKS_LIMIT) {
             // alert('「產品項目」與「備註」總行數已達上限。');
             return; // Exit without calling setFormData
@@ -631,16 +671,56 @@ export const App: React.FC = () => {
     setFormData(tempState);
   }, [formData]);
   
-  const handleProductChange = (index: number, field: keyof Omit<ProductItem, 'id'>, value: string | number) => {
+  const handleProductChange = (index: number, field: 'name' | 'quantity', value: string | number) => {
     setFormData(prev => {
-        const newProducts = [...prev.products];
-        newProducts[index] = { ...newProducts[index], [field]: value };
+        if (field === 'quantity') {
+            const newQuantity = Number(value);
+            const remarksLines = calculateVisualLines(prev.remarks);
+            const otherProductsLines = prev.products.reduce((acc, p, i) => i === index ? acc : acc + p.quantity, 0);
+            if (otherProductsLines + newQuantity + remarksLines > PRODUCTS_REMARKS_LIMIT) {
+                alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法增加數量。`);
+                return prev; // Do not update state
+            }
+        }
+
+        const newProducts = JSON.parse(JSON.stringify(prev.products));
+        const productToUpdate = newProducts[index];
+
+        if (field === 'quantity') {
+            const newQuantity = Number(value);
+            const oldQuantity = productToUpdate.quantity;
+            productToUpdate.quantity = newQuantity;
+
+            const currentSerialNumbers = productToUpdate.serialNumbers || [];
+            if (newQuantity > oldQuantity) {
+                productToUpdate.serialNumbers = [
+                    ...currentSerialNumbers,
+                    ...Array(newQuantity - oldQuantity).fill('')
+                ];
+            } else if (newQuantity < oldQuantity) {
+                productToUpdate.serialNumbers = currentSerialNumbers.slice(0, newQuantity);
+            }
+        } else { // field === 'name'
+            productToUpdate[field] = value;
+        }
+        
         return { ...prev, products: newProducts };
     });
   };
+  
+  const handleProductSerialNumberChange = (productIndex: number, serialIndex: number, value: string) => {
+      setFormData(prev => {
+          const newProducts = [...prev.products];
+          const productToUpdate = { ...newProducts[productIndex] };
+          productToUpdate.serialNumbers = [...productToUpdate.serialNumbers]; // ensure it's a new array
+          productToUpdate.serialNumbers[serialIndex] = value;
+          newProducts[productIndex] = productToUpdate;
+          return { ...prev, products: newProducts };
+      });
+  };
 
   const handleAddProduct = () => {
-    const totalLines = formData.products.length + 1 + calculateVisualLines(formData.remarks);
+    const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + 1 + calculateVisualLines(formData.remarks);
     if (totalLines > PRODUCTS_REMARKS_LIMIT) {
         alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
         return;
@@ -649,7 +729,7 @@ export const App: React.FC = () => {
       id: `product-${Date.now()}`,
       name: '',
       quantity: 1,
-      serialNumber: '',
+      serialNumbers: [''],
     };
     setFormData(prev => ({ ...prev, products: [...prev.products, newProduct] }));
   };
@@ -732,7 +812,39 @@ export const App: React.FC = () => {
   const handleLoadDraft = useCallback((name: string) => {
     if (namedDrafts[name]) {
         if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
-            setFormData(namedDrafts[name]);
+            const draftData = JSON.parse(JSON.stringify(namedDrafts[name])); // Deep copy
+
+            // MIGRATION LOGIC
+            if (draftData.products && Array.isArray(draftData.products)) {
+                draftData.products = draftData.products.map((p: any) => {
+                    const product = {...p}; // work on a copy
+                    const quantity = product.quantity || 1;
+
+                    // Case 1: Old format (has serialNumber, no serialNumbers)
+                    if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
+                        product.serialNumbers = [product.serialNumber || ''];
+                        delete product.serialNumber;
+                    }
+                    
+                    // Ensure serialNumbers is an array
+                    if (!Array.isArray(product.serialNumbers)) {
+                        product.serialNumbers = [];
+                    }
+                    
+                    // Case 2: Sync array length with quantity
+                    const currentLength = product.serialNumbers.length;
+                    if (currentLength < quantity) {
+                        product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
+                    } else if (currentLength > quantity) {
+                        product.serialNumbers = product.serialNumbers.slice(0, quantity);
+                    }
+                    
+                    return product;
+                });
+            }
+            // END MIGRATION
+
+            setFormData(draftData);
             alert(`暫存 "${name}" 已載入。`);
         }
     }
@@ -913,6 +1025,7 @@ export const App: React.FC = () => {
                 formData={formData}
                 onInputChange={handleInputChange}
                 onProductChange={handleProductChange}
+                onProductSerialNumberChange={handleProductSerialNumberChange}
                 onAddProduct={handleAddProduct}
                 onRemoveProduct={handleRemoveProduct}
                 onPhotosChange={handlePhotosChange}
