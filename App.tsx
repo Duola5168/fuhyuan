@@ -14,8 +14,9 @@ declare const google: any;
 
 
 // --- GOOGLE DRIVE API 設定 ---
-const API_KEY = "AIzaSyAfht6ocQcr3myRBRENVGyrxQuMRLmVFok";
-const CLIENT_ID = "442400601776-j23oihd97u8s7j0uo8kflvh1h6s2nqdu.apps.googleusercontent.com";
+// 從環境變數安全地讀取金鑰，避免外洩。
+const API_KEY = process.env.GOOGLE_API_KEY;
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 // ------------------------------
@@ -118,10 +119,10 @@ const migrateWorkOrderData = (data: any): WorkOrderData => {
         product.quantity = quantity;
 
         // 處理舊版的 `serialNumber` (單一序號) 欄位，將其轉換為 `serialNumbers` 陣列。
-        if (typeof product.serialNumber === 'string' && !Array.isArray(product.serialNumbers)) {
-            product.serialNumbers = [product.serialNumber];
+        if (typeof (p as any).serialNumber === 'string' && !Array.isArray(p.serialNumbers)) {
+            product.serialNumbers = [(p as any).serialNumber];
+            delete (product as any).serialNumber; // 移除已棄用的舊欄位
         }
-        delete product.serialNumber; // 移除已棄用的舊欄位
         
         // 確保 `serialNumbers` 是一個陣列，並使其長度與 `quantity` (數量) 同步。
         if (!Array.isArray(product.serialNumbers)) {
@@ -636,7 +637,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                   <tr>
                     {/* // 產品表格的欄位標題 */}
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">產品品名</th>
-                    <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">數量</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">数量</th>
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">序號</th>
                   </tr>
                 </thead>
@@ -844,6 +845,19 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
 
 // --- 主應用程式元件 ---
 
+// 顯示 API 金鑰未設定錯誤的元件
+const ApiKeyErrorDisplay = () => (
+    <div className="p-8 text-center bg-red-50 border-l-4 border-red-400">
+        <h3 className="text-xl font-bold text-red-800">⛔️ Google Drive 功能設定錯誤</h3>
+        <p className="mt-2 text-md text-red-700">
+            應用程式偵測到 Google API 金鑰或用戶端 ID 尚未設定。
+        </p>
+        <p className="mt-4 text-sm text-slate-600 bg-slate-100 p-3 rounded-md">
+            請開發者依照 <code>README.md</code> 檔案中的指示，建立 <code>.env.local</code> 檔案並填入正確的金鑰資訊，以啟用雲端硬碟匯出/匯入功能。
+        </p>
+    </div>
+);
+
 export const App: React.FC = () => {
   const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({});
@@ -860,8 +874,12 @@ export const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState<'delete' | 'export' | null>(null);
 
+  const isApiConfigured = API_KEY && CLIENT_ID;
+
   // --- Google API Initialization ---
   useEffect(() => {
+    if (!isApiConfigured) return;
+
     // Load GAPI for Drive API
     const gapiScript = document.createElement('script');
     gapiScript.src = 'https://apis.google.com/js/api.js';
@@ -899,7 +917,7 @@ export const App: React.FC = () => {
         document.body.removeChild(gisScript);
     };
 
-  }, []);
+  }, [isApiConfigured]);
 
   useEffect(() => {
     // 應用程式載入時的提示訊息
@@ -1145,6 +1163,10 @@ export const App: React.FC = () => {
   }, [tokenClient]);
   
   const handleOpenDraftActionModal = useCallback((action: 'delete' | 'export') => {
+    if (action === 'export' && !isApiConfigured) {
+        alert("Google Drive 功能尚未設定，無法匯出。請開發者設定 API 金鑰。");
+        return;
+    }
     const draftNames = Object.keys(namedDrafts);
     if (draftNames.length === 0) {
       alert(action === 'delete' ? "目前沒有已儲存的暫存可以刪除。" : "目前沒有本機暫存可以匯出。請先「另存新檔」。");
@@ -1152,7 +1174,7 @@ export const App: React.FC = () => {
     }
     setModalAction(action);
     setIsModalOpen(true);
-  }, [namedDrafts]);
+  }, [namedDrafts, isApiConfigured]);
   
   const handleDeleteDraft = useCallback(() => {
     handleOpenDraftActionModal('delete');
@@ -1171,7 +1193,8 @@ export const App: React.FC = () => {
     try {
         await getAuthToken();
         
-        const { photos, signature, technicianSignature, ...dataToExport } = namedDrafts[nameToExport];
+        // 匯出完整的資料，包含圖片和簽名
+        const dataToExport = namedDrafts[nameToExport];
         const fileContent = JSON.stringify(dataToExport, null, 2);
         const blob = new Blob([fileContent], { type: 'application/json' });
         const fileName = `富元工作服務單-${nameToExport}.json`;
@@ -1227,6 +1250,10 @@ export const App: React.FC = () => {
   };
 
   const handleImportFromDrive = useCallback(async () => {
+    if (!isApiConfigured) {
+        alert("Google Drive 功能尚未設定，無法匯入。請開發者設定 API 金鑰。");
+        return;
+    }
     if (!gapiReady || !gisReady) {
         alert("Google Drive 功能正在初始化，請稍候再試。");
         return;
@@ -1334,7 +1361,7 @@ export const App: React.FC = () => {
         const errorMessage = (error instanceof Error) ? error.message : "未知錯誤";
         alert(`從 Google Drive 匯入失敗。請檢查主控台中的錯誤訊息。\n錯誤: ${errorMessage}`);
     }
-  }, [gapiReady, gisReady, getAuthToken, namedDrafts]);
+  }, [gapiReady, gisReady, getAuthToken, namedDrafts, isApiConfigured]);
 
 
   // --- PDF Generation and Sharing ---
@@ -1478,7 +1505,9 @@ export const App: React.FC = () => {
                 isGeneratingPdf={isGeneratingPdf}
               />
             ) : (
-             <WorkOrderForm 
+            <>
+              {!isApiConfigured && <ApiKeyErrorDisplay />}
+              <WorkOrderForm 
                 formData={formData}
                 onInputChange={handleInputChange}
                 onProductChange={handleProductChange}
@@ -1498,7 +1527,8 @@ export const App: React.FC = () => {
                 onImportFromDrive={handleImportFromDrive}
                 onExportToDrive={handleExportToDrive}
                 namedDrafts={namedDrafts}
-             />
+              />
+            </>
             )}
         </div>
         
