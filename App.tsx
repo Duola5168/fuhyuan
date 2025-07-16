@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -447,13 +446,27 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                     <tr key={index}>
                       <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
-                      <td className="px-3 py-2 whitespace-pre-wrap">
-                        {(product.serialNumbers || [])
+                      <td className="px-3 py-2 align-top">
+                        {(() => {
+                          const serials = (product.serialNumbers || [])
                             .map(s => s.trim())
-                            .filter(s => s)
-                            .map((s, idx) => `#${idx + 1}: ${s}`)
-                            .join('\n') || 'N/A'
-                        }
+                            .filter(s => s);
+
+                          if (serials.length === 0) {
+                            return 'N/A';
+                          }
+
+                          return (
+                            <div className="flex flex-col">
+                              {serials.map((s, idx) => (
+                                <React.Fragment key={idx}>
+                                  {idx > 0 && <div className="border-t border-slate-200 my-1"></div>}
+                                  <span>{`#${idx + 1}: ${s}`}</span>
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
