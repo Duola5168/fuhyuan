@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -460,10 +462,16 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
       {/* SIGNATURES & FOOTER */}
       {showSignatures && (
          <div className="pt-12 mt-auto">
-            <div className="grid grid-cols-2 gap-x-12 text-base">
+            <div className="grid grid-cols-3 gap-x-8 text-base">
+                <div className="text-center">
+                    <strong>經理核可：</strong>
+                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
+                        {/* Empty for manual signature */}
+                    </div>
+                </div>
                 <div className="text-center">
                     <strong>服務人員簽認：</strong>
-                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
                     {data.technicianSignature ? (
                         <img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />
                     ) : <span className="text-slate-400">未簽名</span>}
@@ -471,7 +479,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode }) => {
                 </div>
                 <div className="text-center">
                     <strong>客戶簽認：</strong>
-                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 inline-block min-h-[100px] min-w-[200px] flex items-center justify-center">
+                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
                     {data.signature ? (
                         <img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />
                     ) : <span className="text-slate-400">未簽名</span>}
