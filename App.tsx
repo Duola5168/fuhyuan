@@ -1227,16 +1227,34 @@ export const App: React.FC = () => {
             .addView(view)
             .setDeveloperKey(API_KEY)
             .setCallback(async (data: any) => {
-                if (data[google.picker.Action.PICKED]) {
+                if (data.action === google.picker.Action.PICKED) {
+                    const doc = data.docs?.[0];
+                    if (!doc) {
+                        alert('無法取得選擇的檔案資訊，請重試。');
+                        console.error("Picker returned PICKED action but no documents array.", data);
+                        return;
+                    }
+
+                    const fileId = doc.id;
+                    const fileName = doc.name || 'imported-draft';
+
+                    if (!fileId) {
+                        alert('無法從選擇的檔案中取得檔案 ID，請重試。');
+                        console.error("Could not get file ID from picked document.", doc);
+                        return;
+                    }
+                    
                     try {
-                        const doc = data[google.picker.Response.DOCUMENTS][0];
-                        const fileId = doc[google.picker.Document.ID];
-                        const fileName = doc[google.picker.Document.NAME] || 'imported-draft';
-                        
                         const res = await gapi.client.drive.files.get({
                             fileId: fileId,
                             alt: 'media'
                         });
+
+                        if (!res?.result) {
+                            throw new Error("檔案內容為空或格式不正確。");
+                        }
+                        
+                        const importedRawData = res.result;
 
                         const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^富元工作服務單-/, '');
                         const newDraftName = prompt(`請為匯入的暫存檔命名：`, defaultDraftName);
@@ -1255,7 +1273,7 @@ export const App: React.FC = () => {
                                 return currentDrafts;
                             }
     
-                            const importedData = migrateWorkOrderData(res.result);
+                            const importedData = migrateWorkOrderData(importedRawData);
                             const newDrafts = { ...currentDrafts, [newDraftName]: importedData };
                             localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
                             alert(`✅ 暫存 "${newDraftName}" 已成功從雲端硬碟匯入並儲存至本機！`);
@@ -1264,8 +1282,8 @@ export const App: React.FC = () => {
 
                     } catch (err: any) {
                         console.error("Error processing picked file:", err);
-                        const errorMessage = err.result?.error?.message || err.message || '未知錯誤';
-                        alert(`從雲端硬碟讀取或處理檔案失敗。\n\n錯誤: ${errorMessage}`);
+                        const errorDetails = err.result?.error?.message || err.body || err.message || '未知錯誤';
+                        alert(`從雲端硬碟讀取或處理檔案失敗。\n\n錯誤詳情: ${errorDetails}\n\n請確認您有此檔案的讀取權限，且檔案格式正確。`);
                     }
                 }
             })
@@ -1277,7 +1295,7 @@ export const App: React.FC = () => {
         const errorMessage = (error instanceof Error) ? error.message : "未知錯誤";
         alert(`從 Google Drive 匯入失敗。請檢查主控台中的錯誤訊息。\n錯誤: ${errorMessage}`);
     }
-  }, [gapiReady, gisReady, getAuthToken]);
+  }, [gapiReady, gisReady, getAuthToken, namedDrafts]);
 
 
   // --- PDF Generation and Sharing ---
