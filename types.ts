@@ -1,9 +1,10 @@
 
+
 export interface ProductItem {
   id: string;
   name: string;
   quantity: number;
-  serialNumber: string;
+  serialNumbers: string[];
 }
 
 export interface WorkOrderData {
