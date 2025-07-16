@@ -1236,8 +1236,6 @@ export const App: React.FC = () => {
                     }
 
                     const fileId = doc.id;
-                    const fileName = doc.name || 'imported-draft';
-
                     if (!fileId) {
                         alert('無法從選擇的檔案中取得檔案 ID，請重試。');
                         console.error("Could not get file ID from picked document.", doc);
@@ -1255,7 +1253,24 @@ export const App: React.FC = () => {
                         }
                         
                         const importedRawData = res.result;
+                        let importedParsedData: WorkOrderData;
 
+                        // **FIX**: Safely parse the imported data to prevent crashes
+                        try {
+                            if (typeof importedRawData === 'string') {
+                                importedParsedData = JSON.parse(importedRawData);
+                            } else if (typeof importedRawData === 'object' && importedRawData !== null) {
+                                importedParsedData = importedRawData;
+                            } else {
+                                throw new Error('Unrecognized file format.');
+                            }
+                        } catch (parseError) {
+                            console.error("Failed to parse imported JSON:", parseError);
+                            alert("匯入失敗：檔案內容不是有效的 JSON 格式。");
+                            return; // Stop execution to prevent crash
+                        }
+
+                        const fileName = doc.name || 'imported-draft';
                         const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^富元工作服務單-/, '');
                         const newDraftName = prompt(`請為匯入的暫存檔命名：`, defaultDraftName);
 
@@ -1273,7 +1288,7 @@ export const App: React.FC = () => {
                                 return currentDrafts;
                             }
     
-                            const importedData = migrateWorkOrderData(importedRawData);
+                            const importedData = migrateWorkOrderData(importedParsedData);
                             const newDrafts = { ...currentDrafts, [newDraftName]: importedData };
                             localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
                             alert(`✅ 暫存 "${newDraftName}" 已成功從雲端硬碟匯入並儲存至本機！`);
