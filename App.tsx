@@ -379,8 +379,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                          )}
                          <optgroup label="操作">
                             {/* // 新增匯入與匯出的選項 */}
-                            <option value="__IMPORT__">匯入暫存...</option>
-                            <option value="__EXPORT__">匯出暫存...</option>
+                            <option value="__IMPORT__">匯入暫存 (.txt)...</option>
+                            <option value="__EXPORT__">匯出暫存 (.txt)...</option>
                             {/* // 刪除暫存的選項文字 */}
                             <option value="__DELETE__">刪除暫存...</option>
                          </optgroup>
@@ -982,17 +982,26 @@ export const App: React.FC = () => {
     }
 
     const draftData = namedDrafts[nameToExport];
-    const jsonString = JSON.stringify(draftData, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
+    // 建立一個不含圖片與簽名的暫存版本
+    const { 
+        photos, 
+        signature, 
+        technicianSignature, 
+        ...exportData 
+    } = draftData;
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    // 使用 text/plain MIME 類型並儲存為 .txt 檔
+    const blob = new Blob([jsonString], { type: 'text/plain' });
     const href = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = href;
-    link.download = `work-order-${nameToExport}.json`;
+    link.download = `work-order-${nameToExport}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(href);
-    alert(`暫存 "${nameToExport}" 已開始下載。`);
+    alert(`暫存 "${nameToExport}" 已開始下載為 .txt 純文字檔。`);
   }, [namedDrafts]);
 
   const handleImportDraft = useCallback(() => {
@@ -1019,13 +1028,21 @@ export const App: React.FC = () => {
 
             if(window.confirm("您確定要匯入此暫存檔嗎？\n這將會覆蓋目前表單的所有內容。")) {
                 const migratedData = migrateDraftData(data);
-                setFormData(migratedData);
+                
+                // 匯入時，不清空既有的照片和簽名，但從檔案來的資料若有則覆蓋
+                setFormData(prev => ({
+                    ...prev, // 保留現有的照片和簽名
+                    ...migratedData, // 匯入的資料覆蓋其他欄位
+                    photos: migratedData.photos || prev.photos || [],
+                    signature: migratedData.signature || prev.signature || null,
+                    technicianSignature: migratedData.technicianSignature || prev.technicianSignature || null,
+                }));
                 alert("暫存檔已成功匯入。");
             }
 
         } catch (error) {
             console.error("Failed to import draft:", error);
-            alert("匯入失敗。請確認檔案是否為正確的暫存檔格式。");
+            alert("匯入失敗。請確認檔案是否為正確的 .txt 或 .json 暫存檔格式。");
         } finally {
             // Reset file input to allow importing the same file again
             event.target.value = "";
@@ -1177,7 +1194,7 @@ export const App: React.FC = () => {
             ref={importFileRef}
             onChange={handleFileImported}
             className="hidden"
-            accept=".json,application/json"
+            accept=".json,application/json,.txt,text/plain"
         />
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
            {isSubmitted ? (
