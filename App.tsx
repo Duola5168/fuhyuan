@@ -19,6 +19,8 @@ const API_KEY = process.env.GOOGLE_API_KEY;
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+// 用於 localStorage 儲存授權狀態的鍵值，解決每次都要重新授權的問題
+const GOOGLE_AUTH_GRANTED_KEY = 'googleAuthGranted';
 // ------------------------------
 
 
@@ -545,7 +547,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
     <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
       {/* // PDF 頁尾左側的文字，可在此修改 */}
-      <span>本表單(V1.1)由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
+      <span>本表單(V1.2)由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
       {totalPages && currentPage && (
         // 頁碼的字體大小，可在此修改。常用尺寸: text-xs, text-sm, text-base, text-lg
         <span className="font-mono text-base">{`${currentPage} / ${totalPages}`}</span>
@@ -973,43 +975,47 @@ export const App: React.FC = () => {
     setFormData(tempState);
   }, [formData]);
   
-  const handleProductChange = (index: number, field: 'name' | 'quantity', value: string | number) => {
+  // Refactored product change handler for better performance and readability
+  const handleProductChange = useCallback((index: number, field: 'name' | 'quantity', value: string | number) => {
     setFormData(prev => {
         if (field === 'quantity') {
             const newQuantity = Number(value);
             const remarksLines = calculateVisualLines(prev.remarks);
             const otherProductsLines = prev.products.reduce((acc, p, i) => i === index ? acc : acc + p.quantity, 0);
             if (otherProductsLines + newQuantity + remarksLines > PRODUCTS_REMARKS_LIMIT) {
-                // 增加數量超出限制時的提示文字
                 alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法增加數量。`);
                 return prev;
             }
         }
 
-        const newProducts = JSON.parse(JSON.stringify(prev.products));
-        const productToUpdate = newProducts[index];
-
-        if (field === 'quantity') {
-            const newQuantity = Number(value);
-            const oldQuantity = productToUpdate.quantity;
-            productToUpdate.quantity = newQuantity;
-
-            const currentSerialNumbers = productToUpdate.serialNumbers || [];
-            if (newQuantity > oldQuantity) {
-                productToUpdate.serialNumbers = [
-                    ...currentSerialNumbers,
-                    ...Array(newQuantity - oldQuantity).fill('')
-                ];
-            } else if (newQuantity < oldQuantity) {
-                productToUpdate.serialNumbers = currentSerialNumbers.slice(0, newQuantity);
+        const newProducts = prev.products.map((product, i) => {
+            if (i !== index) {
+                return product;
             }
-        } else {
-            productToUpdate[field] = value;
-        }
+
+            if (field === 'quantity') {
+                const newQuantity = Number(value);
+                const oldQuantity = product.quantity;
+                const currentSerialNumbers = product.serialNumbers || [];
+                let newSerialNumbers = currentSerialNumbers;
+
+                if (newQuantity > oldQuantity) {
+                    newSerialNumbers = [
+                        ...currentSerialNumbers,
+                        ...Array(newQuantity - oldQuantity).fill('')
+                    ];
+                } else if (newQuantity < oldQuantity) {
+                    newSerialNumbers = currentSerialNumbers.slice(0, newQuantity);
+                }
+                return { ...product, quantity: newQuantity, serialNumbers: newSerialNumbers };
+            } else {
+                return { ...product, name: String(value) };
+            }
+        });
         
         return { ...prev, products: newProducts };
     });
-  };
+  }, []);
   
   const handleProductSerialNumberChange = (productIndex: number, serialIndex: number, value: string) => {
       setFormData(prev => {
@@ -1146,18 +1152,32 @@ export const App: React.FC = () => {
             reject(new Error("Google Auth client is not ready."));
             return;
         }
-        
-        tokenClient.callback = (resp: any) => {
+
+        // Define the callback function to handle the token response.
+        const callback = (resp: any) => {
             if (resp.error !== undefined) {
+                // If there's an error (e.g., user denies permission), remove the granted flag.
+                // This ensures the consent screen will be shown next time.
+                localStorage.removeItem(GOOGLE_AUTH_GRANTED_KEY);
                 reject(resp);
+            } else {
+                // On success, set the flag to remember the grant and resolve the promise.
+                localStorage.setItem(GOOGLE_AUTH_GRANTED_KEY, 'true');
+                resolve(resp);
             }
-            resolve(resp);
         };
         
-        if (gapi.client.getToken() === null) {
-            tokenClient.requestAccessToken({ prompt: 'consent' });
-        } else {
+        tokenClient.callback = callback;
+        
+        // Check if user has previously granted consent.
+        const hasGranted = localStorage.getItem(GOOGLE_AUTH_GRANTED_KEY) === 'true';
+
+        // If user has granted consent before, try a silent request to get a token without a popup.
+        // Otherwise, show the consent screen to get the initial grant.
+        if (hasGranted) {
             tokenClient.requestAccessToken({ prompt: '' });
+        } else {
+            tokenClient.requestAccessToken({ prompt: 'consent' });
         }
     });
   }, [tokenClient]);
