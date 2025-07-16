@@ -90,40 +90,70 @@ const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number
 };
 
 /**
- * 遷移舊版資料格式至新版
- * @param data WorkOrderData
- * @returns 遷移完成的 WorkOrderData
+ * **【重要】** 遷移並驗證工作單資料
+ * 此函式確保不論從 localStorage 或雲端載入的資料格式有多舊或不完整，
+ * 都能被安全地轉換成最新的、可供渲染的格式，防止程式崩潰。
+ * @param data 任何來源的工作單資料
+ * @returns 格式完整且安全的 WorkOrderData
  */
 const migrateWorkOrderData = (data: any): WorkOrderData => {
-    const migratedData = JSON.parse(JSON.stringify(data));
-    if (migratedData.products && Array.isArray(migratedData.products)) {
-        migratedData.products = migratedData.products.map((p: any) => {
-            const product = {...p}; 
-            const quantity = product.quantity || 1;
+    // 1. 使用初始資料作為基底，確保所有欄位都存在，防止因缺少欄位導致的錯誤。
+    const sanitizedData = { ...initialFormData, ...data };
 
-            // Handle legacy serialNumber (singular) field
-            if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
-                product.serialNumbers = [product.serialNumber || ''];
-                delete product.serialNumber;
-            }
-            
-            // Ensure serialNumbers is an array
-            if (!Array.isArray(product.serialNumbers)) {
-                product.serialNumbers = [];
-            }
-            
-            // Sync serialNumbers array length with quantity
+    // 2. 確保 `products` 欄位是一個非空的陣列。
+    if (!Array.isArray(sanitizedData.products) || sanitizedData.products.length === 0) {
+        sanitizedData.products = [{...initialProduct}];
+    }
+    
+    // 3. 遍歷並清理每一個產品項目，確保其結構正確。
+    sanitizedData.products = sanitizedData.products.map((p: any) => {
+        // 如果產品不是一個有效的物件，就返回一個全新的預設產品，防止錯誤。
+        if (typeof p !== 'object' || p === null) {
+            return { ...initialProduct, id: `product-${Date.now()}` };
+        }
+
+        // 使用預設產品結構作為基底，確保產品物件的每個鍵都存在。
+        const product = { ...initialProduct, ...p }; 
+        const quantity = Number(product.quantity) || 1;
+        product.quantity = quantity;
+
+        // 處理舊版的 `serialNumber` (單一序號) 欄位，將其轉換為 `serialNumbers` 陣列。
+        if (typeof product.serialNumber === 'string' && !Array.isArray(product.serialNumbers)) {
+            product.serialNumbers = [product.serialNumber];
+        }
+        delete product.serialNumber; // 移除已棄用的舊欄位
+        
+        // 確保 `serialNumbers` 是一個陣列，並使其長度與 `quantity` (數量) 同步。
+        if (!Array.isArray(product.serialNumbers)) {
+            product.serialNumbers = Array(quantity).fill('');
+        } else {
             const currentLength = product.serialNumbers.length;
             if (currentLength < quantity) {
+                // 如果序號欄位少於產品數量，則補上空欄位。
                 product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
             } else if (currentLength > quantity) {
+                // 如果序號欄位多於產品數量，則移除多餘的。
                 product.serialNumbers = product.serialNumbers.slice(0, quantity);
             }
-            
-            return product;
-        });
+        }
+        
+        return product;
+    });
+
+    // 4. 確保所有文字欄位都是字串型別。
+    const stringKeys: (keyof WorkOrderData)[] = ['dateTime', 'serviceUnit', 'contactPerson', 'contactPhone', 'tasks', 'status', 'remarks'];
+    for (const key of stringKeys) {
+        if (typeof sanitizedData[key] !== 'string') {
+            sanitizedData[key] = '';
+        }
     }
-    return migratedData;
+
+    // 5. 確保簽名和照片欄位是正確的型別 (因為匯出的檔案不包含這些，所以通常會是預設值)。
+    sanitizedData.photos = Array.isArray(sanitizedData.photos) ? sanitizedData.photos : [];
+    sanitizedData.signature = typeof sanitizedData.signature === 'string' ? sanitizedData.signature : null;
+    sanitizedData.technicianSignature = typeof sanitizedData.technicianSignature === 'string' ? sanitizedData.technicianSignature : null;
+
+    return sanitizedData as WorkOrderData;
 };
 
 
@@ -1247,27 +1277,21 @@ export const App: React.FC = () => {
                             fileId: fileId,
                             alt: 'media'
                         });
-
-                        if (!res?.result) {
-                            throw new Error("檔案內容為空或格式不正確。");
-                        }
                         
-                        const importedRawData = res.result;
-                        let importedParsedData: WorkOrderData;
-
-                        // **FIX**: Safely parse the imported data to prevent crashes
+                        let importedParsedData: any;
                         try {
-                            if (typeof importedRawData === 'string') {
-                                importedParsedData = JSON.parse(importedRawData);
-                            } else if (typeof importedRawData === 'object' && importedRawData !== null) {
-                                importedParsedData = importedRawData;
+                            const rawResult = res.result;
+                            if (typeof rawResult === 'string') {
+                                importedParsedData = JSON.parse(rawResult);
+                            } else if (typeof rawResult === 'object' && rawResult !== null) {
+                                importedParsedData = rawResult;
                             } else {
-                                throw new Error('Unrecognized file format.');
+                                throw new Error('Unrecognized or empty file content.');
                             }
                         } catch (parseError) {
                             console.error("Failed to parse imported JSON:", parseError);
                             alert("匯入失敗：檔案內容不是有效的 JSON 格式。");
-                            return; // Stop execution to prevent crash
+                            return; 
                         }
 
                         const fileName = doc.name || 'imported-draft';
