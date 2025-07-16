@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -356,7 +357,7 @@ const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ c
     <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
       <span>本表單由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
       {totalPages && totalPages > 1 && currentPage && (
-        <span className="font-mono">{`${currentPage} / ${totalPages}`}</span>
+        <span className="font-mono text-sm">{`${currentPage} / ${totalPages}`}</span>
       )}
     </div>
 );
@@ -373,6 +374,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
   const isPdf = mode.startsWith('pdf');
   const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
   const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
+  const showManagerApproval = mode !== 'pdf-page2';
 
   // Flags for what to display based on the mode
   const showMainHeaderAndCustomerInfo = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1' || mode === 'pdf-page2';
@@ -449,6 +451,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                         {(product.serialNumbers || [])
                             .map(s => s.trim())
                             .filter(s => s)
+                            .map((s, idx) => `#${idx + 1}: ${s}`)
                             .join('\n') || 'N/A'
                         }
                       </td>
@@ -482,13 +485,15 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
       {/* SIGNATURES & FOOTER */}
       {showSignatures && (
          <div className="pt-12 mt-auto">
-            <div className="grid grid-cols-3 gap-x-8 text-base">
-                <div className="text-center">
-                    <strong>經理核可：</strong>
-                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
-                        {/* Empty for manual signature */}
-                    </div>
-                </div>
+            <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-base`}>
+                {showManagerApproval && (
+                  <div className="text-center">
+                      <strong>經理核可：</strong>
+                      <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
+                          {/* Empty for manual signature */}
+                      </div>
+                  </div>
+                )}
                 <div className="text-center">
                     <strong>服務人員簽認：</strong>
                     <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
