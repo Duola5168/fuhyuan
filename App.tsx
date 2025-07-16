@@ -7,12 +7,16 @@ import ImageUploader from './components/ImageUploader';
 // Add type declarations for CDN libraries
 declare const jsPDF: any;
 declare const html2canvas: any;
+declare const google: any;
+declare const gapi: any;
 
-declare global {
-  interface Window {
-    JSZip: any;
-  }
-}
+// --- GOOGLE DRIVE API 設定 ---
+// 請在此處填入您從 Google Cloud Platform 取得的 API Key 和 Client ID
+const API_KEY = "請填入您的API_KEY"; 
+const CLIENT_ID = "請填入您的CLIENT_ID";
+// ------------------------------
+
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 // --- 全域設定參數 ---
 
@@ -59,6 +63,47 @@ const initialFormData: WorkOrderData = {
 };
 
 // --- 工具函式 ---
+
+/**
+ * 處理舊資料格式的遷移，確保與最新資料結構相容。
+ * @param data 從暫存或雲端讀取的原始資料
+ * @returns 符合最新 WorkOrderData 格式的資料
+ */
+const migrateWorkOrderData = (data: any): WorkOrderData => {
+    // 進行深度複製，避免修改到原始物件
+    const draftData = JSON.parse(JSON.stringify(data));
+
+    if (draftData.products && Array.isArray(draftData.products)) {
+        draftData.products = draftData.products.map((p: any) => {
+            const product = {...p}; 
+            const quantity = product.quantity || 1;
+
+            // 遷移：將單一的 serialNumber 欄位轉換為 serialNumbers 陣列
+            if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
+                product.serialNumbers = [product.serialNumber || ''];
+                delete product.serialNumber;
+            }
+            
+            // 確保 serialNumbers 是一個陣列
+            if (!Array.isArray(product.serialNumbers)) {
+                product.serialNumbers = [];
+            }
+            
+            // 根據產品數量，自動補齊或刪減序號欄位
+            const currentLength = product.serialNumbers.length;
+            if (currentLength < quantity) {
+                product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
+            } else if (currentLength > quantity) {
+                product.serialNumbers = product.serialNumbers.slice(0, quantity);
+            }
+            
+            return product;
+        });
+    }
+    return draftData;
+};
+
+
 // 將陣列分塊的函式，用於將照片分頁
 const chunk = <T,>(arr: T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
@@ -80,40 +125,6 @@ const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number
         const wrappedLines = Math.ceil(line.length / avgCharsPerLine);
         return acc + Math.max(1, wrappedLines);
     }, 0);
-};
-
-// --- 資料遷移函式 ---
-// 確保舊的暫存檔格式能相容於新的資料結構
-const migrateDraftData = (draftData: any): WorkOrderData => {
-    const migrated = JSON.parse(JSON.stringify(draftData)); // Deep copy to avoid modifying original object
-
-    if (migrated.products && Array.isArray(migrated.products)) {
-        migrated.products = migrated.products.map((p: any) => {
-            const product = {...p}; 
-            const quantity = product.quantity || 1;
-
-            // Handle migration from old 'serialNumber' to new 'serialNumbers' array
-            if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
-                product.serialNumbers = [product.serialNumber || ''];
-                delete product.serialNumber;
-            }
-            
-            if (!Array.isArray(product.serialNumbers)) {
-                product.serialNumbers = [];
-            }
-            
-            // Adjust serial number fields based on quantity
-            const currentLength = product.serialNumbers.length;
-            if (currentLength < quantity) {
-                product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
-            } else if (currentLength > quantity) {
-                product.serialNumbers = product.serialNumbers.slice(0, quantity);
-            }
-            
-            return product;
-        });
-    }
-    return migrated;
 };
 
 
@@ -212,10 +223,9 @@ interface WorkOrderFormProps {
     onSaveAsDraft: () => void;
     onLoadDraft: (name: string) => void;
     onDeleteDraft: () => void;
-    onExportZipDraft: () => void;
-    onShareZipDraft: () => void;
-    onImportDraft: () => void;
     onClearData: () => void;
+    onExportToDrive: () => void;
+    onImportFromDrive: () => void;
     namedDrafts: { [name: string]: WorkOrderData };
 }
 
@@ -236,10 +246,9 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     onSaveAsDraft,
     onLoadDraft,
     onDeleteDraft,
-    onExportZipDraft,
-    onShareZipDraft,
-    onImportDraft,
     onClearData,
+    onExportToDrive,
+    onImportFromDrive,
     namedDrafts
 }) => {
     const tasksStatusTotal = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status);
@@ -363,12 +372,10 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                             const value = e.target.value;
                             if (value === '__DELETE__') {
                                 onDeleteDraft();
-                            } else if (value === '__EXPORT_ZIP__') {
-                                onExportZipDraft();
-                            } else if (value === '__SHARE_EXPORT__') {
-                                onShareZipDraft();
-                            } else if (value === '__IMPORT__') {
-                                onImportDraft();
+                            } else if (value === '__EXPORT_GDRIVE__') {
+                                onExportToDrive();
+                            } else if (value === '__IMPORT_GDRIVE__') {
+                                onImportFromDrive();
                             } else if (value) {
                                 onLoadDraft(value);
                             }
@@ -380,16 +387,18 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                          {/* // 暫存管理下拉選單的預設提示文字 */}
                          <option value="" disabled>載入/管理暫存</option>
                          {draftNames.length > 0 && (
-                             <optgroup label="選擇暫存載入">
+                             <optgroup label="從本機載入">
                                 {draftNames.map(name => (
                                     <option key={name} value={name}>{name}</option>
                                 ))}
                             </optgroup>
                          )}
-                         <optgroup label="操作">
-                            <option value="__IMPORT__">匯入暫存...</option>
-                            <option value="__EXPORT_ZIP__">匯出暫存...</option>
-                            <option value="__SHARE_EXPORT__">分享匯出...</option>
+                         <optgroup label="雲端操作">
+                            <option value="__IMPORT_GDRIVE__">從雲端硬碟匯入...</option>
+                            <option value="__EXPORT_GDRIVE__">匯出至雲端硬碟...</option>
+                         </optgroup>
+                         <optgroup label="本機管理">
+                            {/* // 刪除暫存的選項文字 */}
                             <option value="__DELETE__">刪除暫存...</option>
                          </optgroup>
                     </select>
@@ -735,9 +744,201 @@ export const App: React.FC = () => {
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [isGeneratingZip, setIsGeneratingZip] = useState(false);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
+  const [gapiLoaded, setGapiLoaded] = useState(false);
+  const [gisLoaded, setGisLoaded] = useState(false);
+  const tokenClient = useRef<any>(null);
+  
+  // --- Google Drive API 初始化 ---
+  useEffect(() => {
+    const scriptGapi = document.createElement('script');
+    scriptGapi.src = 'https://apis.google.com/js/api.js';
+    scriptGapi.async = true;
+    scriptGapi.defer = true;
+    scriptGapi.onload = () => gapi.load('client:picker', () => setGapiLoaded(true));
+    document.body.appendChild(scriptGapi);
+
+    const scriptGis = document.createElement('script');
+    scriptGis.src = 'https://accounts.google.com/gsi/client';
+    scriptGis.async = true;
+    scriptGis.defer = true;
+    scriptGis.onload = () => setGisLoaded(true);
+    document.body.appendChild(scriptGis);
+  }, []);
+
+  useEffect(() => {
+    if (gapiLoaded && gisLoaded) {
+      tokenClient.current = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // The callback is handled by the promise
+      });
+    }
+  }, [gapiLoaded, gisLoaded]);
+  
+  // --- Google Drive 功能 ---
+  
+  const initializeDriveApi = useCallback(async () => {
+    if (API_KEY === "請填入您的API_KEY" || CLIENT_ID === "請填入您的CLIENT_ID") {
+        alert("錯誤：Google Drive 功能尚未設定。\n請開發者在程式碼中填入 API Key 和 Client ID。");
+        return false;
+    }
+    
+    try {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+      });
+      return true;
+    } catch(e) {
+      console.error("GAPI client init error", e);
+      alert("無法初始化 Google API Client。請檢查您的 API Key 設定。");
+      return false;
+    }
+  }, []);
+  
+  const requestAccessToken = useCallback(async () => {
+    if (!tokenClient.current) {
+        alert("Google 授權服務尚未準備就緒，請稍後再試。");
+        return;
+    }
+    return new Promise((resolve, reject) => {
+      tokenClient.current.callback = (resp: any) => {
+        if (resp.error) {
+          reject(resp);
+        } else {
+          resolve(resp);
+        }
+      };
+      
+      // If gapi.client.getToken() is null, we need to ask for consent
+      if (gapi.client.getToken() === null) {
+        tokenClient.current.requestAccessToken({ prompt: 'consent' });
+      } else {
+        tokenClient.current.requestAccessToken({ prompt: '' });
+      }
+    });
+  }, []);
+
+
+  const handleExportToDrive = useCallback(async () => {
+    const draftNames = Object.keys(namedDrafts);
+    if (draftNames.length === 0) {
+      alert("沒有本地暫存可匯出。請先使用「另存新檔」儲存一個暫存。");
+      return;
+    }
+    
+    const draftNameToExport = prompt(`請選擇要匯出到雲端硬碟的本地暫存：\n\n${draftNames.join('\n')}`);
+    if (!draftNameToExport || !namedDrafts[draftNameToExport]) {
+      if(draftNameToExport) alert(`找不到名為 "${draftNameToExport}" 的本地暫存。`);
+      return;
+    }
+
+    if (!await initializeDriveApi()) return;
+    
+    try {
+      await requestAccessToken();
+      
+      const draftData = namedDrafts[draftNameToExport];
+      // We only export text data to JSON, not images or signatures
+      const dataToExport = { ...draftData, photos: [], signature: null, technicianSignature: null };
+      const fileContent = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([fileContent], { type: 'application/json' });
+      const fileName = `富元工作服務單-${draftNameToExport}.json`;
+
+      const boundary = '-------314159265358979323846';
+      const delimiter = "\r\n--" + boundary + "\r\n";
+      const close_delim = "\r\n--" + boundary + "--";
+
+      const reader = new FileReader();
+      reader.readAsBinaryString(blob);
+      reader.onload = async () => {
+        const contentType = blob.type || 'application/octet-stream';
+        const metadata = {
+          'name': fileName,
+          'mimeType': contentType,
+        };
+
+        const base64Data = btoa(reader.result as string);
+        const multipartRequestBody =
+            delimiter +
+            'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+            JSON.stringify(metadata) +
+            delimiter +
+            'Content-Type: ' + contentType + '\r\n' +
+            'Content-Transfer-Encoding: base64\r\n' +
+            '\r\n' +
+            base64Data +
+            close_delim;
+        
+        const request = gapi.client.request({
+            'path': '/upload/drive/v3/files',
+            'method': 'POST',
+            'params': {'uploadType': 'multipart'},
+            'headers': {
+                'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+            },
+            'body': multipartRequestBody
+        });
+
+        await request;
+        alert(`✅ 成功將暫存 "${draftNameToExport}" 匯出至您的 Google 雲端硬碟！\n檔名為：${fileName}`);
+      };
+    } catch (error: any) {
+        console.error("Export to Drive error:", error);
+        if (error.result?.error?.message) {
+            alert(`匯出失敗：${error.result.error.message}`);
+        } else {
+            alert('匯出至雲端硬碟時發生錯誤，使用者可能已取消操作。');
+        }
+    }
+  }, [namedDrafts, initializeDriveApi, requestAccessToken]);
+
+  const handleImportFromDrive = useCallback(async () => {
+    if (!await initializeDriveApi()) return;
+
+    try {
+        await requestAccessToken();
+        const view = new google.picker.View(google.picker.ViewId.DOCS);
+        view.setMimeTypes("application/json");
+
+        const picker = new google.picker.PickerBuilder()
+            .enableFeature(google.picker.Feature.NAV_HIDDEN)
+            .setAppId(CLIENT_ID.split('-')[0])
+            .setOAuthToken(gapi.auth.getToken().access_token)
+            .addView(view)
+            .setDeveloperKey(API_KEY)
+            .setCallback(async (data: any) => {
+                if (data[google.picker.Action.PICKED]) {
+                    const fileId = data[google.picker.Response.DOCUMENTS][0][google.picker.Document.ID];
+                    const response = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    
+                    const rawData = JSON.parse(response.body);
+
+                    if (window.confirm("您確定要從雲端硬碟載入此檔案嗎？\n這將會覆蓋目前表單的所有內容。")) {
+                         const migratedData = migrateWorkOrderData(rawData);
+                        setFormData(migratedData);
+                        alert("✅ 已成功從雲端硬碟載入暫存。");
+                    }
+                }
+            })
+            .build();
+        picker.setVisible(true);
+    } catch (error: any) {
+        console.error("Import from Drive error:", error);
+        if (error.result?.error?.message) {
+            alert(`匯入失敗：${error.result.error.message}`);
+        } else {
+            alert('從雲端硬碟匯入時發生錯誤，使用者可能已取消操作。');
+        }
+    }
+  }, [initializeDriveApi, requestAccessToken]);
+
+
+  // --- 本地暫存功能 ---
   useEffect(() => {
     // 應用程式載入時的提示訊息
     alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
@@ -940,8 +1141,8 @@ export const App: React.FC = () => {
     if (namedDrafts[name]) {
         // 載入暫存時的確認提示文字
         if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
-            const draftData = migrateDraftData(namedDrafts[name]);
-            setFormData(draftData);
+            const migratedData = migrateWorkOrderData(namedDrafts[name]);
+            setFormData(migratedData);
             // 載入成功後的提示文字
             alert(`暫存 "${name}" 已載入。`);
         }
@@ -977,215 +1178,6 @@ export const App: React.FC = () => {
         alert(`找不到名為 "${nameToDelete}" 的暫存。`);
     }
   }, [namedDrafts]);
-  
-  const generateZipBlob = async (draftName: string): Promise<Blob | null> => {
-    if (typeof window.JSZip === 'undefined') {
-        alert("匯出功能所需的函式庫載入失敗。請檢查您的網路連線，或稍後再試。");
-        return null;
-    }
-
-    if (!namedDrafts[draftName]) {
-        alert(`找不到名為 "${draftName}" 的暫存。`);
-        return null;
-    }
-    try {
-        const draftData = namedDrafts[draftName];
-        const zip = new window.JSZip();
-        
-        const exportData = JSON.parse(JSON.stringify(draftData));
-
-        if (draftData.photos && draftData.photos.length > 0) {
-            const photoFilenames: string[] = [];
-            draftData.photos.forEach((photoDataUrl, index) => {
-                const fileExtension = photoDataUrl.startsWith('data:image/jpeg') ? 'jpg' : 'png';
-                const filename = `photos/photo_${index}.${fileExtension}`;
-                photoFilenames.push(filename);
-                const base64Data = photoDataUrl.split(',')[1];
-                zip.file(filename, base64Data, { base64: true });
-            });
-            exportData.photos = photoFilenames;
-        }
-
-        if (draftData.signature) {
-            const filename = 'signatures/customer_signature.png';
-            exportData.signature = filename;
-            const base64Data = draftData.signature.split(',')[1];
-            zip.file(filename, base64Data, { base64: true });
-        }
-        if (draftData.technicianSignature) {
-            const filename = 'signatures/technician_signature.png';
-            exportData.technicianSignature = filename;
-            const base64Data = draftData.technicianSignature.split(',')[1];
-            zip.file(filename, base64Data, { base64: true });
-        }
-        
-        zip.file('work-order-data.json', JSON.stringify(exportData, null, 2));
-        
-        const blob = await zip.generateAsync({ type: 'blob', compression: "DEFLATE", compressionOptions: { level: 9 } });
-        return blob;
-    } catch (error) {
-        console.error("Failed to generate ZIP:", error);
-        alert(`產生 ZIP 檔失敗: ${error instanceof Error ? error.message : String(error)}`);
-        return null;
-    }
-  };
-
-  const handleExportZipDraft = useCallback(async () => {
-    const draftNames = Object.keys(namedDrafts);
-    if (draftNames.length === 0) {
-        alert("目前沒有已儲存的暫存可以匯出。");
-        return;
-    }
-    const nameToExport = prompt(`請選擇您想匯出的暫存檔：\n\n${draftNames.join('\n')}`);
-    if (!nameToExport) return;
-    
-    setIsGeneratingZip(true);
-    const blob = await generateZipBlob(nameToExport);
-    setIsGeneratingZip(false);
-
-    if (blob) {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `富元工作服務單-${nameToExport}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-    }
-  }, [namedDrafts]);
-  
-  const handleShareZipDraft = useCallback(async () => {
-    const draftNames = Object.keys(namedDrafts);
-    if (draftNames.length === 0) {
-        alert("目前沒有已儲存的暫存可以分享。");
-        return;
-    }
-    const nameToShare = prompt(`請選擇您想分享的暫存檔：\n\n${draftNames.join('\n')}`);
-    if (!nameToShare) return;
-    
-    setIsGeneratingZip(true);
-    const blob = await generateZipBlob(nameToShare);
-    setIsGeneratingZip(false);
-
-    if (!blob) return;
-    
-    const fileName = `富元工作服務單-${nameToShare}.zip`;
-    const file = new File([blob], fileName, { type: 'application/zip' });
-    const shareData = {
-      files: [file],
-      title: `工作服務單暫存 - ${nameToShare}`,
-      text: `請查收 ${nameToShare} 的工作服務單暫存檔。`,
-    };
-
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-      } catch (error) {
-        const abortError = error as DOMException;
-        if (abortError.name !== 'AbortError') {
-            console.error('Error sharing ZIP:', error);
-            alert('分享失敗，請稍後再試。');
-        }
-      }
-    } else {
-      alert('您的瀏覽器不支援檔案分享。請先使用「匯出暫存」下載檔案後再手動分享。');
-    }
-  }, [namedDrafts]);
-
-
-  const handleImportDraft = useCallback(() => {
-    importFileRef.current?.click();
-  }, []);
-  
-  const handleFileImported = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const resetInput = () => { if(event.target) event.target.value = ""; };
-
-    try {
-        if (file.name.endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed') {
-            if (typeof window.JSZip === 'undefined') {
-                alert("匯入功能所需的函式庫載入失敗。請檢查您的網路連線，或稍後再試。");
-                resetInput();
-                return;
-            }
-            if (!window.confirm("您確定要匯入此 .zip 暫存檔嗎？\n這將會覆蓋目前表單的所有內容。")) {
-                resetInput();
-                return;
-            }
-            const zip = await window.JSZip.loadAsync(file);
-            const dataFile = zip.file('work-order-data.json');
-            if (!dataFile) {
-                throw new Error("ZIP 檔案中找不到 'work-order-data.json'。");
-            }
-            const jsonString = await dataFile.async('string');
-            let data = JSON.parse(jsonString);
-
-            if (data.photos && Array.isArray(data.photos)) {
-                const photoPromises = data.photos.map(async (filename: string) => {
-                    const imgFile = zip.file(filename);
-                    if (!imgFile) return null;
-                    const base64 = await imgFile.async('base64');
-                    const mimeType = filename.endsWith('.png') ? 'image/png' : 'image/jpeg';
-                    return `data:${mimeType};base64,${base64}`;
-                });
-                data.photos = (await Promise.all(photoPromises)).filter((p): p is string => p !== null);
-            }
-
-            if (data.signature && typeof data.signature === 'string') {
-                const sigFile = zip.file(data.signature);
-                if (sigFile) {
-                    const base64 = await sigFile.async('base64');
-                    data.signature = `data:image/png;base64,${base64}`;
-                }
-            }
-            if (data.technicianSignature && typeof data.technicianSignature === 'string') {
-                const techSigFile = zip.file(data.technicianSignature);
-                if (techSigFile) {
-                    const base64 = await techSigFile.async('base64');
-                    data.technicianSignature = `data:image/png;base64,${base64}`;
-                }
-            }
-            
-            setFormData(migrateDraftData(data));
-            alert("ZIP 暫存檔已成功匯入。");
-
-        } else {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const result = e.target?.result;
-                    if (typeof result !== 'string') throw new Error("檔案內容無法讀取為文字。");
-                    
-                    const data = JSON.parse(result);
-                    if (!data.dateTime || !data.serviceUnit) throw new Error("無效的暫存檔格式。");
-                    
-                    if(window.confirm("您確定要匯入此暫存檔嗎？\n這將會覆蓋目前表單的所有內容。")) {
-                        const migratedData = migrateDraftData(data);
-                        setFormData(prev => ({
-                            ...prev,
-                            ...migratedData,
-                            photos: migratedData.photos || prev.photos || [],
-                            signature: migratedData.signature || prev.signature || null,
-                            technicianSignature: migratedData.technicianSignature || prev.technicianSignature || null,
-                        }));
-                        alert("暫存檔已成功匯入。");
-                    }
-                } catch (err) {
-                     console.error("Failed to import draft:", err);
-                     alert("匯入失敗。請確認檔案是否為正確的 .txt 或 .json 暫存檔格式。");
-                }
-            };
-            reader.readAsText(file);
-        }
-    } catch (error) {
-        console.error("Failed to import draft:", error);
-        alert(`匯入失敗: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-        resetInput();
-    }
-  }, []);
 
   const handleClearData = useCallback(() => {
     // 清除表單資料的確認提示文字
@@ -1325,13 +1317,6 @@ export const App: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-slate-100">
-        <input 
-            type="file"
-            ref={importFileRef}
-            onChange={handleFileImported}
-            className="hidden"
-            accept=".json,.txt,.zip,application/json,text/plain,application/zip,application/x-zip-compressed"
-        />
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
            {isSubmitted ? (
              <ReportView 
@@ -1359,22 +1344,19 @@ export const App: React.FC = () => {
                 onSaveAsDraft={handleSaveAsDraft}
                 onLoadDraft={handleLoadDraft}
                 onDeleteDraft={handleDeleteDraft}
-                onExportZipDraft={handleExportZipDraft}
-                onShareZipDraft={handleShareZipDraft}
-                onImportDraft={handleImportDraft}
                 onClearData={handleClearData}
+                onExportToDrive={handleExportToDrive}
+                onImportFromDrive={handleImportFromDrive}
                 namedDrafts={namedDrafts}
              />
             )}
         </div>
         
-        {(isGeneratingPdf || isGeneratingZip) && (
+        {isGeneratingPdf && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="text-center">
-                {/* // 正在產生檔案時的提示文字 */}
-                <p className="text-lg font-semibold text-slate-700">
-                    {isGeneratingPdf ? '正在處理 PDF...' : '正在處理 ZIP 檔...'}
-                </p>
+                {/* // 正在產生 PDF 時的提示文字 */}
+                <p className="text-lg font-semibold text-slate-700">正在處理 PDF...</p>
                 <p className="text-sm text-slate-500">請稍候</p>
               </div>
             </div>
