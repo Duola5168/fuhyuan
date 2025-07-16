@@ -357,7 +357,7 @@ const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ c
     <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
       <span>本表單由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
       {totalPages && totalPages > 1 && currentPage && (
-        <span className="font-mono text-sm">{`${currentPage} / ${totalPages}`}</span>
+        <span className="font-mono text-base">{`${currentPage} / ${totalPages}`}</span>
       )}
     </div>
 );
