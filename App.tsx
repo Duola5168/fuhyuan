@@ -775,14 +775,13 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount
 // 報告預覽畫面元件
 interface ReportViewProps {
     data: WorkOrderData;
-    onDownloadPdf: () => void;
-    onSharePdf: () => void;
+    onPdfAction: (action: 'download' | 'share') => void;
     onReset: () => void;
     onEdit: () => void;
     isGeneratingPdf: boolean;
 }
 
-const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf, onReset, onEdit, isGeneratingPdf }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onPdfAction, onReset, onEdit, isGeneratingPdf }) => {
     // 照片分頁，每頁 4 張，可在此修改
     const photoChunks = chunk(data.photos, 4);
 
@@ -836,8 +835,8 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onDownloadPdf, onSharePdf
             {/* // 報告頁面的按鈕文字，可在此修改 */}
             <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-3">
-              <button onClick={onDownloadPdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
-              <button onClick={onSharePdf} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享 PDF</button>
+              <button onClick={() => onPdfAction('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
+              <button onClick={() => onPdfAction('share')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享 PDF</button>
               <button onClick={onEdit} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
             </div>
       </div>
@@ -957,8 +956,6 @@ export const App: React.FC = () => {
     if (name === 'tasks' || name === 'status') {
         const totalLines = calculateVisualLines(tempState.tasks) + calculateVisualLines(tempState.status);
         if (totalLines > TASKS_STATUS_LIMIT) {
-            // 超出限制時的提示，若不想提示可註解掉
-            // alert('「處理事項」與「處理情形」總行數已達上限。');
             return; 
         }
     }
@@ -966,8 +963,6 @@ export const App: React.FC = () => {
     if (name === 'remarks') {
         const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + calculateVisualLines(tempState.remarks);
         if (totalLines > PRODUCTS_REMARKS_LIMIT) {
-             // 超出限制時的提示，若不想提示可註解掉
-            // alert('「產品項目」與「備註」總行數已達上限。');
             return; 
         }
     }
@@ -975,7 +970,6 @@ export const App: React.FC = () => {
     setFormData(tempState);
   }, [formData]);
   
-  // Refactored product change handler for better performance and readability
   const handleProductChange = useCallback((index: number, field: 'name' | 'quantity', value: string | number) => {
     setFormData(prev => {
         if (field === 'quantity') {
@@ -1031,7 +1025,6 @@ export const App: React.FC = () => {
   const handleAddProduct = () => {
     const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + 1 + calculateVisualLines(formData.remarks);
     if (totalLines > PRODUCTS_REMARKS_LIMIT) {
-        // 新增產品超出限制時的提示文字
         alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
         return;
     }
@@ -1083,7 +1076,6 @@ export const App: React.FC = () => {
   };
   
   const handleReset = useCallback(() => {
-    // 建立新服務單的確認提示文字
     if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
         clearCurrentForm();
         setIsSubmitted(false);
@@ -1091,45 +1083,30 @@ export const App: React.FC = () => {
   }, [clearCurrentForm]);
 
   const handleSaveAsDraft = useCallback(() => {
-    // 儲存暫存時的提示文字
     const draftName = prompt("請為此暫存命名：");
-    if (!draftName) {
-        return;
-    }
+    if (!draftName) return;
 
     const currentDrafts = { ...namedDrafts };
     const isOverwriting = !!currentDrafts[draftName];
 
     if (!isOverwriting && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
-        // 達到暫存上限時的提示文字
         alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理暫存」中刪除一個舊暫存。`);
         return;
     }
 
-    if (isOverwriting && !window.confirm(`暫存 "${draftName}" 已存在。您要覆蓋它嗎？`)) {
-        return;
-    }
+    if (isOverwriting && !window.confirm(`暫存 "${draftName}" 已存在。您要覆蓋它嗎？`)) return;
 
     const newDrafts = { ...currentDrafts, [draftName]: formData };
     setNamedDrafts(newDrafts);
     localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-    // 儲存成功後的提示文字
-    alert(
-`✅ 暫存 "${draftName}" 已成功儲存！
-
----
-重要提醒：
-暫存資料如用戶清理瀏覽器cookie暫存,資料將消失無法復原,請注意!`
-    );
+    alert(`✅ 暫存 "${draftName}" 已成功儲存！\n\n重要提醒：\n暫存資料如用戶清理瀏覽器cookie暫存,資料將消失無法復原,請注意!`);
   }, [formData, namedDrafts]);
 
   const handleLoadDraft = useCallback((name: string) => {
     if (namedDrafts[name]) {
-        // 載入暫存時的確認提示文字
         if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
             const draftData = migrateWorkOrderData(namedDrafts[name]);
             setFormData(draftData);
-            // 載入成功後的提示文字
             alert(`暫存 "${name}" 已載入。`);
         }
     }
@@ -1137,10 +1114,8 @@ export const App: React.FC = () => {
 
 
   const handleClearData = useCallback(() => {
-    // 清除表單資料的確認提示文字
     if (window.confirm("您確定要清除目前表單的所有欄位嗎？\n此操作不會影響任何已儲存的暫存。")) {
         clearCurrentForm();
-        // 清除成功後的提示文字
         alert('目前的表單資料已清除。');
     }
   }, [clearCurrentForm]);
@@ -1149,32 +1124,18 @@ export const App: React.FC = () => {
   const getAuthToken = useCallback(() => {
     return new Promise((resolve, reject) => {
         if (!tokenClient) {
-            reject(new Error("Google Auth client is not ready."));
-            return;
+            return reject(new Error("Google Auth client is not ready."));
         }
-
-        // Define the callback function to handle the token response.
         const callback = (resp: any) => {
-            if (resp.error !== undefined) {
-                // If there's an error (e.g., user denies permission), remove the granted flag.
-                // This ensures the consent screen will be shown next time.
+            if (resp.error) {
                 localStorage.removeItem(GOOGLE_AUTH_GRANTED_KEY);
-                reject(resp);
-            } else {
-                // On success, set the flag to remember the grant and resolve the promise.
-                localStorage.setItem(GOOGLE_AUTH_GRANTED_KEY, 'true');
-                resolve(resp);
+                return reject(resp);
             }
+            localStorage.setItem(GOOGLE_AUTH_GRANTED_KEY, 'true');
+            resolve(resp);
         };
-        
         tokenClient.callback = callback;
-        
-        // Check if user has previously granted consent.
-        const hasGranted = localStorage.getItem(GOOGLE_AUTH_GRANTED_KEY) === 'true';
-
-        // If user has granted consent before, try a silent request to get a token without a popup.
-        // Otherwise, show the consent screen to get the initial grant.
-        if (hasGranted) {
+        if (localStorage.getItem(GOOGLE_AUTH_GRANTED_KEY)) {
             tokenClient.requestAccessToken({ prompt: '' });
         } else {
             tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -1203,51 +1164,46 @@ export const App: React.FC = () => {
   const handleExportToDrive = useCallback(() => {
     handleOpenDraftActionModal('export');
   }, [handleOpenDraftActionModal]);
+  
+  const uploadToDrive = useCallback(async (fileName: string, dataToExport: WorkOrderData) => {
+    const fileContent = JSON.stringify(dataToExport, null, 2);
+    const blob = new Blob([fileContent], { type: 'application/json' });
+    const metadata = {
+        'name': fileName,
+        'mimeType': 'application/json',
+        'parents': ['root']
+    };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', blob);
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: new Headers({ 'Authorization': 'Bearer ' + gapi.client.getToken().access_token }),
+        body: form,
+    });
+
+    if (!res.ok) {
+        const errorBody = await res.json();
+        throw new Error(`匯出失敗：${errorBody.error?.message || res.statusText}`);
+    }
+  }, []);
 
   const performExportToDrive = useCallback(async (nameToExport: string) => {
     if (!gapiReady || !gisReady || !namedDrafts[nameToExport]) {
         alert("匯出功能未就緒或找不到暫存檔。");
         return;
     }
-    
     try {
         await getAuthToken();
-        
-        // 匯出完整的資料，包含圖片和簽名
-        const dataToExport = namedDrafts[nameToExport];
-        const fileContent = JSON.stringify(dataToExport, null, 2);
-        const blob = new Blob([fileContent], { type: 'application/json' });
-        const fileName = `富元工作服務單-${nameToExport}.json`;
-
-        const metadata = {
-            'name': fileName,
-            'mimeType': 'application/json',
-            'parents': ['root']
-        };
-
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', blob);
-
-        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-            method: 'POST',
-            headers: new Headers({ 'Authorization': 'Bearer ' + gapi.client.getToken().access_token }),
-            body: form,
-        });
-
-        if (res.ok) {
-            alert(`暫存 "${nameToExport}" 已成功匯出至您的 Google 雲端硬碟！`);
-        } else {
-            const errorBody = await res.json();
-            console.error("Google Drive API Error:", errorBody);
-            alert(`匯出失敗：${errorBody.error?.message || res.statusText}`);
-        }
-
+        const fileName = `${nameToExport}-服務單暫存.json`;
+        await uploadToDrive(fileName, namedDrafts[nameToExport]);
+        alert(`暫存 "${nameToExport}" 已成功匯出至您的 Google 雲端硬碟！`);
     } catch (error) {
         console.error("Google Drive export failed", error);
-        alert("匯出至 Google Drive 失敗。請檢查主控台中的錯誤訊息。");
+        alert(`匯出至 Google Drive 失敗：${error instanceof Error ? error.message : "未知錯誤"}`);
     }
-  }, [gapiReady, gisReady, namedDrafts, getAuthToken]);
+  }, [gapiReady, gisReady, namedDrafts, getAuthToken, uploadToDrive]);
 
   const handleConfirmDraftAction = (draftName: string) => {
     if (modalAction === 'delete') {
@@ -1268,32 +1224,17 @@ export const App: React.FC = () => {
     setIsModalOpen(false);
     setModalAction(null);
   };
+  
+  // --- Refactored Google Drive Import Helpers ---
+  const loadPickerApi = useCallback(async () => {
+    if (pickerApiLoaded.current) return;
+    return new Promise<void>((resolve, reject) => {
+        gapi.load('picker', (err: any) => err ? reject(err) : (pickerApiLoaded.current = true, resolve()));
+    });
+  }, []);
 
-  const handleImportFromDrive = useCallback(async () => {
-    if (!isApiConfigured) {
-        alert("Google Drive 功能尚未設定，無法匯入。請開發者設定 API 金鑰。");
-        return;
-    }
-    if (!gapiReady || !gisReady) {
-        alert("Google Drive 功能正在初始化，請稍候再試。");
-        return;
-    }
-
-    try {
-        await getAuthToken();
-
-        if (!pickerApiLoaded.current) {
-            await new Promise<void>((resolve, reject) => {
-                gapi.load('picker', (err: any) => {
-                  if (err) { reject(err); } 
-                  else {
-                    pickerApiLoaded.current = true;
-                    resolve()
-                  }
-                })
-            });
-        }
-
+  const showGooglePicker = useCallback(async (): Promise<any> => {
+    return new Promise((resolve, reject) => {
         const view = new google.picker.View(google.picker.ViewId.DOCS);
         view.setMimeTypes("application/json");
 
@@ -1303,114 +1244,93 @@ export const App: React.FC = () => {
             .setOAuthToken(gapi.client.getToken().access_token)
             .addView(view)
             .setDeveloperKey(API_KEY)
-            .setCallback(async (data: any) => {
+            .setCallback((data: any) => {
                 if (data.action === google.picker.Action.PICKED) {
                     const doc = data.docs?.[0];
-                    if (!doc) {
-                        alert('無法取得選擇的檔案資訊，請重試。');
-                        console.error("Picker returned PICKED action but no documents array.", data);
-                        return;
+                    if (doc) {
+                        resolve(doc);
+                    } else {
+                        reject(new Error("無法取得選擇的檔案資訊，請重試。"));
                     }
-
-                    const fileId = doc.id;
-                    if (!fileId) {
-                        alert('無法從選擇的檔案中取得檔案 ID，請重試。');
-                        console.error("Could not get file ID from picked document.", doc);
-                        return;
-                    }
-                    
-                    try {
-                        const res = await gapi.client.drive.files.get({
-                            fileId: fileId,
-                            alt: 'media'
-                        });
-                        
-                        let importedParsedData: any;
-                        try {
-                            const rawResult = res.result;
-                            if (typeof rawResult === 'string') {
-                                importedParsedData = JSON.parse(rawResult);
-                            } else if (typeof rawResult === 'object' && rawResult !== null) {
-                                importedParsedData = rawResult;
-                            } else {
-                                throw new Error('Unrecognized or empty file content.');
-                            }
-                        } catch (parseError) {
-                            console.error("Failed to parse imported JSON:", parseError);
-                            alert("匯入失敗：檔案內容不是有效的 JSON 格式。");
-                            return; 
-                        }
-
-                        const fileName = doc.name || 'imported-draft';
-                        const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^服務單暫存-/, '');
-                        const newDraftName = prompt(`請為匯入的暫存檔命名：`, defaultDraftName);
-
-                        if (!newDraftName) {
-                            return; // User cancelled prompt
-                        }
-                        
-                        setNamedDrafts(currentDrafts => {
-                            if (currentDrafts[newDraftName] && !window.confirm(`暫存 "${newDraftName}" 已存在，要覆蓋它嗎？`)) {
-                                return currentDrafts; // Don't update if user cancels overwrite
-                            }
-    
-                            if (!currentDrafts[newDraftName] && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
-                                alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理暫存」中刪除一個舊暫存。`);
-                                return currentDrafts;
-                            }
-    
-                            const importedData = migrateWorkOrderData(importedParsedData);
-                            const newDrafts = { ...currentDrafts, [newDraftName]: importedData };
-                            localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-                            alert(`✅ 暫存 "${newDraftName}" 已成功從雲端硬碟匯入並儲存至本機！`);
-                            return newDrafts;
-                        });
-
-                    } catch (err: any) {
-                        console.error("Error processing picked file:", err);
-                        const errorDetails = err.result?.error?.message || err.body || err.message || '未知錯誤';
-                        alert(`從雲端硬碟讀取或處理檔案失敗。\n\n錯誤詳情: ${errorDetails}\n\n請確認您有此檔案的讀取權限，且檔案格式正確。`);
-                    }
+                } else if (data.action === google.picker.Action.CANCEL) {
+                    // User cancelled, do nothing, don't reject
                 }
             })
             .build();
         picker.setVisible(true);
+    });
+  }, []);
 
-    } catch (error) {
-        console.error("Google Drive import failed", error);
-        const errorMessage = (error instanceof Error) ? error.message : "未知錯誤";
-        alert(`從 Google Drive 匯入失敗。請檢查主控台中的錯誤訊息。\n錯誤: ${errorMessage}`);
+  const fetchDriveFileContent = useCallback(async (fileId: string): Promise<any> => {
+      const res = await gapi.client.drive.files.get({ fileId, alt: 'media' });
+      const rawResult = res.result;
+      if (typeof rawResult === 'string') {
+          return JSON.parse(rawResult);
+      } else if (typeof rawResult === 'object' && rawResult !== null) {
+          return rawResult;
+      }
+      throw new Error('無法辨識或檔案內容為空。');
+  }, []);
+  
+  const saveDriveFileAsDraft = useCallback((fileName: string, importedData: any) => {
+      const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^服務單暫存-/, '');
+      const newDraftName = prompt(`請為匯入的暫存檔命名：`, defaultDraftName);
+      if (!newDraftName) return;
+
+      setNamedDrafts(currentDrafts => {
+          if (currentDrafts[newDraftName] && !window.confirm(`暫存 "${newDraftName}" 已存在，要覆蓋它嗎？`)) {
+              return currentDrafts;
+          }
+          if (!currentDrafts[newDraftName] && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
+              alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。`);
+              return currentDrafts;
+          }
+          const validData = migrateWorkOrderData(importedData);
+          const newDrafts = { ...currentDrafts, [newDraftName]: validData };
+          localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+          alert(`✅ 暫存 "${newDraftName}" 已成功從雲端硬碟匯入並儲存至本機！`);
+          return newDrafts;
+      });
+  }, []);
+
+  const handleImportFromDrive = useCallback(async () => {
+    if (!isApiConfigured) return alert("Google Drive 功能尚未設定，無法匯入。");
+    if (!gapiReady || !gisReady) return alert("Google Drive 功能正在初始化，請稍候再試。");
+
+    try {
+        await getAuthToken();
+        await loadPickerApi();
+        const doc = await showGooglePicker();
+        if (!doc?.id) return; // User cancelled picker
+        
+        const fileContent = await fetchDriveFileContent(doc.id);
+        saveDriveFileAsDraft(doc.name || 'imported-draft', fileContent);
+
+    } catch (error: any) {
+        const message = error?.result?.error?.message || error?.body || error?.message || '未知錯誤';
+        console.error("Google Drive import failed:", error);
+        alert(`從 Google Drive 匯入失敗。\n\n錯誤: ${message}`);
     }
-  }, [gapiReady, gisReady, getAuthToken, namedDrafts, isApiConfigured]);
+  }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, fetchDriveFileContent, saveDriveFileAsDraft, isApiConfigured]);
 
 
   // --- PDF Generation and Sharing ---
   const generatePdfBlob = async (): Promise<Blob | null> => {
     try {
       const { jsPDF: JSPDF } = (window as any).jspdf;
-      // PDF 設定: 'p' 直向, 'mm' 單位, 'a4' 尺寸
       const pdf = new JSPDF('p', 'mm', 'a4');
       const pdfWidth = 210;
       const pdfHeight = 297;
-      const options = {
-          scale: 2, // 提高解析度，可設為 1.5, 2, 3 等
-          useCORS: true,
-          backgroundColor: '#ffffff', // 背景色
-      };
-      const imageType = 'image/jpeg'; // 圖片格式
-      const imageQuality = 0.92; // 圖片品質 (0 to 1)
+      const options = { scale: 2, useCORS: true, backgroundColor: '#ffffff' };
+      const imageType = 'image/jpeg';
+      const imageQuality = 0.92;
       let pageCount = 0;
 
-      const tasksLines = calculateVisualLines(formData.tasks);
-      const statusLines = calculateVisualLines(formData.status);
-      const productsLines = formData.products.filter(p => p.name.trim() !== '').length;
-      const remarksLines = calculateVisualLines(formData.remarks);
-      const totalContentLines = tasksLines + statusLines + productsLines + remarksLines;
+      const totalContentLines = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status) +
+                               formData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(formData.remarks);
 
       if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
-        // --- 多頁邏輯 ---
-        const page1Element = document.getElementById('pdf-pdf-page1');
-        const page2Element = document.getElementById('pdf-pdf-page2');
+        const [page1Element, page2Element] = [document.getElementById('pdf-pdf-page1'), document.getElementById('pdf-pdf-page2')];
         if (!page1Element || !page2Element) throw new Error('Split page elements not found');
         
         const canvas1 = await html2canvas(page1Element, options);
@@ -1421,29 +1341,23 @@ export const App: React.FC = () => {
         const canvas2 = await html2canvas(page2Element, options);
         pdf.addImage(canvas2.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
         pageCount++;
-
       } else {
-        // --- 單頁邏輯 ---
         const fullElement = document.getElementById('pdf-pdf-full');
         if (!fullElement) throw new Error('Full report element not found for rendering');
         
         const fullCanvas = await html2canvas(fullElement, options);
-        const fullImgProps = pdf.getImageProperties(fullCanvas.toDataURL(imageType, imageQuality));
-        const fullHeight = Math.min(pdfHeight, (fullImgProps.height * pdfWidth) / fullImgProps.width);
-        pdf.addImage(fullCanvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, fullHeight);
+        pdf.addImage(fullCanvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, (fullCanvas.height * pdfWidth) / fullCanvas.width));
         pageCount++;
       }
       
-      // --- 新增照片頁 ---
       if (formData.photos.length > 0) {
-        const photoChunks = chunk(formData.photos, 4); // 每頁 4 張照片
+        const photoChunks = chunk(formData.photos, 4);
         for (let i = 0; i < photoChunks.length; i++) {
           const photoPageElement = document.getElementById(`pdf-photo-page-${i}`);
           if (photoPageElement) {
               if (pageCount > 0) pdf.addPage();
               const canvas = await html2canvas(photoPageElement, options);
-              const imgData = canvas.toDataURL(imageType, imageQuality);
-              pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+              pdf.addImage(canvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
               pageCount++;
           }
         }
@@ -1451,66 +1365,49 @@ export const App: React.FC = () => {
       return pdf.output('blob');
     } catch (error) {
       console.error("Failed to generate PDF blob:", error);
-      // PDF 產生失敗時的提示文字
       alert("無法產生PDF，可能是內容過於複雜。請檢查主控台中的錯誤訊息。");
       return null;
     }
   };
   
-  const handleDownloadPdf = async () => {
+  const handlePdfAction = useCallback(async (action: 'download' | 'share') => {
     if (isGeneratingPdf) return;
     setIsGeneratingPdf(true);
 
-    const blob = await generatePdfBlob();
-    if (blob) {
-        // 下載的 PDF 檔案名稱格式
+    try {
+        const blob = await generatePdfBlob();
+        if (!blob) return;
+
         const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-    }
-    setIsGeneratingPdf(false);
-  };
-
-  const handleSharePdf = async () => {
-    if (isGeneratingPdf) return;
-    setIsGeneratingPdf(true);
-
-    const blob = await generatePdfBlob();
-    if (!blob) {
-      setIsGeneratingPdf(false);
-      return;
-    }
-
-    // 分享時的 PDF 檔案名稱格式
-    const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-    const file = new File([blob], fileName, { type: 'application/pdf' });
-    const shareData = {
-      files: [file],
-      title: `工作服務單 - ${formData.serviceUnit}`, // 分享時的標題
-      text: `請查收 ${formData.serviceUnit} 的工作服務單。`, // 分享時的內文
-    };
-    
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-      try {
-        await navigator.share(shareData);
-      } catch (error) {
-        const abortError = error as DOMException;
-        if (abortError.name !== 'AbortError') {
-            console.error('Error sharing PDF:', error);
-            alert('分享失敗，請稍後再試。'); // 分享失敗的提示
+        
+        if (action === 'download') {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        } else if (action === 'share') {
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            const shareData = {
+                files: [file],
+                title: `工作服務單 - ${formData.serviceUnit}`,
+                text: `請查收 ${formData.serviceUnit} 的工作服務單。`,
+            };
+            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+                await navigator.share(shareData).catch(err => { if (err.name !== 'AbortError') throw err; });
+            } else {
+                alert('您的瀏覽器不支援檔案分享。請先下載PDF後再手動分享。');
+            }
         }
-      }
-    } else {
-      // 瀏覽器不支援分享時的提示
-      alert('您的瀏覽器不支援檔案分享。請先下載PDF後再手動分享。');
+    } catch (error) {
+        console.error('PDF action failed:', error);
+        alert('PDF 操作失敗，請稍後再試。');
+    } finally {
+        setIsGeneratingPdf(false);
     }
-    setIsGeneratingPdf(false);
-  };
+  }, [isGeneratingPdf, formData]);
   
   return (
     <div className="min-h-screen bg-slate-100">
@@ -1518,8 +1415,7 @@ export const App: React.FC = () => {
            {isSubmitted ? (
              <ReportView 
                 data={formData}
-                onDownloadPdf={handleDownloadPdf}
-                onSharePdf={handleSharePdf}
+                onPdfAction={handlePdfAction}
                 onReset={handleReset}
                 onEdit={handleEdit}
                 isGeneratingPdf={isGeneratingPdf}
