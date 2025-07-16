@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -420,16 +421,16 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
           <>
             <div>
               <strong className="text-base">處理事項：</strong>
-              <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.tasks || 'N/A'}</div>
+              <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.tasks || '\u00A0'}</div>
             </div>
             <div>
               <strong className="text-base">處理情形：</strong>
-              <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.status || 'N/A'}</div>
+              <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.status || '\u00A0'}</div>
             </div>
           </>
         )}
 
-        {showProductsAndRemarks && hasProducts && (
+        {showProductsAndRemarks && (
           <div>
             <strong className="text-base">產品項目：</strong>
             <div className="mt-2 border border-slate-200 rounded-md overflow-hidden">
@@ -442,34 +443,42 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {data.products.filter(p => p.name.trim() !== '').map((product, index) => (
-                    <tr key={index}>
-                      <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
-                      <td className="px-3 py-2 align-top">
-                        {(() => {
-                          const serials = (product.serialNumbers || [])
-                            .map(s => s.trim())
-                            .filter(s => s);
+                  {hasProducts ? (
+                    data.products.filter(p => p.name.trim() !== '').map((product, index) => (
+                      <tr key={index}>
+                        <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
+                        <td className="px-3 py-2 align-top">
+                          {(() => {
+                            const serials = (product.serialNumbers || [])
+                              .map(s => s.trim())
+                              .filter(s => s);
 
-                          if (serials.length === 0) {
-                            return 'N/A';
-                          }
+                            if (serials.length === 0) {
+                              return 'N/A';
+                            }
 
-                          return (
-                            <div className="flex flex-col">
-                              {serials.map((s, idx) => (
-                                <React.Fragment key={idx}>
-                                  {idx > 0 && <div className="border-t border-slate-200 my-1"></div>}
-                                  <span>{`#${idx + 1}: ${s}`}</span>
-                                </React.Fragment>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </td>
+                            return (
+                              <div className="flex flex-col">
+                                {serials.map((s, idx) => (
+                                  <React.Fragment key={idx}>
+                                    {idx > 0 && <div className="border-t border-slate-200 my-1"></div>}
+                                    <span>{`#${idx + 1}: ${s}`}</span>
+                                  </React.Fragment>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-3 py-2 whitespace-nowrap">&nbsp;</td>
+                      <td className="px-3 py-2 whitespace-nowrap">&nbsp;</td>
+                      <td className="px-3 py-2 align-top">&nbsp;</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -479,7 +488,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         {showProductsAndRemarks && (
           <div>
             <strong className="text-base">備註：</strong>
-            <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full">{data.remarks || 'N/A'}</div>
+            <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[3rem]">{data.remarks || '\u00A0'}</div>
           </div>
         )}
 
