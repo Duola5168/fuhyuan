@@ -77,6 +77,40 @@ const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number
     }, 0);
 };
 
+// --- 資料遷移函式 ---
+// 確保舊的暫存檔格式能相容於新的資料結構
+const migrateDraftData = (draftData: any): WorkOrderData => {
+    const migrated = JSON.parse(JSON.stringify(draftData)); // Deep copy to avoid modifying original object
+
+    if (migrated.products && Array.isArray(migrated.products)) {
+        migrated.products = migrated.products.map((p: any) => {
+            const product = {...p}; 
+            const quantity = product.quantity || 1;
+
+            // Handle migration from old 'serialNumber' to new 'serialNumbers' array
+            if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
+                product.serialNumbers = [product.serialNumber || ''];
+                delete product.serialNumber;
+            }
+            
+            if (!Array.isArray(product.serialNumbers)) {
+                product.serialNumbers = [];
+            }
+            
+            // Adjust serial number fields based on quantity
+            const currentLength = product.serialNumbers.length;
+            if (currentLength < quantity) {
+                product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
+            } else if (currentLength > quantity) {
+                product.serialNumbers = product.serialNumbers.slice(0, quantity);
+            }
+            
+            return product;
+        });
+    }
+    return migrated;
+};
+
 
 // --- 表單元件定義 ---
 interface FormFieldProps {
@@ -173,6 +207,8 @@ interface WorkOrderFormProps {
     onSaveAsDraft: () => void;
     onLoadDraft: (name: string) => void;
     onDeleteDraft: () => void;
+    onExportDraft: () => void;
+    onImportDraft: () => void;
     onClearData: () => void;
     namedDrafts: { [name: string]: WorkOrderData };
 }
@@ -194,6 +230,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     onSaveAsDraft,
     onLoadDraft,
     onDeleteDraft,
+    onExportDraft,
+    onImportDraft,
     onClearData,
     namedDrafts
 }) => {
@@ -318,6 +356,10 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                             const value = e.target.value;
                             if (value === '__DELETE__') {
                                 onDeleteDraft();
+                            } else if (value === '__EXPORT__') {
+                                onExportDraft();
+                            } else if (value === '__IMPORT__') {
+                                onImportDraft();
                             } else if (value) {
                                 onLoadDraft(value);
                             }
@@ -336,6 +378,9 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                             </optgroup>
                          )}
                          <optgroup label="操作">
+                            {/* // 新增匯入與匯出的選項 */}
+                            <option value="__IMPORT__">匯入暫存...</option>
+                            <option value="__EXPORT__">匯出暫存...</option>
                             {/* // 刪除暫存的選項文字 */}
                             <option value="__DELETE__">刪除暫存...</option>
                          </optgroup>
@@ -682,6 +727,7 @@ export const App: React.FC = () => {
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // 應用程式載入時的提示訊息
@@ -885,35 +931,7 @@ export const App: React.FC = () => {
     if (namedDrafts[name]) {
         // 載入暫存時的確認提示文字
         if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
-            const draftData = JSON.parse(JSON.stringify(namedDrafts[name])); 
-
-            // --- 舊資料格式遷移邏輯 ---
-            if (draftData.products && Array.isArray(draftData.products)) {
-                draftData.products = draftData.products.map((p: any) => {
-                    const product = {...p}; 
-                    const quantity = product.quantity || 1;
-
-                    if (product.serialNumber !== undefined && product.serialNumbers === undefined) {
-                        product.serialNumbers = [product.serialNumber || ''];
-                        delete product.serialNumber;
-                    }
-                    
-                    if (!Array.isArray(product.serialNumbers)) {
-                        product.serialNumbers = [];
-                    }
-                    
-                    const currentLength = product.serialNumbers.length;
-                    if (currentLength < quantity) {
-                        product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
-                    } else if (currentLength > quantity) {
-                        product.serialNumbers = product.serialNumbers.slice(0, quantity);
-                    }
-                    
-                    return product;
-                });
-            }
-            // --- 遷移結束 ---
-
+            const draftData = migrateDraftData(namedDrafts[name]);
             setFormData(draftData);
             // 載入成功後的提示文字
             alert(`暫存 "${name}" 已載入。`);
@@ -950,6 +968,71 @@ export const App: React.FC = () => {
         alert(`找不到名為 "${nameToDelete}" 的暫存。`);
     }
   }, [namedDrafts]);
+  
+  const handleExportDraft = useCallback(() => {
+    const draftNames = Object.keys(namedDrafts);
+    if (draftNames.length === 0) {
+        alert("目前沒有已儲存的暫存可以匯出。");
+        return;
+    }
+    const nameToExport = prompt(`請輸入您想匯出的暫存名稱：\n\n${draftNames.join('\n')}`);
+    if (!nameToExport || !namedDrafts[nameToExport]) {
+        if (nameToExport) alert(`找不到名為 "${nameToExport}" 的暫存。`);
+        return;
+    }
+
+    const draftData = namedDrafts[nameToExport];
+    const jsonString = JSON.stringify(draftData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = `work-order-${nameToExport}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(href);
+    alert(`暫存 "${nameToExport}" 已開始下載。`);
+  }, [namedDrafts]);
+
+  const handleImportDraft = useCallback(() => {
+    importFileRef.current?.click();
+  }, []);
+  
+  const handleFileImported = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const result = e.target?.result;
+            if (typeof result !== 'string') {
+                throw new Error("File content could not be read as text.");
+            }
+            const data = JSON.parse(result);
+
+            // Basic validation to check if it's a valid draft file
+            if (!data.dateTime || !data.serviceUnit) {
+                throw new Error("Invalid draft file format.");
+            }
+
+            if(window.confirm("您確定要匯入此暫存檔嗎？\n這將會覆蓋目前表單的所有內容。")) {
+                const migratedData = migrateDraftData(data);
+                setFormData(migratedData);
+                alert("暫存檔已成功匯入。");
+            }
+
+        } catch (error) {
+            console.error("Failed to import draft:", error);
+            alert("匯入失敗。請確認檔案是否為正確的暫存檔格式。");
+        } finally {
+            // Reset file input to allow importing the same file again
+            event.target.value = "";
+        }
+    };
+    reader.readAsText(file);
+  }, []);
 
   const handleClearData = useCallback(() => {
     // 清除表單資料的確認提示文字
@@ -1089,6 +1172,13 @@ export const App: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-slate-100">
+        <input 
+            type="file"
+            ref={importFileRef}
+            onChange={handleFileImported}
+            className="hidden"
+            accept=".json,application/json"
+        />
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
            {isSubmitted ? (
              <ReportView 
@@ -1116,6 +1206,8 @@ export const App: React.FC = () => {
                 onSaveAsDraft={handleSaveAsDraft}
                 onLoadDraft={handleLoadDraft}
                 onDeleteDraft={handleDeleteDraft}
+                onExportDraft={handleExportDraft}
+                onImportDraft={handleImportDraft}
                 onClearData={handleClearData}
                 namedDrafts={namedDrafts}
              />
