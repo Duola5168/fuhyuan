@@ -35,23 +35,23 @@
 
 3.  **將您的秘密金鑰新增至 `.env.local`**：
     打開 `.env.local` 檔案，並貼上以下內容。請將引號中的預留位置文字，替換成您從各服務平台取得的真實金鑰。
-    **重要提示：所有變數名稱都必須以 `VITE_` 開頭，這是 Vite 框架的要求。**
 
     ```
     # .env.local
 
     # Google Drive 匯入/匯出功能所需金鑰
     # 關於如何取得金鑰，請參考 Google Cloud Platform 的官方文件。您需要啟用 `Google Drive API` 和 `Google Picker API`。
-    VITE_GOOGLE_API_KEY="在這裡貼上您的 Google API 金鑰"
-    VITE_GOOGLE_CLIENT_ID="在這裡貼上您的 Google OAuth 2.0 用戶端 ID"
+    GOOGLE_API_KEY="在這裡貼上您的 Google API 金鑰"
+    GOOGLE_CLIENT_ID="在這裡貼上您的 Google OAuth 2.0 用戶端 ID"
 
     # Brevo (Email 發送功能) 所需金鑰
     # 請登入您的 Brevo 帳戶，前往 "SMTP & API" 頁面取得。
-    VITE_BREVO_API_KEY="在這裡貼上您的 Brevo v3 API 金鑰"
-    VITE_BREVO_SENDER_EMAIL="您在 Brevo 上已驗證的寄件人 Email"
-    VITE_BREVO_SENDER_NAME="富元機電有限公司"
+    BREVO_API_KEY="在這裡貼上您的 Brevo v3 API 金鑰"
+    BREVO_SENDER_EMAIL="您在 Brevo 上已驗證的寄件人 Email"
+    BREVO_SENDER_NAME="富元機電有限公司"
 
-    # QNAP NAS (PDF 上傳功能) 所需資訊 (這些不需要 VITE_ 前綴，因為它們只在後端 Function 中使用)
+    # QNAP NAS (PDF 上傳功能) 所需資訊
+    # 這些資訊將由 Netlify Function 在後端使用，以安全地連接到您的 NAS。
     # - NAS_ENDPOINT: 您的 NAS 網址，包含通訊埠 (例如: mynas.qnap.com:8080)。
     # - NAS_USERNAME: 您的 NAS 登入帳號。
     # - NAS_PASSWORD: 您的 NAS 登入密碼。
@@ -81,12 +81,12 @@
 
 1.  登入 Netlify 並選擇您的網站。
 2.  前往 **Site configuration > Build & deploy > Environment variables**。
-3.  點擊 **Add a variable**，然後一個一個地新增以下所有變數 (請注意 `VITE_` 前綴)：
-    *   `VITE_GOOGLE_API_KEY`
-    *   `VITE_GOOGLE_CLIENT_ID`
-    *   `VITE_BREVO_API_KEY`
-    *   `VITE_BREVO_SENDER_EMAIL`
-    *   `VITE_BREVO_SENDER_NAME`
+3.  點擊 **Add a variable**，然後一個一個地新增以下所有變數：
+    *   `GOOGLE_API_KEY`
+    *   `GOOGLE_CLIENT_ID`
+    *   `BREVO_API_KEY`
+    *   `BREVO_SENDER_EMAIL`
+    *   `BREVO_SENDER_NAME`
     *   `NAS_ENDPOINT`
     *   `NAS_USERNAME`
     *   `NAS_PASSWORD`
