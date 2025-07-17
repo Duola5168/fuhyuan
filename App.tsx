@@ -13,9 +13,9 @@ declare const gapi: any;
 declare const google: any;
 
 // --- 版本號統一來源 ---
-// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.3.0")
-const rawVersion = process.env.APP_VERSION || '1.3.0'; 
-// 將原始版本號格式化為更容易閱讀的 "V1.3" 格式，用於UI顯示
+// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.4.0")
+const rawVersion = process.env.APP_VERSION || '1.4.0'; 
+// 將原始版本號格式化為更容易閱讀的 "V1.4" 格式，用於UI顯示
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 
