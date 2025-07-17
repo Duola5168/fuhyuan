@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -14,9 +13,9 @@ declare const gapi: any;
 declare const google: any;
 
 // --- 版本號統一來源 ---
-// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.4.0")
-const rawVersion = process.env.APP_VERSION || '1.4.0'; 
-// 將原始版本號格式化為更容易閱讀的 "V1.4" 格式，用於UI顯示
+// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.5.0")
+const rawVersion = process.env.APP_VERSION || '1.5.0'; 
+// 將原始版本號格式化為更容易閱讀的 "V1.5" 格式，用於UI顯示
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 
@@ -35,11 +34,12 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME;
 
-// --- QNAP NAS API 設定 ---
-const NAS_ENDPOINT = process.env.NAS_ENDPOINT;
-const NAS_USERNAME = process.env.NAS_USERNAME;
-const NAS_PASSWORD = process.env.NAS_PASSWORD;
-const UPLOAD_PATH = process.env.UPLOAD_PATH;
+// --- QNAP NAS S3 OBJECT STORAGE API 設定 (V1.5) ---
+const NAS_OBJECT_STORAGE_ENDPOINT = process.env.NAS_OBJECT_STORAGE_ENDPOINT;
+const NAS_BUCKET_NAME = process.env.NAS_BUCKET_NAME;
+const NAS_REGION = process.env.NAS_REGION || 'us-east-1'; // Default region if not provided
+const NAS_ACCESS_KEY = process.env.NAS_ACCESS_KEY;
+const NAS_SECRET_KEY = process.env.NAS_SECRET_KEY;
 
 /**
  * 產生 Email HTML 內容的範本函式。
@@ -888,14 +888,6 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
           <h3 className="text-lg font-medium leading-6 text-gray-900">上傳與分享選項</h3>
           <div className="mt-4 space-y-4">
             
-            <div className={`p-4 border rounded-md ${!isNasConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
-              <label className="flex items-center">
-                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={uploadToNas} onChange={(e) => setUploadToNas(e.target.checked)} disabled={!isNasConfigured}/>
-                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 NAS 伺服器</span>
-              </label>
-              {!isNasConfigured && <p className="text-xs text-red-600 mt-2 ml-8">NAS 功能未設定，請參考 README.md 檔案進行設定。</p>}
-            </div>
-
             <div className={`p-4 border rounded-md ${!isBrevoConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
                 <label className="flex items-center">
                     <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={sendByEmail} onChange={(e) => setSendByEmail(e.target.checked)} disabled={!isBrevoConfigured}/>
@@ -907,6 +899,14 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
                     <label htmlFor="email-recipients" className="block text-xs font-medium text-gray-500 mb-1">收件人 (多個請用 , 分隔)</label>
                     <input type="text" id="email-recipients" value={emailRecipients} onChange={e => setEmailRecipients(e.target.value)} disabled={!sendByEmail || !isBrevoConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"/>
                 </div>
+            </div>
+            
+            <div className={`p-4 border rounded-md ${!isNasConfigured ? 'bg-slate-50 opacity-60' : ''}`}>
+              <label className="flex items-center">
+                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={uploadToNas} onChange={(e) => setUploadToNas(e.target.checked)} disabled={!isNasConfigured}/>
+                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 NAS 伺服器</span>
+              </label>
+              {!isNasConfigured && <p className="text-xs text-slate-500 mt-2 ml-8">此功能待開發</p>}
             </div>
 
           </div>
@@ -932,8 +932,8 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
  */
 export const App: React.FC = () => {
   // --- 狀態管理 (State Management) ---
-  const [formData, setFormData] = useState<WorkOrderData>(initialFormData); // 當前表單的資料
-  const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({}); // 所有已儲存的本機暫存
+  const [formData, setFormData] = useState<WorkOrderData>(initialFormData); // 當前表單の資料
+  const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({}); // 所有已儲存の本地暫存
   const [isSubmitted, setIsSubmitted] = useState(false); // 標記表單是否已提交，以切換到報告預覽畫面
   const [isProcessing, setIsProcessing] = useState(false); // 標記是否正在處理耗時操作（如產生PDF、上傳），用於顯示載入畫面
   
@@ -951,11 +951,12 @@ export const App: React.FC = () => {
   // 檢查 API 金鑰是否已設定
   const isGoogleApiConfigured = API_KEY && CLIENT_ID;
   const isBrevoApiConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME;
-  const isNasConfigured = NAS_ENDPOINT && NAS_USERNAME && NAS_PASSWORD && UPLOAD_PATH;
+  // const isNasConfigured = NAS_OBJECT_STORAGE_ENDPOINT && NAS_BUCKET_NAME && NAS_ACCESS_KEY && NAS_SECRET_KEY;
+  const isNasConfigured = false; // 根據使用者要求，暫時停用 NAS 上傳功能
 
   // --- 副作用 (Effects) ---
 
-  // 元件掛載時，動態載入 Google API 的 script
+  // 元件掛載時，動態載入 Google API の script
   useEffect(() => {
     if (!isGoogleApiConfigured) return;
     const gapiScript = document.createElement('script');
@@ -971,7 +972,7 @@ export const App: React.FC = () => {
     return () => { document.body.removeChild(gapiScript); document.body.removeChild(gisScript); };
   }, [isGoogleApiConfigured]);
 
-  // 元件掛載時，從 localStorage 讀取已儲存的暫存檔
+  // 元件掛載時，從 localStorage 讀取已儲存の暫存檔
   useEffect(() => {
     alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
     try {
@@ -982,7 +983,7 @@ export const App: React.FC = () => {
 
   // --- 事件處理函式 (Event Handlers) ---
 
-  // 清空目前表單資料的函式
+  // 清空目前表單資料の函式
   const clearCurrentForm = useCallback(() => {
     setFormData({ ...initialFormData, products: [{ ...initialProduct, id: `product-${Date.now()}` }], dateTime: getFormattedDateTime() });
   }, []);
@@ -1012,7 +1013,7 @@ export const App: React.FC = () => {
         const newProducts = prev.products.map((product, i) => {
             if (i !== index) return product;
             if (field === 'quantity') {
-                // 當數量改變時，自動調整序號輸入框的數量
+                // 當數量改變時，自動調整序號輸入框の數量
                 const newQuantity = Number(value);
                 const oldQuantity = product.quantity;
                 let newSerialNumbers = product.serialNumbers || [];
@@ -1053,7 +1054,7 @@ export const App: React.FC = () => {
     setFormData(prev => ({ ...prev, products: prev.products.filter((_, i) => i !== index) }));
   };
 
-  // 處理簽名和照片變更的回呼函式
+  // 處理簽名和照片變更の回呼函式
   const handleCustomerSignatureSave = useCallback((s: string) => setFormData(p => ({ ...p, signature: s })), []);
   const handleCustomerSignatureClear = useCallback(() => setFormData(p => ({ ...p, signature: null })), []);
   const handleTechnicianSignatureSave = useCallback((s: string) => setFormData(p => ({ ...p, technicianSignature: s })), []);
@@ -1105,7 +1106,7 @@ export const App: React.FC = () => {
     });
   }, [tokenClient]);
   
-  // 打開「刪除/匯出」的彈出視窗
+  // 打開「刪除/匯出」の彈出視窗
   const handleOpenDraftActionModal = useCallback((action: 'delete' | 'export') => {
     if (action === 'export' && !isGoogleApiConfigured) { alert("Google Drive 功能未設定。"); return; }
     if (Object.keys(namedDrafts).length === 0) { alert(action === 'delete' ? "沒有暫存可以刪除。" : "沒有暫存可以匯出。"); return; }
@@ -1115,7 +1116,7 @@ export const App: React.FC = () => {
   const handleDeleteDraft = useCallback(() => handleOpenDraftActionModal('delete'), [handleOpenDraftActionModal]);
   const handleExportToDrive = useCallback(() => handleOpenDraftActionModal('export'), [handleOpenDraftActionModal]);
   
-  // 執行匯出到 Google Drive 的操作
+  // 執行匯出到 Google Drive の操作
   const performExportToDrive = useCallback(async (nameToExport: string) => {
     if (!gapiReady || !gisReady || !namedDrafts[nameToExport]) { alert("匯出功能未就緒或找不到暫存。"); return; }
     try {
@@ -1129,7 +1130,7 @@ export const App: React.FC = () => {
     } catch (error) { console.error("GDrive export failed", error); alert(`匯出失敗：${error instanceof Error ? error.message : "未知錯誤"}`); }
   }, [gapiReady, gisReady, namedDrafts, getAuthToken]);
 
-  // 處理彈出視窗的確認按鈕事件
+  // 處理彈出視窗の確認按鈕事件
   const handleConfirmDraftAction = (draftName: string) => {
     if (modalAction === 'delete') {
       if (namedDrafts[draftName] && window.confirm(`確定要永久刪除暫存 "${draftName}" 嗎？`)) {
@@ -1174,7 +1175,7 @@ export const App: React.FC = () => {
         const res = await gapi.client.drive.files.get({ fileId: doc.id, alt: 'media' });
         const importedData = (typeof res.result === 'object') ? res.result : JSON.parse(res.result);
         
-        const dName = prompt(`請為匯入的暫存檔命名：`, (doc.name || 'imported-draft').replace(/\.json$/i, '').replace(/^服務單暫存-/, ''));
+        const dName = prompt(`請為匯入の暫存檔命名：`, (doc.name || 'imported-draft').replace(/\.json$/i, '').replace(/^服務單暫存-/, ''));
         if (!dName) return;
         setNamedDrafts(cD => {
             if (cD[dName] && !window.confirm(`暫存 "${dName}" 已存在，要覆蓋嗎？`)) return cD;
@@ -1194,9 +1195,9 @@ export const App: React.FC = () => {
   // --- PDF & Email 處理邏輯 ---
 
   /**
-   * 核心函式：產生 PDF 的 Blob 物件。
-   * 它會使用 html2canvas 擷取 ReportLayout 元件的畫面，再用 jsPDF 將其轉換為 PDF。
-   * @returns 回傳一個 Promise，其解析值為 PDF 的 Blob 物件，或在失敗時為 null。
+   * 核心函式：產生 PDF の Blob 物件。
+   * 它會使用 html2canvas 擷取 ReportLayout 元件の畫面，再用 jsPDF 將其轉換為 PDF。
+   * @returns 回傳一個 Promise，其解析值為 PDF の Blob 物件，或在失敗時為 null。
    */
   const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
@@ -1210,7 +1211,7 @@ export const App: React.FC = () => {
       let pageCount = 0;
       const totalContentLines = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status) + formData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(formData.remarks);
 
-      // 如果內容超過一頁的限制，則分頁擷取
+      // 如果內容超過一頁の限制，則分頁擷取
       if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
         const [p1, p2] = [document.getElementById('pdf-pdf-page1'), document.getElementById('pdf-pdf-page2')];
         if (!p1 || !p2) throw new Error('Split page elements not found');
@@ -1261,7 +1262,7 @@ export const App: React.FC = () => {
         if (!blob) return;
         const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
         const file = new File([blob], fileName, { type: 'application/pdf' });
-        const shareData = { files: [file], title: `工作服務單 - ${formData.serviceUnit}`, text: `請查收 ${formData.serviceUnit} 的工作服務單。` };
+        const shareData = { files: [file], title: `工作服務單 - ${formData.serviceUnit}`, text: `請查收 ${formData.serviceUnit} の工作服務單。` };
         if (navigator.share && navigator.canShare?.(shareData)) {
             await navigator.share(shareData).catch(err => { if (err.name !== 'AbortError') throw err; });
         } else { alert('您的瀏覽器不支援檔案分享。請先下載PDF後再手動分享。'); }
@@ -1269,52 +1270,12 @@ export const App: React.FC = () => {
     finally { setIsProcessing(false); }
   }, [isProcessing, formData, generatePdfBlob]);
 
-  const performNasUpload = useCallback(async (blob: Blob, fileName: string) => {
-    if (!isNasConfigured) throw new Error("NAS API 未設定");
-
-    const genericCorsError = "無法連接至 NAS。這通常是網路連線問題，或是您 NAS 上的「跨來源資源共用 (CORS)」設定不正確。請檢查您的網路，並確認已在 NAS 的網頁伺服器設定中，允許 `fuhyuan.netlify.app` 這個網域存取。";
-    let sid = '';
-
-    try {
-        // 1. 登入取得 SID
-        const loginUrl = `${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?user=${encodeURIComponent(NAS_USERNAME!)}&pwd=${encodeURIComponent(NAS_PASSWORD!)}&service=filestation`;
-        const loginResponse = await fetch(loginUrl);
-        if (!loginResponse.ok) throw new Error(`NAS 登入失敗 (HTTP ${loginResponse.status})`);
-        
-        const loginText = await loginResponse.text();
-        const sidMatch = /<sid>(.+)<\/sid>/.exec(loginText);
-        if (!sidMatch || !sidMatch[1]) throw new Error("無法從 NAS 回應中取得 SID，請確認帳號密碼是否正確。");
-        sid = sidMatch[1];
-
-        // 2. 上傳檔案
-        const uploadUrl = `${NAS_ENDPOINT}/cgi-bin/filemanager/utilRequest.cgi?func=upload&sid=${sid}&dest_path=${encodeURIComponent(UPLOAD_PATH!)}&overwrite=1`;
-        const uploadFormData = new FormData();
-        uploadFormData.append('file', blob, fileName);
-        
-        const uploadResponse = await fetch(uploadUrl, { method: 'POST', body: uploadFormData });
-        if (!uploadResponse.ok) {
-            throw new Error(`NAS 上傳失敗 (HTTP ${uploadResponse.status})`);
-        }
-
-        return 'File uploaded to NAS successfully';
-    } catch (error) {
-        if (error instanceof TypeError && error.message === 'Failed to fetch') {
-            throw new Error(genericCorsError);
-        }
-        // Re-throw other errors
-        throw error;
-    } finally {
-        // 3. 登出 (無論成功或失敗都嘗試登出)
-        if (sid) {
-            try {
-                await fetch(`${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?logout=1&sid=${sid}`);
-            } catch (e) {
-                // Silently fail logout, as the primary operation is what matters.
-                console.error("Failed to log out from NAS, but this is non-critical.", e);
-            }
-        }
-    }
-  }, [isNasConfigured]);
+    // --- S3 Uploader (V1.5) ---
+    const performNasUpload = useCallback(async (blob: Blob, fileName: string) => {
+      // 根據使用者要求，暫時移除此功能，並標記為待開發
+      console.warn("NAS upload functionality has been temporarily removed and is marked as under development.");
+      throw new Error("NAS 上傳功能待開發。");
+    }, []);
 
   const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
     if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
@@ -1328,7 +1289,7 @@ export const App: React.FC = () => {
     const payload = {
       sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
       to: toPayload,
-      subject: `${formData.dateTime.split('T')[0]} ${formData.serviceUnit} 的工作服務單`,
+      subject: `${formData.dateTime.split('T')[0]} ${formData.serviceUnit} の工作服務單`,
       htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
       attachment: [{ content: base64Pdf, name: fileName }],
     };
@@ -1394,7 +1355,7 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100">
         <div className="relative max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
-           {/* 右上角的版本號顯示 */}
+           {/* 右上角の版本號顯示 */}
            <span className="absolute top-4 right-6 text-xs font-mono text-slate-400 select-none" aria-label={`應用程式版本 ${APP_VERSION}`}>
               {APP_VERSION}
             </span>
@@ -1442,7 +1403,7 @@ export const App: React.FC = () => {
           isBrevoConfigured={!!isBrevoApiConfigured}
         />
 
-        {/* 正在處理時顯示的遮罩層 */}
+        {/* 正在處理時顯示の遮罩層 */}
         {isProcessing && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[60]">
               <div className="text-center">
