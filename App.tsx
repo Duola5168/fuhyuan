@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -25,7 +24,6 @@ const GOOGLE_AUTH_GRANTED_KEY = 'googleAuthGranted';
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME;
-const BREVO_RECIPIENT_EMAIL = process.env.BREVO_RECIPIENT_EMAIL;
 
 // Brevo Email 內容範本
 const getEmailHtmlContent = (serviceUnit: string, dateTime: string): string => {
@@ -650,7 +648,6 @@ const BrevoApiKeyErrorDisplay = () => {
                         <li>BREVO_API_KEY</li>
                         <li>BREVO_SENDER_EMAIL</li>
                         <li>BREVO_SENDER_NAME</li>
-                        <li>BREVO_RECIPIENT_EMAIL</li>
                     </ul>
                 </li>
                  <li>修改完畢後，請務必**重新啟動**本地開發伺服器 (關閉後再執行 <code>npm run dev</code>)。</li>
@@ -664,7 +661,6 @@ const BrevoApiKeyErrorDisplay = () => {
                         <li>BREVO_API_KEY</li>
                         <li>BREVO_SENDER_EMAIL</li>
                         <li>BREVO_SENDER_NAME</li>
-                        <li>BREVO_RECIPIENT_EMAIL</li>
                     </ul>
                 </li>
                 <li>儲存設定後，請**重新部署 (re-deploy)** 您的網站以讓變更生效。</li>
@@ -690,7 +686,7 @@ export const App: React.FC = () => {
   const [modalAction, setModalAction] = useState<'delete' | 'export' | null>(null);
 
   const isGoogleApiConfigured = API_KEY && CLIENT_ID;
-  const isBrevoApiConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME && BREVO_RECIPIENT_EMAIL;
+  const isBrevoApiConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME;
 
   useEffect(() => {
     if (!isGoogleApiConfigured) return;
@@ -972,7 +968,26 @@ export const App: React.FC = () => {
     
     if (isProcessing) return;
 
-    if (!window.confirm(`確定要將此服務單傳送至公司信箱 (${BREVO_RECIPIENT_EMAIL}) 嗎？`)) {
+    const recipientEmailsInput = window.prompt(
+      "請輸入收件人 Email (若有多個，請用逗號 , 分隔):",
+      "fuhyuan.w5339@msa.hinet.net"
+    );
+
+    if (!recipientEmailsInput) {
+        return;
+    }
+    
+    const recipients = recipientEmailsInput
+      .split(',')
+      .map(email => email.trim())
+      .filter(email => email.length > 0);
+
+    if (recipients.length === 0) {
+      alert('請輸入至少一個有效的 Email 地址。');
+      return;
+    }
+
+    if (!window.confirm(`確定要將此服務單傳送至以下信箱嗎？\n\n${recipients.join('\n')}`)) {
         return;
     }
 
@@ -989,9 +1004,11 @@ export const App: React.FC = () => {
         const datePart = formData.dateTime.split('T')[0];
         const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
         
+        const toPayload = recipients.map(email => ({ email }));
+
         const payload = {
             sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-            to: [{ email: BREVO_RECIPIENT_EMAIL }],
+            to: toPayload,
             subject: `${datePart}${formData.serviceUnit}的工作服務單`,
             htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
             attachment: [{ content: base64Pdf, name: fileName }],
@@ -1008,7 +1025,7 @@ export const App: React.FC = () => {
             throw new Error(errorData.message || 'Brevo API request failed');
         }
         
-        alert(`✅ 郵件已成功寄送至 ${BREVO_RECIPIENT_EMAIL}`);
+        alert(`✅ 郵件已成功寄送至：\n\n${recipients.join('\n')}`);
 
     } catch (error) {
         console.error("Brevo email sending failed:", error);
