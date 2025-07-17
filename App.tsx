@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -25,6 +26,18 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME;
 const BREVO_RECIPIENT_EMAIL = process.env.BREVO_RECIPIENT_EMAIL;
+
+// Brevo Email 內容範本
+const getEmailHtmlContent = (serviceUnit: string, dateTime: string): string => {
+  const datePart = dateTime.split('T')[0];
+  return `
+  <p>您好，</p>
+  <p>附件為 ${datePart} ${serviceUnit} 的工作服務單，請查收。</p>
+  <p>此為系統自動發送信件，請勿直接回覆。</p>
+  <p>謝謝您！</p>
+  <p>富元機電有限公司</p>
+`;
+};
 // ------------------------------
 
 
@@ -971,13 +984,14 @@ export const App: React.FC = () => {
         }
 
         const base64Pdf = await blobToBase64(blob);
-        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+        const datePart = formData.dateTime.split('T')[0];
+        const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
         
         const payload = {
             sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
             to: [{ email: BREVO_RECIPIENT_EMAIL }],
-            subject: `富元機電有限公司 - 工作服務單 (${formData.serviceUnit})`,
-            htmlContent: `<p>您好，</p><p>附件為 ${formData.serviceUnit} 的工作服務單，請查收。</p><p>此為系統自動發送信件，請勿直接回覆。</p><p>謝謝您！</p><p>富元機電有限公司</p>`,
+            subject: `${datePart}${formData.serviceUnit}的工作服務單`,
+            htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
             attachment: [{ content: base64Pdf, name: fileName }],
         };
 
