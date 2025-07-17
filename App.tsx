@@ -13,9 +13,9 @@ declare const gapi: any;
 declare const google: any;
 
 // --- 版本號統一來源 ---
-// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "2.0.0")
-const rawVersion = process.env.APP_VERSION || '2.0.0'; 
-// 將原始版本號格式化為更容易閱讀的 "V2.0" 格式，用於UI顯示
+// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.4.0")
+const rawVersion = process.env.APP_VERSION || '1.4.0'; 
+// 將原始版本號格式化為更容易閱讀的 "V1.4" 格式，用於UI顯示
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 
@@ -33,15 +33,6 @@ const GOOGLE_AUTH_GRANTED_KEY = 'googleAuthGranted'; // 用於在 localStorage �
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME;
-
-// --- NAS UPLOAD 設定 ---
-const IS_NAS_CONFIGURED = !!(
-  process.env.NAS_HOST && 
-  process.env.NAS_USERNAME && 
-  process.env.NAS_PASSWORD && 
-  process.env.UPLOAD_PATH
-);
-
 
 /**
  * 產生 Email HTML 內容的範本函式。
@@ -737,7 +728,7 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount
 
 interface ReportViewProps {
     data: WorkOrderData;
-    onSendPdf: () => void;
+    onUploadPdf: () => void;
     onSharePdf: () => void;
     onDownloadPdf: () => void;
     onReset: () => void;
@@ -750,7 +741,7 @@ interface ReportViewProps {
  * @description 當表單提交後，顯示此報告預覽畫面。
  *              它會渲染 ReportLayout（用於螢幕預覽）和一系列隱藏的 PDF 渲染用元件。
  */
-const ReportView: React.FC<ReportViewProps> = ({ data, onSendPdf, onSharePdf, onDownloadPdf, onReset, onEdit, isProcessing }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onUploadPdf, onSharePdf, onDownloadPdf, onReset, onEdit, isProcessing }) => {
     // 根據內容計算 PDF 應該有多少文字頁和照片頁
     const photoChunks = chunk(data.photos, 4);
     const tasksLines = calculateVisualLines(data.tasks);
@@ -789,7 +780,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onSendPdf, onSharePdf, on
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
             <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-3">
-              <button onClick={onSendPdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">傳送PDF</button>
+              <button onClick={onUploadPdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
               <button onClick={onSharePdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享PDF</button>
               <button onClick={onDownloadPdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
               <button onClick={onEdit} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
@@ -816,37 +807,24 @@ const ApiKeyErrorDisplay = () => (
 
 /**
  * @component BrevoApiKeyErrorDisplay
- * @description 當 Brevo Email API 或 NAS 金鑰未設定時，顯示此錯誤提示元件。
+ * @description 當 Brevo Email API 金鑰未設定時，顯示此錯誤提示元件。
  */
-const ConfigErrorDisplay = () => {
+const BrevoApiKeyErrorDisplay = () => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const isBrevoConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME;
-
     return (
     <div className="p-8 text-center bg-orange-50 border-l-4 border-orange-400">
-        <h3 className="text-xl font-bold text-orange-800">⚠️ 部分傳送功能設定不完整</h3>
-        <p className="mt-2 text-md text-orange-700">應用程式偵測到 Email 或 NAS 傳送服務所需的部分資訊尚未設定。</p>
+        <h3 className="text-xl font-bold text-orange-800">✉️ Email 功能設定不完整</h3>
+        <p className="mt-2 text-md text-orange-700">應用程式偵測到 Email 發送服務所需的部分資訊尚未設定。</p>
         <div className="mt-4 text-sm text-slate-600 bg-slate-100 p-4 rounded-md text-left">
-           <p className="font-semibold">請開發者檢查以下設定：</p>
+           <p className="font-semibold">請開發者依照以下步驟解決：</p>
            {isLocal ? (
-            <ul className="list-disc list-inside mt-2 space-y-2">
+            <ul className="list-disc list-inside mt-2 space-y-1">
                 <li>請在專案的根目錄下，找到或建立 <code>.env.local</code> 檔案。</li>
-                <li>
-                    <span>Email 功能 {!isBrevoConfigured && <span className="text-red-600 font-bold">(未完成)</span>}</span>
+                <li>確認檔案中包含以下**所有**變數並已填入正確的值：
                     <ul className="list-['-_'] list-inside ml-4 mt-1 font-mono bg-slate-200 p-2 rounded">
                         <li>BREVO_API_KEY</li>
                         <li>BREVO_SENDER_EMAIL</li>
                         <li>BREVO_SENDER_NAME</li>
-                    </ul>
-                </li>
-                <li>
-                    <span>NAS 功能 {!IS_NAS_CONFIGURED && <span className="text-red-600 font-bold">(未完成)</span>}</span>
-                    <ul className="list-['-_'] list-inside ml-4 mt-1 font-mono bg-slate-200 p-2 rounded">
-                        <li>NAS_HOST</li>
-                        <li>NAS_PORT</li>
-                        <li>NAS_USERNAME</li>
-                        <li>NAS_PASSWORD</li>
-                        <li>UPLOAD_PATH</li>
                     </ul>
                 </li>
                  <li>修改完畢後，請務必**重新啟動**本地開發伺服器 (關閉後再執行 <code>npm run dev</code>)。</li>
@@ -855,89 +833,19 @@ const ConfigErrorDisplay = () => {
             <ul className="list-disc list-inside mt-2 space-y-1">
                 <li>請登入您的網站託管平台 (例如 Netlify)。</li>
                 <li>前往網站設定中的「環境變數 (Environment variables)」區塊。</li>
-                <li>確認上述 Email 與 NAS 功能所需的所有環境變數都已建立並填入正確的值。</li>
+                <li>確認以下**所有**變數都已建立並填入正確的值：
+                    <ul className="list-['-_'] list-inside ml-4 mt-1 font-mono bg-slate-200 p-2 rounded">
+                        <li>BREVO_API_KEY</li>
+                        <li>BREVO_SENDER_EMAIL</li>
+                        <li>BREVO_SENDER_NAME</li>
+                    </ul>
+                </li>
                 <li>儲存設定後，請**重新部署 (re-deploy)** 您的網站以讓變更生效。</li>
             </ul>
            )}
         </div>
     </div>
 )};
-
-
-// --- 新增：PDF 傳送選項彈出視窗 ---
-interface UploadOptions {
-  toNas: boolean;
-  toEmail: boolean;
-  email: string;
-}
-interface UploadPdfModalProps {
-  isOpen: boolean;
-  options: UploadOptions;
-  onOptionsChange: (newOptions: UploadOptions) => void;
-  onClose: () => void;
-  onConfirm: () => void;
-  isProcessing: boolean;
-}
-
-const UploadPdfModal: React.FC<UploadPdfModalProps> = ({
-  isOpen, options, onOptionsChange, onClose, onConfirm, isProcessing
-}) => {
-  if (!isOpen) return null;
-
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onOptionsChange({ ...options, email: e.target.value });
-  };
-  const handleNasCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onOptionsChange({ ...options, toNas: e.target.checked });
-  };
-  const handleEmailCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onOptionsChange({ ...options, toEmail: e.target.checked });
-  };
-
-  const isEmailConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all">
-        <div className="p-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900">PDF 傳送選項</h3>
-          <div className="mt-4 space-y-4">
-            {/* NAS Option */}
-            <label className={`flex items-center p-3 rounded-md border ${IS_NAS_CONFIGURED ? 'border-gray-300' : 'border-red-300 bg-red-50'}`}>
-              <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50" checked={options.toNas} onChange={handleNasCheckboxChange} disabled={!IS_NAS_CONFIGURED} />
-              <span className={`ml-3 text-sm font-medium ${IS_NAS_CONFIGURED ? 'text-gray-700' : 'text-red-700'}`}>上傳至 NAS</span>
-              {!IS_NAS_CONFIGURED && <span className="ml-auto text-xs font-semibold text-red-600">未設定</span>}
-            </label>
-            {/* Email Option */}
-            <div className={`p-3 rounded-md border ${isEmailConfigured ? 'border-gray-300' : 'border-red-300 bg-red-50'}`}>
-              <label className="flex items-center">
-                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50" checked={options.toEmail} onChange={handleEmailCheckboxChange} disabled={!isEmailConfigured} />
-                <span className={`ml-3 text-sm font-medium ${isEmailConfigured ? 'text-gray-700' : 'text-red-700'}`}>透過 Email 寄送</span>
-                {!isEmailConfigured && <span className="ml-auto text-xs font-semibold text-red-600">未設定</span>}
-              </label>
-              {options.toEmail && isEmailConfigured && (
-                <div className="mt-3">
-                   <label htmlFor="email-recipients" className="block text-xs font-medium text-slate-600 mb-1">收件人 (多個請用逗號 , 分隔)</label>
-                   <input id="email-recipients" type="text" value={options.email} onChange={handleEmailChange} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="bg-gray-50 px-6 py-4 flex flex-row-reverse gap-3">
-          <button type="button" onClick={onConfirm} disabled={isProcessing || (!options.toNas && !options.toEmail)} className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 disabled:opacity-50">
-            {isProcessing ? '傳送中...' : '確認傳送'}
-          </button>
-          <button type="button" onClick={onClose} disabled={isProcessing} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
-            取消
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
 
 /**
  * @component App
@@ -958,19 +866,12 @@ export const App: React.FC = () => {
   const pickerApiLoaded = useRef(false); // 標記 Google Picker API 是否已載入
   
   // 彈出視窗相關狀態
-  const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState<'delete' | 'export' | null>(null);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [uploadOptions, setUploadOptions] = useState<UploadOptions>({
-    toNas: true,
-    toEmail: true,
-    email: 'fuhyuan.w5339@msa.hinet.net',
-  });
 
   // 檢查 API 金鑰是否已設定
   const isGoogleApiConfigured = API_KEY && CLIENT_ID;
-  const isAnySenderConfigured = (BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME) || IS_NAS_CONFIGURED;
-
+  const isBrevoApiConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME;
 
   // --- 副作用 (Effects) ---
 
@@ -1128,7 +1029,7 @@ export const App: React.FC = () => {
   const handleOpenDraftActionModal = useCallback((action: 'delete' | 'export') => {
     if (action === 'export' && !isGoogleApiConfigured) { alert("Google Drive 功能未設定。"); return; }
     if (Object.keys(namedDrafts).length === 0) { alert(action === 'delete' ? "沒有暫存可以刪除。" : "沒有暫存可以匯出。"); return; }
-    setModalAction(action); setIsDraftModalOpen(true);
+    setModalAction(action); setIsModalOpen(true);
   }, [namedDrafts, isGoogleApiConfigured]);
   
   const handleDeleteDraft = useCallback(() => handleOpenDraftActionModal('delete'), [handleOpenDraftActionModal]);
@@ -1161,7 +1062,7 @@ export const App: React.FC = () => {
     } else if (modalAction === 'export') {
       performExportToDrive(draftName);
     }
-    setIsDraftModalOpen(false); setModalAction(null);
+    setIsModalOpen(false); setModalAction(null);
   };
   
   // 載入 Google Picker API（檔案選擇器）
@@ -1210,7 +1111,7 @@ export const App: React.FC = () => {
   }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured]);
 
 
-  // --- PDF & Email & NAS 處理邏輯 ---
+  // --- PDF & Email 處理邏輯 ---
 
   /**
    * 核心函式：產生 PDF 的 Blob 物件。
@@ -1288,114 +1189,83 @@ export const App: React.FC = () => {
     finally { setIsProcessing(false); }
   }, [isProcessing, formData, generatePdfBlob]);
 
-
-  // --- 傳送 PDF 的核心邏輯 ---
-
-  const sendEmail = async (pdfBlob: Blob, recipientEmailsInput: string): Promise<string> => {
-    const recipients = recipientEmailsInput.split(',').map(e => e.trim()).filter(Boolean);
-    if (recipients.length === 0) throw new Error('Email 收件人為空');
-
-    const base64Pdf = await blobToBase64(pdfBlob);
-    const datePart = formData.dateTime.split('T')[0];
-    const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
-    
-    const payload = {
-        sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-        to: recipients.map(email => ({ email })),
-        subject: `${datePart}${formData.serviceUnit}的工作服務單`,
-        htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
-        attachment: [{ content: base64Pdf, name: fileName }],
-    };
-
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Brevo API 請求失敗');
-    }
-    return `✅ Email 已成功寄送至：${recipients.join(', ')}`;
-  };
-  
-  const uploadToNas = async (pdfBlob: Blob): Promise<string> => {
-    const base64Pdf = await blobToBase64(pdfBlob);
-    const datePart = formData.dateTime.split('T')[0];
-    const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
-
-    const response = await fetch('/.netlify/functions/upload-to-nas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            fileName: fileName,
-            fileContentBase64: base64Pdf,
-        }),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `NAS 上傳失敗 (狀態碼: ${response.status})`);
-    }
-    return '✅ PDF 已成功上傳至 NAS！';
-  };
-  
-  const handleOpenSendModal = () => {
-     if (!isAnySenderConfigured) {
-        document.getElementById('config-error-display')?.scrollIntoView({ behavior: 'smooth' });
-        alert("傳送功能未設定，請參考頁面頂部的錯誤提示進行設定。");
+  // 處理上傳/寄送 PDF
+  const handleUploadPdf = useCallback(async () => {
+    if (!isBrevoApiConfigured) {
+        document.getElementById('brevo-error-display')?.scrollIntoView({ behavior: 'smooth' });
         return;
     }
-    setIsUploadModalOpen(true);
-  };
-  
-  const handleConfirmSend = async () => {
-    if (!uploadOptions.toNas && !uploadOptions.toEmail) {
-      alert('請至少選擇一個傳送方式。');
+    
+    if (isProcessing) return;
+
+    const recipientEmailsInput = window.prompt(
+      "請輸入收件人 Email (若有多個，請用逗號 , 分隔):",
+      "fuhyuan.w5339@msa.hinet.net"
+    );
+
+    if (!recipientEmailsInput) {
+        return;
+    }
+    
+    const recipients = recipientEmailsInput
+      .split(',')
+      .map(email => email.trim())
+      .filter(email => email.length > 0);
+
+    if (recipients.length === 0) {
+      alert('請輸入至少一個有效的 Email 地址。');
       return;
     }
-    if (uploadOptions.toEmail && !uploadOptions.email.trim()) {
-      alert('選擇 Email 寄送時，請輸入至少一個有效的 Email 地址。');
-      return;
+
+    if (!window.confirm(`確定要將此服務單傳送至以下信箱嗎？\n\n${recipients.join('\n')}`)) {
+        return;
     }
 
     setIsProcessing(true);
-    setIsUploadModalOpen(false);
-
-    const blob = await generatePdfBlob();
-    if (!blob) {
-      setIsProcessing(false);
-      return;
-    }
-
-    const promises = [];
-    if (uploadOptions.toNas && IS_NAS_CONFIGURED) {
-      promises.push(uploadToNas(blob));
-    }
-    if (uploadOptions.toEmail && (BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME)) {
-      promises.push(sendEmail(blob, uploadOptions.email));
-    }
     
-    const results = await Promise.allSettled(promises);
-    
-    const successMessages: string[] = [];
-    const errorMessages: string[] = [];
-
-    results.forEach(result => {
-        if (result.status === 'fulfilled') {
-            successMessages.push(result.value);
-        } else {
-            errorMessages.push(`❌ 操作失敗: ${result.reason?.message || '未知錯誤'}`);
+    try {
+        const blob = await generatePdfBlob();
+        if (!blob) {
+            alert('無法產生 PDF，郵件無法寄送。');
+            return;
         }
-    });
 
-    const finalMessage = [...successMessages, ...errorMessages].join('\n\n');
-    alert(finalMessage || "沒有執行任何操作。");
+        const base64Pdf = await blobToBase64(blob);
+        const datePart = formData.dateTime.split('T')[0];
+        const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
+        
+        const toPayload = recipients.map(email => ({ email }));
 
-    setIsProcessing(false);
-  };
-  
+        const payload = {
+            sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+            to: toPayload,
+            subject: `${datePart}${formData.serviceUnit}的工作服務單`,
+            htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
+            attachment: [{ content: base64Pdf, name: fileName }],
+        };
+
+        // 呼叫 Brevo 的 API 來寄送郵件
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Brevo API request failed');
+        }
+        
+        alert(`✅ 郵件已成功寄送至：\n\n${recipients.join('\n')}`);
+
+    } catch (error) {
+        console.error("Brevo email sending failed:", error);
+        alert(`郵件寄送失敗：${error instanceof Error ? error.message : '未知錯誤'}`);
+    } finally {
+        setIsProcessing(false);
+    }
+  }, [isProcessing, formData, generatePdfBlob, isBrevoApiConfigured]);
+
 
   // --- JSX 渲染 ---
   return (
@@ -1410,7 +1280,7 @@ export const App: React.FC = () => {
            {isSubmitted ? (
              <ReportView 
                 data={formData}
-                onSendPdf={handleOpenSendModal}
+                onUploadPdf={handleUploadPdf}
                 onSharePdf={handleSharePdf}
                 onDownloadPdf={handleDownloadPdf}
                 onReset={handleReset}
@@ -1421,7 +1291,7 @@ export const App: React.FC = () => {
             <>
               {/* 如果 API 金鑰未設定，則顯示錯誤訊息 */}
               {!isGoogleApiConfigured && <ApiKeyErrorDisplay />}
-              <div id="config-error-display">{!isAnySenderConfigured && <ConfigErrorDisplay />}</div>
+              <div id="brevo-error-display">{!isBrevoApiConfigured && <BrevoApiKeyErrorDisplay />}</div>
               
               {/* 渲染主表單 */}
               <WorkOrderForm 
@@ -1437,31 +1307,14 @@ export const App: React.FC = () => {
         </div>
         
         {/* 暫存管理彈出視窗 */}
-        <DraftActionModal isOpen={isDraftModalOpen} action={modalAction} drafts={Object.keys(namedDrafts)} onClose={() => setIsDraftModalOpen(false)} onConfirm={handleConfirmDraftAction} />
-
-        {/* PDF 傳送選項彈出視窗 */}
-        <UploadPdfModal 
-          isOpen={isUploadModalOpen}
-          options={uploadOptions}
-          onOptionsChange={setUploadOptions}
-          onClose={() => setIsUploadModalOpen(false)}
-          onConfirm={handleConfirmSend}
-          isProcessing={isProcessing}
-        />
+        <DraftActionModal isOpen={isModalOpen} action={modalAction} drafts={Object.keys(namedDrafts)} onClose={() => setIsModalOpen(false)} onConfirm={handleConfirmDraftAction} />
 
         {/* 正在處理時顯示的遮罩層 */}
         {isProcessing && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[60]">
               <div className="text-center">
-                <div role="status" className="flex justify-center items-center mb-2">
-                    <svg aria-hidden="true" className="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-indigo-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
-                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0492C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
-                    </svg>
-                    <span className="sr-only">Loading...</span>
-                </div>
                 <p className="text-lg font-semibold text-slate-700">正在處理中...</p>
-                <p className="text-sm text-slate-500">請稍候，正在為您傳送報告</p>
+                <p className="text-sm text-slate-500">請稍候</p>
               </div>
             </div>
         )}
