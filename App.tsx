@@ -92,6 +92,20 @@ const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number
     }, 0);
 };
 
+const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64String = reader.result as string;
+            // 移除 data:mime/type;base64, 前綴
+            resolve(base64String.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+};
+
+
 /**
  * **【重要】** 遷移並驗證工作單資料
  * 此函式確保不論從 localStorage 或雲端載入的資料格式有多舊或不完整，
@@ -236,6 +250,13 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
   </svg>
+);
+
+const SpinnerIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
 );
 
 
@@ -778,10 +799,11 @@ interface ReportViewProps {
     onPdfAction: (action: 'download' | 'share') => void;
     onReset: () => void;
     onEdit: () => void;
+    onEmailShare: () => void;
     isGeneratingPdf: boolean;
 }
 
-const ReportView: React.FC<ReportViewProps> = ({ data, onPdfAction, onReset, onEdit, isGeneratingPdf }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onPdfAction, onReset, onEdit, onEmailShare, isGeneratingPdf }) => {
     // 照片分頁，每頁 4 張，可在此修改
     const photoChunks = chunk(data.photos, 4);
 
@@ -794,6 +816,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onPdfAction, onReset, onE
     const textPages = totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? 2 : 1;
     const photoPages = photoChunks.length;
     const totalPages = textPages + photoPages;
+    const canShare = typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
 
     return (
     <>
@@ -835,14 +858,101 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onPdfAction, onReset, onE
             {/* // 報告頁面的按鈕文字，可在此修改 */}
             <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-3">
+              <button onClick={onEmailShare} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">上傳PDF</button>
+              {canShare && (
+                 <button onClick={() => onPdfAction('share')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-sky-600 text-white rounded-md shadow-sm hover:bg-sky-700 disabled:opacity-50">分享 PDF</button>
+              )}
               <button onClick={() => onPdfAction('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
-              <button onClick={() => onPdfAction('share')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享 PDF</button>
               <button onClick={onEdit} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
             </div>
       </div>
     </>
     );
 };
+
+
+// --- Email 分享彈窗元件 ---
+type EmailStatus = 'idle' | 'sending' | 'success' | 'error';
+interface EmailShareModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (recipientEmail: string) => void;
+  status: EmailStatus;
+  errorMessage?: string;
+}
+
+const EmailShareModal: React.FC<EmailShareModalProps> = ({ isOpen, onClose, onSubmit, status, errorMessage }) => {
+  const [recipientEmail, setRecipientEmail] = useState('');
+
+  useEffect(() => {
+    if (status === 'success' || status === 'error') {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 3000); // 3 秒後自動關閉
+      return () => clearTimeout(timer);
+    }
+  }, [status, onClose]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (recipientEmail) {
+      onSubmit(recipientEmail);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all p-6">
+        <h3 className="text-xl font-semibold text-slate-800 mb-4">透過 Email 分享服務單</h3>
+        {status === 'idle' && (
+          <form onSubmit={handleSubmit}>
+            <p className="text-sm text-slate-600 mb-4">請輸入收件人的電子郵件地址，系統會將 PDF 服務單作為附件寄出。</p>
+            <div>
+              <label htmlFor="email-recipient" className="sr-only">收件人 Email</label>
+              <input
+                type="email"
+                id="email-recipient"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="customer@example.com"
+                required
+                className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">取消</button>
+              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700">傳送</button>
+            </div>
+          </form>
+        )}
+        {status === 'sending' && (
+          <div className="text-center py-8">
+            <SpinnerIcon className="w-12 h-12 text-indigo-600 mx-auto" />
+            <p className="mt-4 text-lg font-medium text-slate-700">傳送中...</p>
+            <p className="text-sm text-slate-500">正在產生 PDF 並透過 Brevo 寄送</p>
+          </div>
+        )}
+        {status === 'success' && (
+          <div className="text-center py-8">
+             <p className="text-2xl">✅</p>
+             <p className="mt-4 text-lg font-medium text-slate-700">郵件已成功寄出！</p>
+             <p className="text-sm text-slate-500">收件人將在幾分鐘內收到服務單。</p>
+          </div>
+        )}
+        {status === 'error' && (
+          <div className="text-center py-8">
+            <p className="text-2xl">❌</p>
+            <p className="mt-4 text-lg font-medium text-red-700">郵件傳送失敗</p>
+            <p className="text-sm text-red-500 mt-2">{errorMessage || '發生未知錯誤，請稍後再試。'}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 // --- 主應用程式元件 ---
 
@@ -874,6 +984,11 @@ export const App: React.FC = () => {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState<'delete' | 'export' | null>(null);
+
+  // Email Modal state
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<EmailStatus>('idle');
+  const [emailError, setEmailError] = useState('');
 
   const isApiConfigured = API_KEY && CLIENT_ID;
 
@@ -1315,7 +1430,7 @@ export const App: React.FC = () => {
 
 
   // --- PDF Generation and Sharing ---
-  const generatePdfBlob = async (): Promise<Blob | null> => {
+  const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
       const { jsPDF: JSPDF } = (window as any).jspdf;
       const pdf = new JSPDF('p', 'mm', 'a4');
@@ -1368,7 +1483,7 @@ export const App: React.FC = () => {
       alert("無法產生PDF，可能是內容過於複雜。請檢查主控台中的錯誤訊息。");
       return null;
     }
-  };
+  }, [formData]);
   
   const handlePdfAction = useCallback(async (action: 'download' | 'share') => {
     if (isGeneratingPdf) return;
@@ -1392,22 +1507,102 @@ export const App: React.FC = () => {
             const file = new File([blob], fileName, { type: 'application/pdf' });
             const shareData = {
                 files: [file],
-                title: `工作服務單 - ${formData.serviceUnit}`,
-                text: `請查收 ${formData.serviceUnit} 的工作服務單。`,
+                title: '工作服務單',
+                text: `這是來自「${formData.serviceUnit}」的工作服務單。`,
             };
-            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-                await navigator.share(shareData).catch(err => { if (err.name !== 'AbortError') throw err; });
+
+            if (navigator.canShare && navigator.canShare(shareData)) {
+                await navigator.share(shareData);
             } else {
-                alert('您的瀏覽器不支援檔案分享。請先下載PDF後再手動分享。');
+                alert("您的瀏覽器不支援檔案分享功能，將改為下載檔案。");
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
             }
         }
     } catch (error) {
-        console.error('PDF action failed:', error);
-        alert('PDF 操作失敗，請稍後再試。');
+        if (error instanceof Error && error.name === 'AbortError') {
+             console.log("Share action was cancelled by the user.");
+        } else {
+            console.error('PDF action failed:', error);
+            alert('PDF 操作失敗，請稍後再試。');
+        }
     } finally {
         setIsGeneratingPdf(false);
     }
-  }, [isGeneratingPdf, formData]);
+  }, [isGeneratingPdf, formData, generatePdfBlob]);
+
+  const handleOpenEmailModal = () => {
+    const { BREVO_API_KEY, BREVO_SENDER_EMAIL } = process.env;
+    if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL) {
+        alert('⛔️ Email 功能設定不完整！\n請開發者依照 README.md 的指示，在 .env.local 或您的託管平台 (如 Netlify) 設定 BREVO_API_KEY 和 BREVO_SENDER_EMAIL。');
+        return;
+    }
+    setIsEmailModalOpen(true);
+  };
+
+  const handleCloseEmailModal = useCallback(() => {
+    setIsEmailModalOpen(false);
+    // 延遲重置狀態，讓關閉動畫更流暢
+    setTimeout(() => {
+        setEmailStatus('idle');
+        setEmailError('');
+    }, 300);
+  }, []);
+
+  const handleSendEmail = useCallback(async (recipientEmail: string) => {
+    setEmailStatus('sending');
+    setIsGeneratingPdf(true); // 使用相同的鎖定狀態
+
+    try {
+        const blob = await generatePdfBlob();
+        if (!blob) {
+          throw new Error("PDF 產生失敗。");
+        }
+        
+        const base64Content = await blobToBase64(blob);
+        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': process.env.BREVO_API_KEY!,
+            },
+            body: JSON.stringify({
+                sender: {
+                    name: process.env.BREVO_SENDER_NAME || '富元機電',
+                    email: process.env.BREVO_SENDER_EMAIL!,
+                },
+                to: [{ email: recipientEmail }],
+                subject: `來自「${process.env.BREVO_SENDER_NAME || '富元機電'}」的工作服務單 - ${formData.serviceUnit}`,
+                htmlContent: `<p>您好：</p><p>請查收附件的 PDF 工作服務單。</p><p>此為系統自動發送信件，請勿直接回覆。</p><p>謝謝您！</p><p>${process.env.BREVO_SENDER_NAME || '富元機電有限公司'}</p>`,
+                attachment: [{
+                    content: base64Content,
+                    name: fileName,
+                }],
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `請求失敗，狀態碼: ${response.status}`);
+        }
+        
+        setEmailStatus('success');
+
+    } catch (error) {
+        console.error('Email sending failed:', error);
+        setEmailError(error instanceof Error ? error.message : '發生未知錯誤');
+        setEmailStatus('error');
+    } finally {
+        setIsGeneratingPdf(false);
+    }
+  }, [formData, generatePdfBlob]);
   
   return (
     <div className="min-h-screen bg-slate-100">
@@ -1418,6 +1613,7 @@ export const App: React.FC = () => {
                 onPdfAction={handlePdfAction}
                 onReset={handleReset}
                 onEdit={handleEdit}
+                onEmailShare={handleOpenEmailModal}
                 isGeneratingPdf={isGeneratingPdf}
               />
             ) : (
@@ -1456,7 +1652,15 @@ export const App: React.FC = () => {
           onConfirm={handleConfirmDraftAction}
         />
 
-        {isGeneratingPdf && (
+        <EmailShareModal 
+            isOpen={isEmailModalOpen}
+            onClose={handleCloseEmailModal}
+            onSubmit={handleSendEmail}
+            status={emailStatus}
+            errorMessage={emailError}
+        />
+
+        {isGeneratingPdf && !isEmailModalOpen && (
             <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
               <div className="text-center">
                 {/* // 正在產生 PDF 時的提示文字 */}
