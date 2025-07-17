@@ -11,7 +11,6 @@ export default defineConfig(({ mode }) => {
         'process.env.BREVO_API_KEY': JSON.stringify(env.BREVO_API_KEY),
         'process.env.BREVO_SENDER_EMAIL': JSON.stringify(env.BREVO_SENDER_EMAIL),
         'process.env.BREVO_SENDER_NAME': JSON.stringify(env.BREVO_SENDER_NAME),
-        'process.env.BREVO_RECIPIENT_EMAIL': JSON.stringify(env.BREVO_RECIPIENT_EMAIL),
       },
       resolve: {
         alias: {
