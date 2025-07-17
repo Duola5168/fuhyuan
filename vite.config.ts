@@ -9,8 +9,8 @@ const appVersion = packageJson.version;
 export default defineConfig(({ mode }) => {
     return {
       define: {
-        // 將版本號注入到前端程式碼中，使用一個自訂的全域常數以避免汙染 process.env
-        '__APP_VERSION__': JSON.stringify(appVersion),
+        // 將版本號注入到前端程式碼中
+        'process.env.APP_VERSION': JSON.stringify(appVersion),
       },
       resolve: {
         alias: {
