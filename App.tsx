@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -655,7 +656,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
             <div className="mt-2 border border-slate-200 rounded-md overflow-hidden">
               {/* 
                 註解: 產品表格的樣式。
-                - `text-sm`: 控制表格內文字的字體大小。
+                - `text-sm`: 控制表格内文字的字體大小。
                 - `bg-slate-50`: 表頭的背景顏色。
                 - `font-medium text-slate-600`: 表頭文字的樣式。
               */}
@@ -1267,6 +1268,83 @@ export const App: React.FC = () => {
     } catch(e) { console.error('PDF share failed:', e); alert('PDF 分享失敗。'); } 
     finally { setIsProcessing(false); }
   }, [isProcessing, formData, generatePdfBlob]);
+
+  const performNasUpload = useCallback(async (blob: Blob, fileName: string) => {
+    if (!isNasConfigured) throw new Error("NAS API 未設定");
+
+    const genericCorsError = "無法連接至 NAS。這通常是網路連線問題，或是您 NAS 上的「跨來源資源共用 (CORS)」設定不正確。請檢查您的網路，並確認已在 NAS 的網頁伺服器設定中，允許 `fuhyuan.netlify.app` 這個網域存取。";
+    let sid = '';
+
+    try {
+        // 1. 登入取得 SID
+        const loginUrl = `${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?user=${encodeURIComponent(NAS_USERNAME!)}&pwd=${encodeURIComponent(NAS_PASSWORD!)}&service=filestation`;
+        const loginResponse = await fetch(loginUrl);
+        if (!loginResponse.ok) throw new Error(`NAS 登入失敗 (HTTP ${loginResponse.status})`);
+        
+        const loginText = await loginResponse.text();
+        const sidMatch = /<sid>(.+)<\/sid>/.exec(loginText);
+        if (!sidMatch || !sidMatch[1]) throw new Error("無法從 NAS 回應中取得 SID，請確認帳號密碼是否正確。");
+        sid = sidMatch[1];
+
+        // 2. 上傳檔案
+        const uploadUrl = `${NAS_ENDPOINT}/cgi-bin/filemanager/utilRequest.cgi?func=upload&sid=${sid}&dest_path=${encodeURIComponent(UPLOAD_PATH!)}&overwrite=1`;
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', blob, fileName);
+        
+        const uploadResponse = await fetch(uploadUrl, { method: 'POST', body: uploadFormData });
+        if (!uploadResponse.ok) {
+            throw new Error(`NAS 上傳失敗 (HTTP ${uploadResponse.status})`);
+        }
+
+        return 'File uploaded to NAS successfully';
+    } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+            throw new Error(genericCorsError);
+        }
+        // Re-throw other errors
+        throw error;
+    } finally {
+        // 3. 登出 (無論成功或失敗都嘗試登出)
+        if (sid) {
+            try {
+                await fetch(`${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?logout=1&sid=${sid}`);
+            } catch (e) {
+                // Silently fail logout, as the primary operation is what matters.
+                console.error("Failed to log out from NAS, but this is non-critical.", e);
+            }
+        }
+    }
+  }, [isNasConfigured]);
+
+  const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
+    if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
+
+    const recipients = recipientsStr.split(',').map(email => email.trim()).filter(Boolean);
+    if (recipients.length === 0) throw new Error("請提供至少一個有效的收件人 Email");
+
+    const base64Pdf = await blobToBase64(blob);
+    const toPayload = recipients.map(email => ({ email }));
+
+    const payload = {
+      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+      to: toPayload,
+      subject: `${formData.dateTime.split('T')[0]} ${formData.serviceUnit} 的工作服務單`,
+      htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
+      attachment: [{ content: base64Pdf, name: fileName }],
+    };
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Brevo API 請求失敗');
+    }
+    return 'Email sent successfully';
+  }, [formData, isBrevoApiConfigured]);
   
   const handleConfirmUpload = useCallback(async (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => {
     const { uploadToNas, sendByEmail, emailRecipients } = options;
@@ -1310,69 +1388,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob]);
-
-  const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
-    if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
-
-    const recipients = recipientsStr.split(',').map(email => email.trim()).filter(Boolean);
-    if (recipients.length === 0) throw new Error("請提供至少一個有效的收件人 Email");
-
-    const base64Pdf = await blobToBase64(blob);
-    const toPayload = recipients.map(email => ({ email }));
-
-    const payload = {
-      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-      to: toPayload,
-      subject: `${formData.dateTime.split('T')[0]} ${formData.serviceUnit} 的工作服務單`,
-      htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
-      attachment: [{ content: base64Pdf, name: fileName }],
-    };
-
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Brevo API 請求失敗');
-    }
-    return 'Email sent successfully';
-  }, [formData, isBrevoApiConfigured]);
-
-  const performNasUpload = useCallback(async (blob: Blob, fileName: string) => {
-    if (!isNasConfigured) throw new Error("NAS API 未設定");
-    
-    // 1. 登入取得 SID
-    const loginUrl = `${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?user=${encodeURIComponent(NAS_USERNAME!)}&pwd=${encodeURIComponent(NAS_PASSWORD!)}&service=filestation`;
-    const loginResponse = await fetch(loginUrl);
-    if (!loginResponse.ok) throw new Error(`NAS 登入失敗 (HTTP ${loginResponse.status})`);
-    
-    const loginText = await loginResponse.text();
-    const sidMatch = /<sid>(.+)<\/sid>/.exec(loginText);
-    if (!sidMatch || !sidMatch[1]) throw new Error("無法從 NAS 回應中取得 SID");
-    const sid = sidMatch[1];
-
-    // 2. 上傳檔案
-    const uploadUrl = `${NAS_ENDPOINT}/cgi-bin/filemanager/utilRequest.cgi?func=upload&sid=${sid}&dest_path=${encodeURIComponent(UPLOAD_PATH!)}&overwrite=1`;
-    const formData = new FormData();
-    formData.append('file', blob, fileName);
-    
-    const uploadResponse = await fetch(uploadUrl, { method: 'POST', body: formData });
-    if (!uploadResponse.ok) {
-        // 登出以清除 session
-        await fetch(`${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?logout=1&sid=${sid}`);
-        throw new Error(`NAS 上傳失敗 (HTTP ${uploadResponse.status})`);
-    }
-
-    // 登出
-    await fetch(`${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?logout=1&sid=${sid}`);
-
-    return 'File uploaded to NAS successfully';
-  }, [isNasConfigured]);
-
+  }, [formData, generatePdfBlob, performNasUpload, performEmailSend]);
 
   // --- JSX 渲染 ---
   return (
