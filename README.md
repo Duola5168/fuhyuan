@@ -87,7 +87,15 @@
 
 當您在 Netlify 上部署的應用程式中，嘗試上傳檔案到 NAS 時，如果看到 `Failed to fetch` 或類似的網路錯誤訊息，**這 99% 的機率是「跨來源資源共用 (CORS)」設定問題**，而不是您在 Netlify 的參數填寫錯誤。
 
-這是瀏覽器的標準安全機制，它會阻止一個網站 (`https://fuhyuan.netlify.app`) 向另一個完全不同的伺服器 (您的 NAS) 發送請求，除非您的 NAS 明確表示「我允許來自 `https://fuhyuan.netlify.app` 的請求」。
+### 關鍵釐清：CORS vs. 反向代理 (Reverse Proxy)
+
+許多使用者會將這兩者混淆，這也是導致設定失敗的主要原因。
+*   **反向代理 (Reverse Proxy)**：是將來自外部的請求「轉發」到您 NAS 內部的特定服務。**這不是我們需要的設定。**
+*   **CORS (Cross-Origin Resource Sharing)**：是您的 NAS 網頁伺服器向瀏覽器發出的一個「許可」，告訴瀏覽器：「我允許來自 `https://fuhyuan.netlify.app` 這個網站的請求」。**這才是解決 `Failed to fetch` 錯誤的正確設定。**
+
+> ⚠️ **請注意：** 您之前設定的「反向規則」是錯誤的。請依照以下步驟在 **「網頁伺服器」** 中設定 CORS，才能解決問題。
+
+### 設定步驟
 
 **您必須登入您的 QNAP NAS 並依照以下步驟設定，才能解決此問題：**
 
@@ -95,11 +103,12 @@
 
 2.  **開啟「控制台 (Control Panel)」。**
 
-3.  **前往「應用服務 (Applications)」 > 「網頁伺服器 (Web Server)」。**
+3.  **前往「應用服務 (Applications)」 > 「網頁伺服器 (Web Server)」。** (請確認您是在 `網頁伺服器` 的設定頁面，而非 `反向代理伺服器`)
 
 4.  **啟用網頁伺服器 & 設定 CORS：**
     *   確保 **啟用網頁伺服器 (Enable Web Server)** 的選項是 **勾選** 狀態。
-    *   找到並勾選 **允許跨來源資源共用 (CORS) (Allow Cross-Origin Resource Sharing (CORS))**。
+    *   切換到 **CORS** 頁籤。
+    *   勾選 **允許跨來源資源共用 (CORS) (Allow Cross-Origin Resource Sharing (CORS))**。
     *   在下方的 **允許的來源 (Allowed-Origin)** 輸入框中，**務必** 填入您 Netlify 應用程式的 **完整網址**：
         ```
         https://fuhyuan.netlify.app
