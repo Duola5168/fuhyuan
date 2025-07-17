@@ -35,7 +35,7 @@
 
 3.  **將您的秘密金鑰新增至 `.env.local`**：
     打開 `.env.local` 檔案，並貼上以下內容。請將引號中的預留位置文字，替換成您從各服務平台取得的真實金鑰。
-    **重要提示：所有變數名稱都必須以 `VITE_` 開頭，這是 Vite 框架的要求。**
+    **重要提示：所有前端可存取的變數名稱都必須以 `VITE_` 開頭，這是 Vite 框架的要求。**
 
     ```
     # .env.local
@@ -44,6 +44,9 @@
     # 關於如何取得金鑰，請參考 Google Cloud Platform 的官方文件。您需要啟用 `Google Drive API` 和 `Google Picker API`。
     VITE_GOOGLE_API_KEY="在這裡貼上您的 Google API 金鑰"
     VITE_GOOGLE_CLIENT_ID="在這裡貼上您的 Google OAuth 2.0 用戶端 ID"
+
+    # Gemini API 金鑰 (預留供未來 AI 功能使用)
+    VITE_GEMINI_API_KEY="在這裡貼上您的 Google Gemini API 金鑰"
 
     # Brevo (Email 發送功能) 所需金鑰
     # 請登入您的 Brevo 帳戶，前往 "SMTP & API" 頁面取得。
@@ -84,6 +87,7 @@
 3.  點擊 **Add a variable**，然後一個一個地新增以下所有變數 (請注意 `VITE_` 前綴)：
     *   `VITE_GOOGLE_API_KEY`
     *   `VITE_GOOGLE_CLIENT_ID`
+    *   `VITE_GEMINI_API_KEY`
     *   `VITE_BREVO_API_KEY`
     *   `VITE_BREVO_SENDER_EMAIL`
     *   `VITE_BREVO_SENDER_NAME`
