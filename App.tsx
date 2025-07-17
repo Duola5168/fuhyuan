@@ -922,41 +922,32 @@ export const App: React.FC = () => {
   
   // 處理產品項目變更（品名、數量）
   const handleProductChange = useCallback((index: number, field: 'name' | 'quantity', value: string | number) => {
-    const newProducts = formData.products.map((product, i) => {
-      if (i !== index) return product;
-  
-      if (field === 'quantity') {
-        const newQuantity = Number(value);
-        const oldQuantity = product.quantity;
-  
-        // 檢查行數限制
-        const otherProductsLines = formData.products.reduce((acc, p, productIndex) => (productIndex === index ? acc : acc + p.quantity), 0);
-        if (otherProductsLines + newQuantity + calculateVisualLines(formData.remarks) > PRODUCTS_REMARKS_LIMIT) {
-          alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法增加數量。`);
-          return product; // 返回原來的 product，不做更改
+    setFormData(prev => {
+        if (field === 'quantity') {
+            const newQuantity = Number(value);
+            // 檢查行數限制
+            const otherProductsLines = prev.products.reduce((acc, p, i) => i === index ? acc : acc + p.quantity, 0);
+            if (otherProductsLines + newQuantity + calculateVisualLines(prev.remarks) > PRODUCTS_REMARKS_LIMIT) {
+                alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法增加數量。`);
+                return prev;
+            }
         }
-  
-        let newSerialNumbers = product.serialNumbers || [];
-        if (newQuantity > oldQuantity) {
-          newSerialNumbers = [...newSerialNumbers, ...Array(newQuantity - oldQuantity).fill('')];
-        } else if (newQuantity < oldQuantity) {
-          newSerialNumbers = newSerialNumbers.slice(0, newQuantity);
-        }
-        return { ...product, quantity: newQuantity, serialNumbers: newSerialNumbers };
-      }
-  
-      if (field === 'name') {
-        return { ...product, name: String(value) };
-      }
-  
-      return product;
+        const newProducts = prev.products.map((product, i) => {
+            if (i !== index) return product;
+            if (field === 'quantity') {
+                // 當數量改變時，自動調整序號輸入框的數量
+                const newQuantity = Number(value);
+                const oldQuantity = product.quantity;
+                let newSerialNumbers = product.serialNumbers || [];
+                if (newQuantity > oldQuantity) { newSerialNumbers = [...newSerialNumbers, ...Array(newQuantity - oldQuantity).fill('')]; }
+                else if (newQuantity < oldQuantity) { newSerialNumbers = newSerialNumbers.slice(0, newQuantity); }
+                return { ...product, quantity: newQuantity, serialNumbers: newSerialNumbers };
+            }
+            return { ...product, name: String(value) };
+        });
+        return { ...prev, products: newProducts };
     });
-  
-    // 只有在 newProducts 與原來的 products 不同的情況下才更新狀態
-    if (newProducts !== formData.products) {
-        setFormData({ ...formData, products: newProducts });
-    }
-  }, [formData]);
+  }, []);
   
   // 處理產品序號變更
   const handleProductSerialNumberChange = (productIndex: number, serialIndex: number, value: string) => {
@@ -1093,7 +1084,7 @@ export const App: React.FC = () => {
             .build();
         picker.setVisible(true);
     });
-  }, [API_KEY]);
+  }, []);
 
   // 處理從 Google Drive 匯入
   const handleImportFromDrive = useCallback(async () => {
