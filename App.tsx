@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
-import { UploadModal, UploadOptions } from './components/UploadModal';
 
 // --- 全域型別宣告 ---
 // 為了讓 TypeScript 能夠識別透過 CDN <script> 標籤載入的函式庫，我們在此宣告它們的全域型別。
@@ -14,9 +13,9 @@ declare const gapi: any;
 declare const google: any;
 
 // --- 版本號統一來源 ---
-// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "2.0.0")
-const rawVersion = process.env.APP_VERSION || '2.0.0'; 
-// 將原始版本號格式化為更容易閱讀的 "V2.0" 格式，用於UI顯示
+// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.4.0")
+const rawVersion = process.env.APP_VERSION || '1.4.0'; 
+// 將原始版本號格式化為更容易閱讀的 "V1.4" 格式，用於UI顯示
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 
@@ -183,7 +182,7 @@ const migrateWorkOrderData = (data: any): WorkOrderData => {
 
 /**
  * 將 Blob 物件轉換為 Base64 字串。
- * 主要用於將 PDF 檔案轉換成可以附加到 Email 或傳送到後端的格式。
+ * 主要用於將 PDF 檔案轉換成可以附加到 Email 中的格式。
  * @param blob - 要轉換的 Blob 物件。
  * @returns 回傳一個 Promise，其解析值為 Base64 字串。
  */
@@ -191,7 +190,6 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      // 移除 dataURL 前綴 (e.g., "data:application/pdf;base64,")
       const base64String = (reader.result as string).split(',')[1];
       resolve(base64String);
     };
@@ -860,7 +858,6 @@ export const App: React.FC = () => {
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({}); // 所有已儲存的本機暫存
   const [isSubmitted, setIsSubmitted] = useState(false); // 標記表單是否已提交，以切換到報告預覽畫面
   const [isProcessing, setIsProcessing] = useState(false); // 標記是否正在處理耗時操作（如產生PDF、上傳），用於顯示載入畫面
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // 控制上傳選項彈出視窗
   
   // Google API 相關狀態
   const [gapiReady, setGapiReady] = useState(false); // Google API Client 是否載入完成
@@ -1114,7 +1111,7 @@ export const App: React.FC = () => {
   }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured]);
 
 
-  // --- PDF & 分享/上傳 處理邏輯 ---
+  // --- PDF & Email 處理邏輯 ---
 
   /**
    * 核心函式：產生 PDF 的 Blob 物件。
@@ -1192,125 +1189,83 @@ export const App: React.FC = () => {
     finally { setIsProcessing(false); }
   }, [isProcessing, formData, generatePdfBlob]);
 
-  // 處理來自彈出視窗的確認上傳/寄送事件
-  const handleConfirmUpload = useCallback(async (options: UploadOptions, recipients: string) => {
-    setIsUploadModalOpen(false);
+  // 處理上傳/寄送 PDF
+  const handleUploadPdf = useCallback(async () => {
+    if (!isBrevoApiConfigured) {
+        document.getElementById('brevo-error-display')?.scrollIntoView({ behavior: 'smooth' });
+        return;
+    }
+    
+    if (isProcessing) return;
 
-    if (!options.nas && !options.email) {
-      alert('未選擇任何傳送方式。');
+    const recipientEmailsInput = window.prompt(
+      "請輸入收件人 Email (若有多個，請用逗號 , 分隔):",
+      "fuhyuan.w5339@msa.hinet.net"
+    );
+
+    if (!recipientEmailsInput) {
+        return;
+    }
+    
+    const recipients = recipientEmailsInput
+      .split(',')
+      .map(email => email.trim())
+      .filter(email => email.length > 0);
+
+    if (recipients.length === 0) {
+      alert('請輸入至少一個有效的 Email 地址。');
       return;
     }
 
-    const recipientList = recipients.split(/[,;\n]/).map(email => email.trim()).filter(Boolean);
-    if (options.email && recipientList.length === 0) {
-      alert('若要透過 Email 傳送，請至少輸入一個有效的收件人信箱。');
-      return;
-    }
-
-    if (options.email && !isBrevoApiConfigured) {
-      document.getElementById('brevo-error-display')?.scrollIntoView({ behavior: 'smooth' });
-      alert('Email 功能設定不完整，無法寄送。');
-      return;
+    if (!window.confirm(`確定要將此服務單傳送至以下信箱嗎？\n\n${recipients.join('\n')}`)) {
+        return;
     }
 
     setIsProcessing(true);
+    
     try {
-      const blob = await generatePdfBlob();
-      if (!blob) {
-        throw new Error('無法產生 PDF 檔案。');
-      }
+        const blob = await generatePdfBlob();
+        if (!blob) {
+            alert('無法產生 PDF，郵件無法寄送。');
+            return;
+        }
 
-      const datePart = formData.dateTime.split('T')[0];
-      const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
+        const base64Pdf = await blobToBase64(blob);
+        const datePart = formData.dateTime.split('T')[0];
+        const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
+        
+        const toPayload = recipients.map(email => ({ email }));
 
-      const promises = [];
-      if (options.nas) {
-        promises.push(uploadToNas(blob, fileName));
-      }
-      if (options.email && recipientList.length > 0) {
-        promises.push(sendByEmail(blob, fileName, recipientList));
-      }
+        const payload = {
+            sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+            to: toPayload,
+            subject: `${datePart}${formData.serviceUnit}的工作服務單`,
+            htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
+            attachment: [{ content: base64Pdf, name: fileName }],
+        };
 
-      const results = await Promise.allSettled(promises);
+        // 呼叫 Brevo 的 API 來寄送郵件
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
 
-      let successMessages: string[] = [];
-      let errorMessages: string[] = [];
-      results.forEach((result, index) => {
-          let action = '';
-          if (options.nas && options.email) {
-              action = index === 0 ? 'NAS 上傳' : 'Email 寄送';
-          } else if (options.nas) {
-              action = 'NAS 上傳';
-          } else {
-              action = 'Email 寄送';
-          }
-
-          if (result.status === 'fulfilled') {
-              successMessages.push(`✅ ${result.value}`);
-          } else {
-              errorMessages.push(`❌ ${action}失敗: ${result.reason instanceof Error ? result.reason.message : '未知錯誤'}`);
-          }
-      });
-      
-      let finalMessage = '';
-      if (successMessages.length > 0) {
-          finalMessage += '成功:\n' + successMessages.join('\n');
-      }
-      if (errorMessages.length > 0) {
-          if (finalMessage) finalMessage += '\n\n';
-          finalMessage += '失敗:\n' + errorMessages.join('\n');
-      }
-      alert(finalMessage || '沒有執行任何操作。');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Brevo API request failed');
+        }
+        
+        alert(`✅ 郵件已成功寄送至：\n\n${recipients.join('\n')}`);
 
     } catch (error) {
-      console.error("An unexpected error occurred during upload/send:", error);
-      alert(`發生未預期的錯誤: ${error instanceof Error ? error.message : '未知錯誤'}`);
+        console.error("Brevo email sending failed:", error);
+        alert(`郵件寄送失敗：${error instanceof Error ? error.message : '未知錯誤'}`);
     } finally {
-      setIsProcessing(false);
+        setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, isBrevoApiConfigured]);
-  
-  // 輔助函式：上傳至 NAS
-  const uploadToNas = async (blob: Blob, fileName: string): Promise<string> => {
-    const fileContentBase64 = await blobToBase64(blob);
-    const response = await fetch('/.netlify/functions/upload-to-nas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName, fileContentBase64 }),
-    });
+  }, [isProcessing, formData, generatePdfBlob, isBrevoApiConfigured]);
 
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.message || 'NAS 上傳請求失敗');
-    }
-    return result.message;
-  };
-  
-  // 輔助函式：透過 Email 寄送
-  const sendByEmail = async (blob: Blob, fileName: string, recipients: string[]): Promise<string> => {
-    const base64Pdf = await blobToBase64(blob);
-    const toPayload = recipients.map(email => ({ email }));
-
-    const payload = {
-      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-      to: toPayload,
-      subject: `${formData.dateTime.split('T')[0]} ${formData.serviceUnit} 的工作服務單`,
-      htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
-      attachment: [{ content: base64Pdf, name: fileName }],
-    };
-
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Brevo API 請求失敗');
-    }
-    return `Email 已成功寄送至 ${recipients.length} 位收件人。`;
-  };
 
   // --- JSX 渲染 ---
   return (
@@ -1325,7 +1280,7 @@ export const App: React.FC = () => {
            {isSubmitted ? (
              <ReportView 
                 data={formData}
-                onUploadPdf={() => setIsUploadModalOpen(true)}
+                onUploadPdf={handleUploadPdf}
                 onSharePdf={handleSharePdf}
                 onDownloadPdf={handleDownloadPdf}
                 onReset={handleReset}
@@ -1353,15 +1308,6 @@ export const App: React.FC = () => {
         
         {/* 暫存管理彈出視窗 */}
         <DraftActionModal isOpen={isModalOpen} action={modalAction} drafts={Object.keys(namedDrafts)} onClose={() => setIsModalOpen(false)} onConfirm={handleConfirmDraftAction} />
-
-        {/* 上傳選項彈出視窗 */}
-        <UploadModal
-          isOpen={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          onConfirm={handleConfirmUpload}
-          isProcessing={isProcessing}
-          defaultRecipient="fuhyuan.w5339@msa.hinet.net"
-        />
 
         {/* 正在處理時顯示的遮罩層 */}
         {isProcessing && (
