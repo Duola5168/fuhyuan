@@ -2,7 +2,7 @@
 {
   "name": "富元機電有限公司---工作服務單",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
