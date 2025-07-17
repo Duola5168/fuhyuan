@@ -6,6 +6,9 @@
  * provided by Vite.
  */
 
+// This global constant is injected by Vite at build time.
+declare const __APP_VERSION__: string;
+
 // --- Versioning ---
 // Injected by Vite during the build process from package.json
 const rawVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.0.0';
