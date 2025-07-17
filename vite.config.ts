@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => {
         'process.env.BREVO_API_KEY': JSON.stringify(env.BREVO_API_KEY),
         'process.env.BREVO_SENDER_EMAIL': JSON.stringify(env.BREVO_SENDER_EMAIL),
         'process.env.BREVO_SENDER_NAME': JSON.stringify(env.BREVO_SENDER_NAME),
+        'process.env.NAS_ENDPOINT': JSON.stringify(env.NAS_ENDPOINT),
+        'process.env.NAS_USERNAME': JSON.stringify(env.NAS_USERNAME),
+        'process.env.NAS_PASSWORD': JSON.stringify(env.NAS_PASSWORD),
+        'process.env.UPLOAD_PATH': JSON.stringify(env.UPLOAD_PATH),
       },
       resolve: {
         alias: {
