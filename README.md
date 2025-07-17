@@ -48,7 +48,6 @@
     BREVO_API_KEY="在這裡貼上您的 Brevo v3 API 金鑰"
     BREVO_SENDER_EMAIL="您在 Brevo 上已驗證的寄件人 Email"
     BREVO_SENDER_NAME="富元機電有限公司"
-    BREVO_RECIPIENT_EMAIL="report-receiver@your-company.com" # 在這裡設定要接收服務單的公司信箱
     ```
 
 4.  **啟動本地開發伺服器**：
@@ -71,5 +70,4 @@
     *   `BREVO_API_KEY`
     *   `BREVO_SENDER_EMAIL`
     *   `BREVO_SENDER_NAME`
-    *   `BREVO_RECIPIENT_EMAIL`
 4.  新增完畢後，觸發一次新的部署 (re-deploy)，讓設定生效。
