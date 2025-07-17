@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
@@ -19,41 +18,40 @@ const API_KEY = process.env.GOOGLE_API_KEY;
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-// 用於 localStorage 儲存授權狀態的鍵值，解決每次都要重新授權的問題
 const GOOGLE_AUTH_GRANTED_KEY = 'googleAuthGranted';
+
+
+// --- BREVO API 設定 ---
+// 從環境變數安全地讀取金鑰。如果未設定，則使用預留位置。
+// 注意：這些預留位置值無法實際運作，它們僅用於開發和偵錯。
+// 您必須在 .env.local 檔案或您的託管平台(如 Netlify)上設定真實金鑰。
+const BREVO_API_KEY = process.env.BREVO_API_KEY || 'BREVO_API_KEY_PLACEHOLDER';
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'BREVO_SENDER_EMAIL_PLACEHOLDER';
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || '富元機電有限公司';
 // ------------------------------
 
 
 // --- 全域設定參數 ---
-
-// 這裡可以設定服務單內容的總行數限制，超過此限制將會觸發分頁
 const TOTAL_CONTENT_LINES_LIMIT = 20; 
-// 這裡可以設定「處理事項」與「處理情形」的總行數限制
 const TASKS_STATUS_LIMIT = 18; 
-// 這裡可以設定「產品項目」與「備註」的總行數限制
 const PRODUCTS_REMARKS_LIMIT = 16; 
-// 用於 localStorage 儲存暫存檔的鍵值，通常不需要修改
 const NAMED_DRAFTS_STORAGE_KEY = 'workOrderNamedDrafts';
-// 這裡可以設定最多允許儲存幾份暫存檔
 const MAX_DRAFTS = 3;
 
 
 const getFormattedDateTime = () => {
   const now = new Date();
-  // 為了符合 <input type="datetime-local"> 的格式，需要調整時區
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
 };
 
-// 預設的產品項目結構
 const initialProduct: ProductItem = {
     id: `product-${Date.now()}`,
-    name: '', // 預設產品品名
-    quantity: 1, // 預設產品數量
-    serialNumbers: [''], // 預設一個空的序號欄位
+    name: '',
+    quantity: 1,
+    serialNumbers: [''],
 };
 
-// 全新表單的初始資料
 const initialFormData: WorkOrderData = {
   dateTime: getFormattedDateTime(),
   serviceUnit: '',
@@ -69,18 +67,11 @@ const initialFormData: WorkOrderData = {
 };
 
 // --- 工具函式 ---
-// 將陣列分塊的函式，用於將照片分頁
 const chunk = <T,>(arr: T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
     arr.slice(i * size, i * size + size)
   );
 
-/**
- * 估算字串在 textarea 中會佔據的視覺行數
- * @param str 要測量的字串
- * @param avgCharsPerLine 每行平均字元數，可調整此數值來改變行數估算的靈敏度
- * @returns 估算的視覺行數
- */
 const calculateVisualLines = (str: string, avgCharsPerLine: number = 40): number => {
     if (!str) return 0;
     const manualLines = str.split('\n');
@@ -97,7 +88,6 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
         const reader = new FileReader();
         reader.onloadend = () => {
             const base64String = reader.result as string;
-            // 移除 data:mime/type;base64, 前綴
             resolve(base64String.split(',')[1]);
         };
         reader.onerror = reject;
@@ -106,50 +96,34 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 };
 
 
-/**
- * **【重要】** 遷移並驗證工作單資料
- * 此函式確保不論從 localStorage 或雲端載入的資料格式有多舊或不完整，
- * 都能被安全地轉換成最新的、可供渲染的格式，防止程式崩潰。
- * @param data 任何來源的工作單資料
- * @returns 格式完整且安全的 WorkOrderData
- */
 const migrateWorkOrderData = (data: any): WorkOrderData => {
-    // 1. 使用初始資料作為基底，確保所有欄位都存在，防止因缺少欄位導致的錯誤。
     const sanitizedData = { ...initialFormData, ...data };
 
-    // 2. 確保 `products` 欄位是一個非空的陣列。
     if (!Array.isArray(sanitizedData.products) || sanitizedData.products.length === 0) {
         sanitizedData.products = [{...initialProduct}];
     }
     
-    // 3. 遍歷並清理每一個產品項目，確保其結構正確。
     sanitizedData.products = sanitizedData.products.map((p: any) => {
-        // 如果產品不是一個有效的物件，就返回一個全新的預設產品，防止錯誤。
         if (typeof p !== 'object' || p === null) {
             return { ...initialProduct, id: `product-${Date.now()}` };
         }
 
-        // 使用預設產品結構作為基底，確保產品物件的每個鍵都存在。
         const product = { ...initialProduct, ...p }; 
         const quantity = Number(product.quantity) || 1;
         product.quantity = quantity;
 
-        // 處理舊版的 `serialNumber` (單一序號) 欄位，將其轉換為 `serialNumbers` 陣列。
         if (typeof (p as any).serialNumber === 'string' && !Array.isArray(p.serialNumbers)) {
             product.serialNumbers = [(p as any).serialNumber];
-            delete (product as any).serialNumber; // 移除已棄用的舊欄位
+            delete (product as any).serialNumber;
         }
         
-        // 確保 `serialNumbers` 是一個陣列，並使其長度與 `quantity` (數量) 同步。
         if (!Array.isArray(product.serialNumbers)) {
             product.serialNumbers = Array(quantity).fill('');
         } else {
             const currentLength = product.serialNumbers.length;
             if (currentLength < quantity) {
-                // 如果序號欄位少於產品數量，則補上空欄位。
                 product.serialNumbers.push(...Array(quantity - currentLength).fill(''));
             } else if (currentLength > quantity) {
-                // 如果序號欄位多於產品數量，則移除多餘的。
                 product.serialNumbers = product.serialNumbers.slice(0, quantity);
             }
         }
@@ -157,7 +131,6 @@ const migrateWorkOrderData = (data: any): WorkOrderData => {
         return product;
     });
 
-    // 4. 確保所有文字欄位都是字串型別。
     const stringKeys: (keyof WorkOrderData)[] = ['dateTime', 'serviceUnit', 'contactPerson', 'contactPhone', 'tasks', 'status', 'remarks'];
     for (const key of stringKeys) {
         if (typeof sanitizedData[key] !== 'string') {
@@ -165,7 +138,6 @@ const migrateWorkOrderData = (data: any): WorkOrderData => {
         }
     }
 
-    // 5. 確保簽名和照片欄位是正確的型別 (因為匯出的檔案不包含這些，所以通常會是預設值)。
     sanitizedData.photos = Array.isArray(sanitizedData.photos) ? sanitizedData.photos : [];
     sanitizedData.signature = typeof sanitizedData.signature === 'string' ? sanitizedData.signature : null;
     sanitizedData.technicianSignature = typeof sanitizedData.technicianSignature === 'string' ? sanitizedData.technicianSignature : null;
@@ -215,7 +187,7 @@ const FormField: React.FC<FormFieldProps> = ({
             ref={textareaRef}
             id={id}
             name={id}
-            rows={autoSize ? 1 : rows} // autoSize為true時，初始行數為1，否則使用傳入的rows
+            rows={autoSize ? 1 : rows}
             value={value}
             onChange={onChange}
             required={required}
@@ -260,7 +232,7 @@ const SpinnerIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 
-// --- 新增：互動式彈出視窗元件 ---
+// --- 互動式彈出視窗元件 ---
 interface DraftActionModalProps {
   isOpen: boolean;
   action: 'delete' | 'export' | null;
@@ -360,7 +332,6 @@ interface WorkOrderFormProps {
     namedDrafts: { [name: string]: WorkOrderData };
 }
 
-// 主要的表單元件
 const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     formData,
     onInputChange,
@@ -389,18 +360,14 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     return (
      <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
         <div className="text-center">
-            {/* // 表單主標題，可在此修改 */}
             <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
-            {/* // 表單副標題，可在此修改 */}
             <h2 className="text-xl font-semibold text-slate-600 mt-1">工作服務單</h2>
         </div>
         <div className="space-y-6">
-            {/* // 各個表單欄位的標籤文字都可以在 label 屬性中修改 */}
             <FormField label="工作日期及時間" id="dateTime" type="datetime-local" value={formData.dateTime} onChange={onInputChange} required />
             <FormField label="服務單位" id="serviceUnit" value={formData.serviceUnit} onChange={onInputChange} required />
             <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
             <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
-            {/* // cornerHint 是右上角的提示文字 */}
             <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`} />
             <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`}/>
             
@@ -430,7 +397,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                                 onChange={(e) => onProductChange(index, 'quantity', parseInt(e.target.value, 10))}
                                 className="mt-1 block w-full pl-3 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                             >
-                                {/* // 產品數量的下拉選單範圍，這裡設定為 1 到 20 */}
                                 {Array.from({ length: 20 }, (_, i) => i + 1).map(q => <option key={q} value={q}>{q}</option>)}
                             </select>
                         </div>
@@ -447,7 +413,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                                             type="text"
                                             value={serial}
                                             onChange={(e) => onProductSerialNumberChange(index, serialIndex, e.target.value)}
-                                            // 序號輸入框的提示文字
                                             placeholder={`第 ${serialIndex + 1} 組產品序號`}
                                             className="flex-1 min-w-0 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                         />
@@ -474,7 +439,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                     className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-slate-300 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 focus:outline-none"
                 >
                     <PlusIcon className="w-5 h-5 mr-2" />
-                    {/* // "新增項目"按鈕文字 */}
                     新增項目
                 </button>
               </div>
@@ -537,7 +501,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         onClick={onSaveAsDraft}
                         className="flex-1 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-base font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                     >
-                        {/* // "另存新檔"按鈕文字 */}
                         另存新檔
                     </button>
                     <button
@@ -545,7 +508,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         onClick={onClearData}
                         className="flex-1 sm:w-auto px-4 py-2 border border-red-600 text-red-600 rounded-md shadow-sm text-base font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                     >
-                        {/* // "清除資料"按鈕文字 */}
                         清除資料
                     </button>
                 </div>
@@ -553,7 +515,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                     type="submit"
                     className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                    {/* // "產生服務單報告"按鈕文字 */}
                     產生服務單報告
                 </button>
             </div>
@@ -564,13 +525,10 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 
 // --- 報告相關元件 ---
 
-// PDF 頁尾元件
 const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
     <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
-      {/* // PDF 頁尾左側的文字，可在此修改 */}
       <span>本表單(V1.2)由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
       {totalPages && currentPage && (
-        // 頁碼的字體大小，可在此修改。常用尺寸: text-xs, text-sm, text-base, text-lg
         <span className="font-mono text-base">{`${currentPage} / ${totalPages}`}</span>
       )}
     </div>
@@ -584,19 +542,15 @@ type ReportLayoutProps = {
   totalPages?: number;
 };
 
-// 報告排版元件
 const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, totalPages }) => {
   const isPdf = mode.startsWith('pdf');
   const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
   const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
-  // 決定是否顯示經理核可欄位，目前設定為第二頁不顯示
   const showManagerApproval = mode !== 'pdf-page2';
-
   const showMainHeaderAndCustomerInfo = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1' || mode === 'pdf-page2';
   const showTasksAndStatus = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1';
   const showProductsAndRemarks = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page2';
-  const showSignatures = true;
-
+  
   return (
     <div
       id={isPdf ? `pdf-${mode}` : undefined}
@@ -607,25 +561,20 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'" // PDF 使用的字體
+        fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'"
       }}
     >
-      {/* 報告標頭 */}
       {showMainHeaderAndCustomerInfo && (
         <>
           <div className="text-center mb-10 flex-shrink-0">
-            {/* // 報告主標題 */}
             <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
             <h2 className="text-2xl font-semibold text-gray-600 mt-2">
-              {/* // 報告副標題 */}
               工作服務單
-              {/* // 第二頁的特殊標題後綴 */}
               {mode === 'pdf-page2' && ' (產品項目與備註)'}
             </h2>
           </div>
 
           <div className="grid grid-cols-12 gap-x-6 gap-y-4">
-            {/* // 報告中各欄位的標籤文字 */}
             <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
             <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
             <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
@@ -634,18 +583,15 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         </>
       )}
 
-      {/* 報告主體 */}
       <div className="flex-grow text-base text-gray-800 space-y-5 pt-5">
         {showTasksAndStatus && (
           <>
             <div>
               <strong className="text-base">處理事項：</strong>
-              {/* // 處理事項的最小高度，可在此修改 'min-h-[9rem]' */}
               <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.tasks || '\u00A0'}</div>
             </div>
             <div>
               <strong className="text-base">處理情形：</strong>
-              {/* // 處理情形的最小高度，可在此修改 'min-h-[9rem]' */}
               <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.status || '\u00A0'}</div>
             </div>
           </>
@@ -658,7 +604,6 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {/* // 產品表格的欄位標題 */}
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">產品品名</th>
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">数量</th>
                     <th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">序號</th>
@@ -676,17 +621,13 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                               .map(s => s.trim())
                               .filter(s => s);
 
-                            if (serials.length === 0) {
-                              return 'N/A'; // 如果沒有序號，顯示的文字
-                            }
+                            if (serials.length === 0) return 'N/A';
 
                             return (
                               <div className="flex flex-col">
                                 {serials.map((s, idx) => (
                                   <React.Fragment key={idx}>
-                                    {/* // 序號之間的分隔線與間距，可修改 my-1 (margin-top/bottom) */}
                                     {idx > 0 && <div className="border-t border-slate-200 my-1"></div>}
-                                    {/* // 序號前的編號格式 */}
                                     <span>{`#${idx + 1}: ${s}`}</span>
                                   </React.Fragment>
                                 ))}
@@ -696,7 +637,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
                         </td>
                       </tr>
                     ))
-                  ) : ( // 如果沒有任何產品，預設顯示一筆空白列
+                  ) : (
                     <tr>
                       <td className="px-3 py-2 whitespace-nowrap">&nbsp;</td>
                       <td className="px-3 py-2 whitespace-nowrap">&nbsp;</td>
@@ -712,963 +653,801 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         {showProductsAndRemarks && (
           <div>
             <strong className="text-base">備註：</strong>
-            {/* // 備註欄位的最小高度，可在此修改 'min-h-[3rem]' */}
             <div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[3rem]">{data.remarks || '\u00A0'}</div>
           </div>
         )}
 
         {mode === 'screen' && data.photos.length > 0 && (
-          <div>
-            <strong className="text-base">現場照片：</strong>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {data.photos.map((photo, index) => (
-                <img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />
-              ))}
+            <div>
+                <strong className="text-base">附件照片：</strong>
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {data.photos.map((photo, index) => (
+                        <img key={index} src={photo} alt={`attachment-${index}`} className="w-full h-auto object-cover rounded-lg shadow-md aspect-square"/>
+                    ))}
+                </div>
             </div>
-          </div>
         )}
       </div>
 
-      {/* 簽名區 & 頁尾 */}
-      {showSignatures && (
-         <div className="pt-12 mt-auto">
-            {/* // 簽名區的排版，三欄或兩欄 */}
-            <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-base`}>
-                {showManagerApproval && (
-                  <div className="text-center">
-                      <strong>經理核可：</strong>
-                      {/* // 簽名框的最小高度，可在此修改 'min-h-[100px]' */}
-                      <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
-                          {/* 留白供手寫簽名 */}
-                      </div>
+      <div className="mt-auto pt-10 flex-shrink-0">
+          <div className="grid grid-cols-12 gap-x-6 gap-y-8">
+              <div className="col-span-4">
+                  <strong className="block text-center">服務人員簽認</strong>
+                  {data.technicianSignature ? (
+                      <img src={data.technicianSignature} alt="Technician Signature" className="mx-auto mt-2 h-20 object-contain"/>
+                  ) : <div className="h-20 mt-2 border-b-2 border-dotted border-gray-400"></div>}
+              </div>
+              <div className="col-span-4">
+                  <strong className="block text-center">客戶簽認</strong>
+                  {data.signature ? (
+                      <img src={data.signature} alt="Client Signature" className="mx-auto mt-2 h-20 object-contain"/>
+                  ) : <div className="h-20 mt-2 border-b-2 border-dotted border-gray-400"></div>}
+              </div>
+              {showManagerApproval && (
+                  <div className="col-span-4">
+                      <strong className="block text-center">經理核可</strong>
+                      <div className="h-20 mt-2 border-b-2 border-dotted border-gray-400"></div>
                   </div>
-                )}
-                <div className="text-center">
-                    <strong>服務人員簽認：</strong>
-                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
-                    {data.technicianSignature ? (
-                        <img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />
-                    ) : <span className="text-slate-400">未簽名</span>}
-                    </div>
-                </div>
-                <div className="text-center">
-                    <strong>客戶簽認：</strong>
-                    <div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">
-                    {data.signature ? (
-                        <img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />
-                    ) : <span className="text-slate-400">未簽名</span>}
-                    </div>
-                </div>
-            </div>
-            {isPdf && <PdfFooter currentPage={currentPage} totalPages={totalPages} />}
-         </div>
-      )}
+              )}
+          </div>
+          {isPdf && <PdfFooter currentPage={currentPage} totalPages={totalPages} />}
+      </div>
     </div>
   );
 };
 
-// 照片頁元件
-const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount, pdfTotalPages }: { photos: string[], pageNumber:number, totalPhotoPages: number, data: WorkOrderData, textPageCount: number, pdfTotalPages: number }) => {
-    const formattedDate = data.dateTime ? new Date(data.dateTime).toLocaleDateString('zh-TW') : 'N/A';
-    // 照片頁的標題格式
-    const pageTitle = totalPhotoPages > 1
-        ? `施工照片 (第 ${pageNumber} / ${totalPhotoPages} 頁) - ${data.serviceUnit} (${formattedDate})`
-        : `施工照片 - ${data.serviceUnit} (${formattedDate})`;
 
-    return (
-        <div id={`pdf-photo-page-${pageNumber - 1}`} className="p-8 bg-white" style={{ width: '210mm', height: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-            <div className="text-center mb-4 flex-shrink-0">
-                <h3 className="text-xl font-semibold text-slate-700">{pageTitle}</h3>
-            </div>
-            <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow">
-                {photos.map((photo, index) => (
-                    <div key={index} className="flex items-center justify-center border border-slate-200 p-1 bg-slate-50 rounded-md overflow-hidden">
-                        <img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" />
-                    </div>
-                ))}
-                {Array(4 - photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
-            </div>
-            <PdfFooter currentPage={textPageCount + pageNumber} totalPages={pdfTotalPages} />
+const PhotoAppendix: React.FC<{ photos: string[]; currentPage: number; totalPages: number; }> = ({ photos, currentPage, totalPages }) => (
+  <div className="p-8 bg-white" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+    <div className="text-center mb-10 flex-shrink-0">
+      <h1 className="text-3xl font-bold text-gray-800">工作服務單</h1>
+      <h2 className="text-2xl font-semibold text-gray-600 mt-2">附件照片</h2>
+    </div>
+    <div className="grid grid-cols-2 gap-6 flex-grow">
+      {photos.map((photo, index) => (
+        <div key={index} className="flex flex-col items-center">
+          <img src={photo} alt={`appendix-${index}`} className="w-full h-auto object-contain border border-gray-200 rounded-lg shadow-sm" style={{ maxHeight: '120mm' }}/>
+          <span className="text-sm mt-2 text-gray-600">附件 {index + 1}</span>
         </div>
-    );
-};
+      ))}
+    </div>
+    <div className="mt-auto pt-10 flex-shrink-0">
+      <PdfFooter currentPage={currentPage} totalPages={totalPages} />
+    </div>
+  </div>
+);
 
-// 報告預覽畫面元件
+
 interface ReportViewProps {
-    data: WorkOrderData;
-    onPdfAction: (action: 'download' | 'share') => void;
-    onReset: () => void;
-    onEdit: () => void;
-    onEmailShare: () => void;
-    isGeneratingPdf: boolean;
+  data: WorkOrderData;
+  onBack: () => void;
+  onPdfAction: (action: 'download' | 'share' | 'email') => void;
+  isGenerating: boolean;
 }
 
-const ReportView: React.FC<ReportViewProps> = ({ data, onPdfAction, onReset, onEdit, onEmailShare, isGeneratingPdf }) => {
-    // 照片分頁，每頁 4 張，可在此修改
-    const photoChunks = chunk(data.photos, 4);
+const ReportView: React.FC<ReportViewProps> = ({ data, onBack, onPdfAction, isGenerating }) => {
+  const [canShare, setCanShare] = useState(false);
+  
+  useEffect(() => {
+    // 檢查瀏覽器是否支援 Web Share API，並且可以分享檔案
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([], "test.pdf", { type: "application/pdf" })] })) {
+      setCanShare(true);
+    }
+  }, []);
 
-    const tasksLines = calculateVisualLines(data.tasks);
-    const statusLines = calculateVisualLines(data.status);
-    const productsLines = data.products.filter(p => p.name.trim() !== '').length;
-    const remarksLines = calculateVisualLines(data.remarks);
-    const totalContentLines = tasksLines + statusLines + productsLines + remarksLines;
-    
-    const textPages = totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? 2 : 1;
-    const photoPages = photoChunks.length;
-    const totalPages = textPages + photoPages;
-    const canShare = typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
-
-    return (
-    <>
-      {/* 隱藏的 PDF 渲染區 */}
-      <div className="pdf-render-container">
-        {totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? (
-            <>
-              <ReportLayout data={data} mode="pdf-page1" currentPage={1} totalPages={totalPages} />
-              <ReportLayout data={data} mode="pdf-page2" currentPage={2} totalPages={totalPages} />
-            </>
-        ) : (
-            <ReportLayout data={data} mode="pdf-full" currentPage={1} totalPages={totalPages} />
-        )}
-
-        {photoChunks.map((photoChunk, index) => (
-            <PdfPhotoPage
-                key={index}
-                photos={photoChunk}
-                pageNumber={index + 1}
-                totalPhotoPages={photoChunks.length}
-                data={data}
-                textPageCount={textPages}
-                pdfTotalPages={totalPages}
-            />
-        ))}
-      </div>
-      
-      {/* 畫面上可見的報告預覽 */}
-      <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto">
-        <div className="w-full max-w-[800px] mx-auto origin-top">
+  return (
+    <div className="max-w-4xl mx-auto p-4 sm:p-6">
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="p-4 sm:p-6 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h2 className="text-xl font-semibold text-slate-800">服務單報告預覽</h2>
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            {isGenerating ? (
+                <span className="flex items-center text-indigo-600">
+                    <SpinnerIcon className="w-5 h-5 mr-2" />
+                    處理中...
+                </span>
+            ) : (
+              <>
+                <button
+                    onClick={() => onPdfAction('email')}
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                    上傳PDF
+                </button>
+                {canShare && (
+                    <button
+                        onClick={() => onPdfAction('share')}
+                        className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-md shadow-sm hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
+                    >
+                        分享PDF
+                    </button>
+                )}
+                <button
+                    onClick={() => onPdfAction('download')}
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    下載PDF
+                </button>
+              </>
+            )}
+            <button
+                onClick={onBack}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400"
+            >
+                返回編輯
+            </button>
+          </div>
+        </div>
+        <div className="p-2 sm:p-4 bg-slate-200">
+          <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
             <div className="shadow-lg">
                 <ReportLayout data={data} mode="screen" />
             </div>
+          </div>
         </div>
-      </div>
-
-      {/* 操作按鈕 */}
-      <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
-            {/* // 報告頁面的按鈕文字，可在此修改 */}
-            <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
-            <div className="flex flex-wrap gap-3">
-              <button onClick={onEmailShare} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">上傳PDF</button>
-              {canShare && (
-                 <button onClick={() => onPdfAction('share')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-sky-600 text-white rounded-md shadow-sm hover:bg-sky-700 disabled:opacity-50">分享 PDF</button>
-              )}
-              <button onClick={() => onPdfAction('download')} disabled={isGeneratingPdf} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載 PDF</button>
-              <button onClick={onEdit} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
-            </div>
-      </div>
-    </>
-    );
-};
-
-
-// --- Email 分享彈窗元件 ---
-type EmailStatus = 'idle' | 'sending' | 'success' | 'error';
-interface EmailShareModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (recipientEmail: string) => void;
-  status: EmailStatus;
-  errorMessage?: string;
-}
-
-const EmailShareModal: React.FC<EmailShareModalProps> = ({ isOpen, onClose, onSubmit, status, errorMessage }) => {
-  const [recipientEmail, setRecipientEmail] = useState('');
-
-  useEffect(() => {
-    if (status === 'success' || status === 'error') {
-      const timer = setTimeout(() => {
-        onClose();
-      }, 3000); // 3 秒後自動關閉
-      return () => clearTimeout(timer);
-    }
-  }, [status, onClose]);
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (recipientEmail) {
-      onSubmit(recipientEmail);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all p-6">
-        <h3 className="text-xl font-semibold text-slate-800 mb-4">透過 Email 分享服務單</h3>
-        {status === 'idle' && (
-          <form onSubmit={handleSubmit}>
-            <p className="text-sm text-slate-600 mb-4">請輸入收件人的電子郵件地址，系統會將 PDF 服務單作為附件寄出。</p>
-            <div>
-              <label htmlFor="email-recipient" className="sr-only">收件人 Email</label>
-              <input
-                type="email"
-                id="email-recipient"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="customer@example.com"
-                required
-                className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">取消</button>
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700">傳送</button>
-            </div>
-          </form>
-        )}
-        {status === 'sending' && (
-          <div className="text-center py-8">
-            <SpinnerIcon className="w-12 h-12 text-indigo-600 mx-auto" />
-            <p className="mt-4 text-lg font-medium text-slate-700">傳送中...</p>
-            <p className="text-sm text-slate-500">正在產生 PDF 並透過 Brevo 寄送</p>
-          </div>
-        )}
-        {status === 'success' && (
-          <div className="text-center py-8">
-             <p className="text-2xl">✅</p>
-             <p className="mt-4 text-lg font-medium text-slate-700">郵件已成功寄出！</p>
-             <p className="text-sm text-slate-500">收件人將在幾分鐘內收到服務單。</p>
-          </div>
-        )}
-        {status === 'error' && (
-          <div className="text-center py-8">
-            <p className="text-2xl">❌</p>
-            <p className="mt-4 text-lg font-medium text-red-700">郵件傳送失敗</p>
-            <p className="text-sm text-red-500 mt-2">{errorMessage || '發生未知錯誤，請稍後再試。'}</p>
-          </div>
-        )}
       </div>
     </div>
   );
+};
+
+
+interface EmailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (recipientEmail: string) => void;
+  status: 'idle' | 'sending' | 'success' | 'error';
+  errorMessage: string;
+}
+
+const EmailModal: React.FC<EmailModalProps> = ({ isOpen, onClose, onConfirm, status, errorMessage }) => {
+    const [recipient, setRecipient] = useState('');
+    const [isValidEmail, setIsValidEmail] = useState(true);
+
+    useEffect(() => {
+        if (isOpen) {
+            setRecipient('');
+            setIsValidEmail(true);
+        }
+    }, [isOpen]);
+
+    const handleConfirm = () => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(recipient)) {
+            setIsValidEmail(true);
+            onConfirm(recipient);
+        } else {
+            setIsValidEmail(false);
+        }
+    };
+    
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="email-modal-title">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-sm transform transition-all">
+                <div className="p-6">
+                    <h3 id="email-modal-title" className="text-lg font-medium leading-6 text-gray-900">傳送服務單 Email</h3>
+                    
+                    {status === 'idle' && (
+                        <>
+                            <p className="mt-2 text-sm text-gray-500">請輸入客戶的 Email 地址，系統將會把 PDF 服務單附加在郵件中寄出。</p>
+                            <div className="mt-4">
+                                <label htmlFor="email-recipient" className="sr-only">客戶 Email</label>
+                                <input
+                                    type="email"
+                                    id="email-recipient"
+                                    value={recipient}
+                                    onChange={(e) => setRecipient(e.target.value)}
+                                    placeholder="customer@example.com"
+                                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none sm:text-sm ${!isValidEmail ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'}`}
+                                />
+                                {!isValidEmail && <p className="mt-1 text-xs text-red-600">請輸入有效的 Email 格式。</p>}
+                            </div>
+                        </>
+                    )}
+
+                    {status === 'sending' && (
+                        <div className="flex flex-col items-center justify-center p-8 text-center">
+                            <SpinnerIcon className="w-10 h-10 text-indigo-600" />
+                            <p className="mt-4 text-sm font-medium text-gray-700">傳送中...</p>
+                        </div>
+                    )}
+
+                    {status === 'success' && (
+                         <div className="flex flex-col items-center justify-center p-8 text-center">
+                            <svg className="w-12 h-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <p className="mt-4 text-sm font-medium text-gray-700">Email 已成功寄出！</p>
+                        </div>
+                    )}
+
+                    {status === 'error' && (
+                        <div className="p-4 text-center">
+                            <svg className="w-12 h-12 text-red-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <h4 className="mt-2 text-md font-bold text-red-800">傳送失敗</h4>
+                            <pre className="mt-2 text-xs text-left text-red-700 bg-red-50 p-3 rounded-md overflow-x-auto whitespace-pre-wrap">{errorMessage}</pre>
+                        </div>
+                    )}
+                </div>
+                <div className="bg-gray-50 px-6 py-4 flex flex-row-reverse gap-3">
+                    {status === 'idle' && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={handleConfirm}
+                                disabled={!recipient}
+                                className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:ring-indigo-500 disabled:opacity-50"
+                            >
+                                確認傳送
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                取消
+                            </button>
+                        </>
+                    )}
+                     {(status === 'success' || status === 'error') && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="w-full inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+                        >
+                            關閉
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 };
 
 
 // --- 主應用程式元件 ---
-
-// 顯示 API 金鑰未設定錯誤的元件
-const ApiKeyErrorDisplay = () => (
-    <div className="p-8 text-center bg-red-50 border-l-4 border-red-400">
-        <h3 className="text-xl font-bold text-red-800">⛔️ Google Drive 功能設定錯誤</h3>
-        <p className="mt-2 text-md text-red-700">
-            應用程式偵測到 Google API 金鑰或用戶端 ID 尚未設定。
-        </p>
-        <p className="mt-4 text-sm text-slate-600 bg-slate-100 p-3 rounded-md">
-            請開發者依照 <code>README.md</code> 檔案中的指示，建立 <code>.env.local</code> 檔案並填入正確的金鑰資訊，以啟用雲端硬碟匯出/匯入功能。
-        </p>
-    </div>
-);
-
 export const App: React.FC = () => {
   const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
+  const [view, setView] = useState<'form' | 'report'>('form');
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({});
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  
-  // Google API state
-  const [gapiReady, setGapiReady] = useState(false);
-  const [gisReady, setGisReady] = useState(false);
-  const [tokenClient, setTokenClient] = useState<any>(null);
-  const pickerApiLoaded = useRef(false);
-  
-  // Modal state
+  const [isGapiReady, setIsGapiReady] = useState(false);
+  const [googleAuth, setGoogleAuth] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState<'delete' | 'export' | null>(null);
+  const pdfRenderContainerRef = useRef<HTMLDivElement>(null);
 
-  // Email Modal state
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<EmailStatus>('idle');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [emailError, setEmailError] = useState('');
 
-  const isApiConfigured = API_KEY && CLIENT_ID;
-
-  // --- Google API Initialization ---
   useEffect(() => {
-    if (!isApiConfigured) return;
+    const drafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
+    setNamedDrafts(drafts);
+  }, []);
 
-    // Load GAPI for Drive API
-    const gapiScript = document.createElement('script');
-    gapiScript.src = 'https://apis.google.com/js/api.js';
-    gapiScript.async = true;
-    gapiScript.defer = true;
-    gapiScript.onload = () => {
-        gapi.load('client', async () => {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [DISCOVERY_DOC],
-            });
-            setGapiReady(true);
-        });
-    };
-    document.body.appendChild(gapiScript);
+  const handleGapiLoad = useCallback(() => {
+    gapi.load('client:picker', async () => {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: [DISCOVERY_DOC],
+        scope: SCOPES,
+      });
+      const auth = gapi.auth2.getAuthInstance();
+      setGoogleAuth(auth);
+      // 如果之前已授權，直接設定為已登入狀態
+      if (localStorage.getItem(GOOGLE_AUTH_GRANTED_KEY) === 'true' && auth.isSignedIn.get()) {
+          console.log("已保持 Google 登入狀態。");
+      }
+      setIsGapiReady(true);
+    });
+  }, []);
 
-    // Load GIS for OAuth2
-    const gisScript = document.createElement('script');
-    gisScript.src = 'https://accounts.google.com/gsi/client';
-    gisScript.async = true;
-    gisScript.defer = true;
-    gisScript.onload = () => {
-        const client = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: SCOPES,
-            callback: '', // Callback is handled by the promise
-        });
-        setTokenClient(client);
-        setGisReady(true);
-    };
-    document.body.appendChild(gisScript);
-    
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = handleGapiLoad;
+    document.body.appendChild(script);
     return () => {
-        document.body.removeChild(gapiScript);
-        document.body.removeChild(gisScript);
+      document.body.removeChild(script);
     };
-
-  }, [isApiConfigured]);
-
-  useEffect(() => {
-    // 應用程式載入時的提示訊息
-    alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
-
-    try {
-        const savedDrafts = localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY);
-        if (savedDrafts) {
-            setNamedDrafts(JSON.parse(savedDrafts));
-        }
-    } catch (error) {
-        console.error("Failed to load named drafts from localStorage.", error);
-    }
-  }, []);
-
-  const clearCurrentForm = useCallback(() => {
-    setFormData({
-        ...initialFormData,
-        products: [{
-            id: `product-${Date.now()}`,
-            name: '',
-            quantity: 1,
-            serialNumbers: [''],
-        }],
-        dateTime: getFormattedDateTime()
-    });
-  }, []);
+  }, [handleGapiLoad]);
 
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    
-    const tempState = {...formData, [name]: value};
-
-    if (name === 'tasks' || name === 'status') {
-        const totalLines = calculateVisualLines(tempState.tasks) + calculateVisualLines(tempState.status);
-        if (totalLines > TASKS_STATUS_LIMIT) {
-            return; 
-        }
-    }
-    
-    if (name === 'remarks') {
-        const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + calculateVisualLines(tempState.remarks);
-        if (totalLines > PRODUCTS_REMARKS_LIMIT) {
-            return; 
-        }
-    }
-
-    setFormData(tempState);
-  }, [formData]);
+  const saveDraftsToStorage = (drafts: { [name: string]: WorkOrderData }) => {
+    localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(drafts));
+    setNamedDrafts(drafts);
+  };
   
-  const handleProductChange = useCallback((index: number, field: 'name' | 'quantity', value: string | number) => {
-    setFormData(prev => {
-        if (field === 'quantity') {
-            const newQuantity = Number(value);
-            const remarksLines = calculateVisualLines(prev.remarks);
-            const otherProductsLines = prev.products.reduce((acc, p, i) => i === index ? acc : acc + p.quantity, 0);
-            if (otherProductsLines + newQuantity + remarksLines > PRODUCTS_REMARKS_LIMIT) {
-                alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法增加數量。`);
-                return prev;
-            }
-        }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-        const newProducts = prev.products.map((product, i) => {
-            if (i !== index) {
-                return product;
-            }
-
-            if (field === 'quantity') {
-                const newQuantity = Number(value);
-                const oldQuantity = product.quantity;
-                const currentSerialNumbers = product.serialNumbers || [];
-                let newSerialNumbers = currentSerialNumbers;
-
-                if (newQuantity > oldQuantity) {
-                    newSerialNumbers = [
-                        ...currentSerialNumbers,
-                        ...Array(newQuantity - oldQuantity).fill('')
-                    ];
-                } else if (newQuantity < oldQuantity) {
-                    newSerialNumbers = currentSerialNumbers.slice(0, newQuantity);
-                }
-                return { ...product, quantity: newQuantity, serialNumbers: newSerialNumbers };
-            } else {
-                return { ...product, name: String(value) };
-            }
-        });
-        
-        return { ...prev, products: newProducts };
-    });
-  }, []);
+  const handleProductChange = (index: number, field: 'name' | 'quantity', value: string | number) => {
+    const newProducts = [...formData.products];
+    const productToUpdate = { ...newProducts[index] };
+    
+    if (field === 'quantity') {
+      const newQuantity = Number(value);
+      productToUpdate.quantity = newQuantity;
+      const currentSerials = productToUpdate.serialNumbers || [];
+      if (currentSerials.length < newQuantity) {
+        productToUpdate.serialNumbers = [...currentSerials, ...Array(newQuantity - currentSerials.length).fill('')];
+      } else if (currentSerials.length > newQuantity) {
+        productToUpdate.serialNumbers = currentSerials.slice(0, newQuantity);
+      }
+    } else {
+      productToUpdate[field] = value as string;
+    }
+    
+    newProducts[index] = productToUpdate;
+    setFormData(prev => ({ ...prev, products: newProducts }));
+  };
   
   const handleProductSerialNumberChange = (productIndex: number, serialIndex: number, value: string) => {
-      setFormData(prev => {
-          const newProducts = [...prev.products];
-          const productToUpdate = { ...newProducts[productIndex] };
-          productToUpdate.serialNumbers = [...productToUpdate.serialNumbers];
-          productToUpdate.serialNumbers[serialIndex] = value;
-          newProducts[productIndex] = productToUpdate;
-          return { ...prev, products: newProducts };
-      });
+      const newProducts = [...formData.products];
+      newProducts[productIndex].serialNumbers[serialIndex] = value;
+      setFormData(prev => ({ ...prev, products: newProducts }));
   };
 
   const handleAddProduct = () => {
-    const totalLines = formData.products.reduce((acc, p) => acc + p.quantity, 0) + 1 + calculateVisualLines(formData.remarks);
-    if (totalLines > PRODUCTS_REMARKS_LIMIT) {
-        alert(`已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
-        return;
-    }
-    const newProduct: ProductItem = {
-      id: `product-${Date.now()}`,
-      name: '',
-      quantity: 1,
-      serialNumbers: [''],
-    };
-    setFormData(prev => ({ ...prev, products: [...prev.products, newProduct] }));
-  };
-
-  const handleRemoveProduct = (index: number) => {
-    if (formData.products.length <= 1) return;
     setFormData(prev => ({
-        ...prev,
-        products: prev.products.filter((_, i) => i !== index),
+      ...prev,
+      products: [...prev.products, { ...initialProduct, id: `product-${Date.now()}` }],
     }));
   };
 
-  const handleCustomerSignatureSave = useCallback((signature: string) => {
-    setFormData((prev) => ({ ...prev, signature }));
-  }, []);
+  const handleRemoveProduct = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      products: prev.products.filter((_, i) => i !== index),
+    }));
+  };
 
-  const handleCustomerSignatureClear = useCallback(() => {
-    setFormData((prev) => ({ ...prev, signature: null }));
-  }, []);
-  
-  const handleTechnicianSignatureSave = useCallback((signature: string) => {
-    setFormData((prev) => ({ ...prev, technicianSignature: signature }));
-  }, []);
+  const handlePhotosChange = (photos: string[]) => {
+    setFormData(prev => ({...prev, photos }));
+  }
 
-  const handleTechnicianSignatureClear = useCallback(() => {
-    setFormData((prev) => ({ ...prev, technicianSignature: null }));
-  }, []);
+  const handleSignatureSave = (field: 'signature' | 'technicianSignature', signature: string) => {
+    setFormData(prev => ({ ...prev, [field]: signature }));
+  };
 
-  const handlePhotosChange = useCallback((photos: string[]) => {
-    setFormData((prev) => ({ ...prev, photos }));
-  }, []);
-  
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSignatureClear = (field: 'signature' | 'technicianSignature') => {
+    setFormData(prev => ({ ...prev, [field]: null }));
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    window.scrollTo(0, 0);
+    setView('report');
   };
-  
-  const handleEdit = () => {
-      setIsSubmitted(false);
-  };
-  
-  const handleReset = useCallback(() => {
-    if (window.confirm("您確定要清除所有資料並建立新的服務單嗎？")) {
-        clearCurrentForm();
-        setIsSubmitted(false);
+
+  const handleSaveAsDraft = () => {
+    const draftName = prompt(`請為此暫存檔命名 (例如：客戶名稱-日期):`, `草稿-${Object.keys(namedDrafts).length + 1}`);
+    if (draftName && draftName.trim()) {
+        if (Object.keys(namedDrafts).length >= MAX_DRAFTS && !namedDrafts[draftName]) {
+            alert(`暫存檔數量已達上限(${MAX_DRAFTS})，請先刪除一個舊的暫存檔。`);
+            return;
+        }
+        const newDrafts = { ...namedDrafts, [draftName]: formData };
+        saveDraftsToStorage(newDrafts);
+        alert(`"${draftName}" 已成功儲存！`);
     }
-  }, [clearCurrentForm]);
+  };
 
-  const handleSaveAsDraft = useCallback(() => {
-    const draftName = prompt("請為此暫存命名：");
-    if (!draftName) return;
+  const handleLoadDraft = (name: string) => {
+    if (confirm(`確定要載入 "${name}" 嗎？目前的表單資料將會被覆蓋。`)) {
+      const loadedData = migrateWorkOrderData(namedDrafts[name]);
+      setFormData(loadedData);
+      alert(`"${name}" 已成功載入。`);
+    }
+  };
 
-    const currentDrafts = { ...namedDrafts };
-    const isOverwriting = !!currentDrafts[draftName];
+  const handleDeleteDraft = () => {
+      setModalAction('delete');
+      setIsModalOpen(true);
+  };
+  
+  const confirmDeleteDraft = (draftName: string) => {
+      if (confirm(`您確定要永久刪除暫存檔 "${draftName}" 嗎？此操作無法復原。`)) {
+          const newDrafts = { ...namedDrafts };
+          delete newDrafts[draftName];
+          saveDraftsToStorage(newDrafts);
+          alert(`暫存檔 "${draftName}" 已被刪除。`);
+      }
+      setIsModalOpen(false);
+  };
 
-    if (!isOverwriting && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
-        alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。\n請先從「載入/管理暫存」中刪除一個舊暫存。`);
+  const handleClearData = () => {
+    if (confirm('確定要清除所有欄位並開啟一份新的服務單嗎？')) {
+      setFormData(migrateWorkOrderData(initialFormData));
+    }
+  };
+  
+  const handleAuth = async () => {
+    try {
+      if (!googleAuth.isSignedIn.get()) {
+        await googleAuth.signIn();
+        localStorage.setItem(GOOGLE_AUTH_GRANTED_KEY, 'true'); // 授權成功後，寫入標記
+      }
+      return true;
+    } catch (error) {
+      console.error("Google 授權失敗:", error);
+      alert("Google 授權失敗，請檢查彈出視窗是否被阻擋，或稍後再試。");
+      return false;
+    }
+  };
+
+  const handleImportFromDrive = async () => {
+    if (!isGapiReady || !googleAuth) {
+        alert("Google API 尚未準備就緒，請稍候...");
         return;
     }
+    
+    if (!await handleAuth()) return;
+    
+    const view = new google.picker.View(google.picker.ViewId.DOCS);
+    view.setMimeTypes("application/json");
 
-    if (isOverwriting && !window.confirm(`暫存 "${draftName}" 已存在。您要覆蓋它嗎？`)) return;
-
-    const newDrafts = { ...currentDrafts, [draftName]: formData };
-    setNamedDrafts(newDrafts);
-    localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-    alert(`✅ 暫存 "${draftName}" 已成功儲存！\n\n重要提醒：\n暫存資料如用戶清理瀏覽器cookie暫存,資料將消失無法復原,請注意!`);
-  }, [formData, namedDrafts]);
-
-  const handleLoadDraft = useCallback((name: string) => {
-    if (namedDrafts[name]) {
-        if (window.confirm(`您確定要載入暫存 "${name}" 嗎？\n這將會覆蓋目前表單的所有內容。`)) {
-            const draftData = migrateWorkOrderData(namedDrafts[name]);
-            setFormData(draftData);
-            alert(`暫存 "${name}" 已載入。`);
-        }
-    }
-  }, [namedDrafts]);
-
-
-  const handleClearData = useCallback(() => {
-    if (window.confirm("您確定要清除目前表單的所有欄位嗎？\n此操作不會影響任何已儲存的暫存。")) {
-        clearCurrentForm();
-        alert('目前的表單資料已清除。');
-    }
-  }, [clearCurrentForm]);
-  
-  // --- Google Drive Handlers ---
-  const getAuthToken = useCallback(() => {
-    return new Promise((resolve, reject) => {
-        if (!tokenClient) {
-            return reject(new Error("Google Auth client is not ready."));
-        }
-        const callback = (resp: any) => {
-            if (resp.error) {
-                localStorage.removeItem(GOOGLE_AUTH_GRANTED_KEY);
-                return reject(resp);
+    const picker = new google.picker.PickerBuilder()
+      .setAppId(CLIENT_ID.split('-')[0])
+      .setOAuthToken(gapi.client.getToken().access_token)
+      .addView(view)
+      .setDeveloperKey(API_KEY)
+      .setCallback((data: any) => {
+        if (data.action === google.picker.Action.PICKED) {
+          const fileId = data.docs[0].id;
+          gapi.client.drive.files.get({
+            fileId: fileId,
+            alt: 'media'
+          }).then((res: any) => {
+            const importedData = migrateWorkOrderData(res.result);
+            const draftName = data.docs[0].name.replace('.json', '');
+            
+            if (namedDrafts[draftName] || Object.keys(namedDrafts).length >= MAX_DRAFTS) {
+                if (!confirm(`暫存檔 "${draftName}" 已存在或暫存數量已達上限。是否要覆蓋/新增？`)) return;
             }
-            localStorage.setItem(GOOGLE_AUTH_GRANTED_KEY, 'true');
-            resolve(resp);
-        };
-        tokenClient.callback = callback;
-        if (localStorage.getItem(GOOGLE_AUTH_GRANTED_KEY)) {
-            tokenClient.requestAccessToken({ prompt: '' });
-        } else {
-            tokenClient.requestAccessToken({ prompt: 'consent' });
+
+            const newDrafts = { ...namedDrafts, [draftName]: importedData };
+            saveDraftsToStorage(newDrafts);
+            alert(`已成功從雲端硬碟匯入 "${draftName}" 並儲存為本機暫存。`);
+          });
         }
-    });
-  }, [tokenClient]);
+      })
+      .build();
+    picker.setVisible(true);
+  };
   
-  const handleOpenDraftActionModal = useCallback((action: 'delete' | 'export') => {
-    if (action === 'export' && !isApiConfigured) {
-        alert("Google Drive 功能尚未設定，無法匯出。請開發者設定 API 金鑰。");
+  const handleExportToDrive = () => {
+    if (!isGapiReady || !googleAuth) {
+        alert("Google API 尚未準備就緒，請稍候...");
         return;
     }
-    const draftNames = Object.keys(namedDrafts);
-    if (draftNames.length === 0) {
-      alert(action === 'delete' ? "目前沒有已儲存的暫存可以刪除。" : "目前沒有本機暫存可以匯出。請先「另存新檔」。");
-      return;
-    }
-    setModalAction(action);
+    setModalAction('export');
     setIsModalOpen(true);
-  }, [namedDrafts, isApiConfigured]);
+  };
   
-  const handleDeleteDraft = useCallback(() => {
-    handleOpenDraftActionModal('delete');
-  }, [handleOpenDraftActionModal]);
-  
-  const handleExportToDrive = useCallback(() => {
-    handleOpenDraftActionModal('export');
-  }, [handleOpenDraftActionModal]);
-  
-  const uploadToDrive = useCallback(async (fileName: string, dataToExport: WorkOrderData) => {
+  const confirmExportToDrive = async (draftName: string) => {
+    setIsModalOpen(false);
+    if (!await handleAuth()) return;
+
+    const dataToExport = namedDrafts[draftName];
+    if (!dataToExport) {
+        alert("找不到要匯出的暫存檔。");
+        return;
+    }
+
     const fileContent = JSON.stringify(dataToExport, null, 2);
-    const blob = new Blob([fileContent], { type: 'application/json' });
+    const fileName = `${draftName}.json`;
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\r\n--" + boundary + "\r\n";
+    const close_delim = "\r\n--" + boundary + "--";
+
     const metadata = {
         'name': fileName,
-        'mimeType': 'application/json',
-        'parents': ['root']
+        'mimeType': 'application/json'
     };
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', blob);
 
-    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: new Headers({ 'Authorization': 'Bearer ' + gapi.client.getToken().access_token }),
-        body: form,
-    });
+    const multipartRequestBody =
+        delimiter +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(metadata) +
+        delimiter +
+        'Content-Type: application/json\r\n\r\n' +
+        fileContent +
+        close_delim;
 
-    if (!res.ok) {
-        const errorBody = await res.json();
-        throw new Error(`匯出失敗：${errorBody.error?.message || res.statusText}`);
-    }
-  }, []);
-
-  const performExportToDrive = useCallback(async (nameToExport: string) => {
-    if (!gapiReady || !gisReady || !namedDrafts[nameToExport]) {
-        alert("匯出功能未就緒或找不到暫存檔。");
-        return;
-    }
     try {
-        await getAuthToken();
-        const fileName = `${nameToExport}-服務單暫存.json`;
-        await uploadToDrive(fileName, namedDrafts[nameToExport]);
-        alert(`暫存 "${nameToExport}" 已成功匯出至您的 Google 雲端硬碟！`);
+        const result = await gapi.client.request({
+            'path': '/upload/drive/v3/files',
+            'method': 'POST',
+            'params': {'uploadType': 'multipart'},
+            'headers': {
+                'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+            },
+            'body': multipartRequestBody
+        });
+        console.log("檔案匯出成功:", result);
+        alert(`暫存檔 "${draftName}" 已成功匯出至您的 Google 雲端硬碟，檔名為 "${fileName}"。`);
     } catch (error) {
-        console.error("Google Drive export failed", error);
-        alert(`匯出至 Google Drive 失敗：${error instanceof Error ? error.message : "未知錯誤"}`);
+        console.error("檔案匯出失敗:", error);
+        alert("檔案匯出失敗，請檢查主控台錯誤訊息。");
     }
-  }, [gapiReady, gisReady, namedDrafts, getAuthToken, uploadToDrive]);
-
-  const handleConfirmDraftAction = (draftName: string) => {
-    if (modalAction === 'delete') {
-      if (namedDrafts[draftName]) {
-        if (window.confirm(`您確定要永久刪除暫存 "${draftName}" 嗎？此操作無法復原。`)) {
-            const newDrafts = { ...namedDrafts };
-            delete newDrafts[draftName];
-            setNamedDrafts(newDrafts);
-            localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-            alert(`暫存 "${draftName}" 已被刪除。`);
-        }
-      } else {
-        alert(`找不到名為 "${draftName}" 的暫存。`);
-      }
-    } else if (modalAction === 'export') {
-      performExportToDrive(draftName);
-    }
-    setIsModalOpen(false);
-    setModalAction(null);
   };
-  
-  // --- Refactored Google Drive Import Helpers ---
-  const loadPickerApi = useCallback(async () => {
-    if (pickerApiLoaded.current) return;
-    return new Promise<void>((resolve, reject) => {
-        gapi.load('picker', (err: any) => err ? reject(err) : (pickerApiLoaded.current = true, resolve()));
+
+  const generatePdfBlob = useCallback(async (data: WorkOrderData): Promise<Blob | null> => {
+    const container = pdfRenderContainerRef.current;
+    if (!container) return null;
+
+    const tasksLines = calculateVisualLines(data.tasks);
+    const statusLines = calculateVisualLines(data.status);
+    const productsCount = data.products.reduce((acc, p) => acc + p.quantity, 0);
+    const remarksLines = calculateVisualLines(data.remarks);
+    
+    const isSplitNeeded = (tasksLines + statusLines > TASKS_STATUS_LIMIT) || (productsCount + remarksLines > PRODUCTS_REMARKS_LIMIT);
+
+    const pdf = new jsPDF.jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        putOnlyUsedFonts: true,
+        floatPrecision: 16
     });
-  }, []);
 
-  const showGooglePicker = useCallback(async (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-        const view = new google.picker.View(google.picker.ViewId.DOCS);
-        view.setMimeTypes("application/json");
+    const renderPage = async (element: HTMLElement) => {
+        const canvas = await html2canvas(element, {
+            scale: 2,
+            useCORS: true,
+            logging: false
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    };
 
-        const picker = new google.picker.PickerBuilder()
-            .enableFeature(google.picker.Feature.NAV_HIDDEN)
-            .setAppId(CLIENT_ID.split('-')[0])
-            .setOAuthToken(gapi.client.getToken().access_token)
-            .addView(view)
-            .setDeveloperKey(API_KEY)
-            .setCallback((data: any) => {
-                if (data.action === google.picker.Action.PICKED) {
-                    const doc = data.docs?.[0];
-                    if (doc) {
-                        resolve(doc);
-                    } else {
-                        reject(new Error("無法取得選擇的檔案資訊，請重試。"));
-                    }
-                } else if (data.action === google.picker.Action.CANCEL) {
-                    // User cancelled, do nothing, don't reject
-                }
-            })
-            .build();
-        picker.setVisible(true);
-    });
-  }, []);
+    const photoPages = data.photos.length > 0 ? chunk(data.photos, 2) : [];
+    const totalPages = (isSplitNeeded ? 2 : 1) + photoPages.length;
 
-  const fetchDriveFileContent = useCallback(async (fileId: string): Promise<any> => {
-      const res = await gapi.client.drive.files.get({ fileId, alt: 'media' });
-      const rawResult = res.result;
-      if (typeof rawResult === 'string') {
-          return JSON.parse(rawResult);
-      } else if (typeof rawResult === 'object' && rawResult !== null) {
-          return rawResult;
-      }
-      throw new Error('無法辨識或檔案內容為空。');
-  }, []);
-  
-  const saveDriveFileAsDraft = useCallback((fileName: string, importedData: any) => {
-      const defaultDraftName = fileName.replace(/\.json$/i, '').replace(/^服務單暫存-/, '');
-      const newDraftName = prompt(`請為匯入的暫存檔命名：`, defaultDraftName);
-      if (!newDraftName) return;
+    if (isSplitNeeded) {
+        const page1Element = document.getElementById('pdf-pdf-page1');
+        const page2Element = document.getElementById('pdf-pdf-page2');
+        if (!page1Element || !page2Element) return null;
 
-      setNamedDrafts(currentDrafts => {
-          if (currentDrafts[newDraftName] && !window.confirm(`暫存 "${newDraftName}" 已存在，要覆蓋它嗎？`)) {
-              return currentDrafts;
-          }
-          if (!currentDrafts[newDraftName] && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
-              alert(`無法儲存新暫存，已達儲存上限 (${MAX_DRAFTS}份)。`);
-              return currentDrafts;
-          }
-          const validData = migrateWorkOrderData(importedData);
-          const newDrafts = { ...currentDrafts, [newDraftName]: validData };
-          localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-          alert(`✅ 暫存 "${newDraftName}" 已成功從雲端硬碟匯入並儲存至本機！`);
-          return newDrafts;
-      });
-  }, []);
-
-  const handleImportFromDrive = useCallback(async () => {
-    if (!isApiConfigured) return alert("Google Drive 功能尚未設定，無法匯入。");
-    if (!gapiReady || !gisReady) return alert("Google Drive 功能正在初始化，請稍候再試。");
-
-    try {
-        await getAuthToken();
-        await loadPickerApi();
-        const doc = await showGooglePicker();
-        if (!doc?.id) return; // User cancelled picker
-        
-        const fileContent = await fetchDriveFileContent(doc.id);
-        saveDriveFileAsDraft(doc.name || 'imported-draft', fileContent);
-
-    } catch (error: any) {
-        const message = error?.result?.error?.message || error?.body || error?.message || '未知錯誤';
-        console.error("Google Drive import failed:", error);
-        alert(`從 Google Drive 匯入失敗。\n\n錯誤: ${message}`);
-    }
-  }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, fetchDriveFileContent, saveDriveFileAsDraft, isApiConfigured]);
-
-
-  // --- PDF Generation and Sharing ---
-  const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
-    try {
-      const { jsPDF: JSPDF } = (window as any).jspdf;
-      const pdf = new JSPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pdfHeight = 297;
-      const options = { scale: 2, useCORS: true, backgroundColor: '#ffffff' };
-      const imageType = 'image/jpeg';
-      const imageQuality = 0.92;
-      let pageCount = 0;
-
-      const totalContentLines = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status) +
-                               formData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(formData.remarks);
-
-      if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
-        const [page1Element, page2Element] = [document.getElementById('pdf-pdf-page1'), document.getElementById('pdf-pdf-page2')];
-        if (!page1Element || !page2Element) throw new Error('Split page elements not found');
-        
-        const canvas1 = await html2canvas(page1Element, options);
-        pdf.addImage(canvas1.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        pageCount++;
-
+        await renderPage(page1Element);
         pdf.addPage();
-        const canvas2 = await html2canvas(page2Element, options);
-        pdf.addImage(canvas2.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        pageCount++;
-      } else {
-        const fullElement = document.getElementById('pdf-pdf-full');
-        if (!fullElement) throw new Error('Full report element not found for rendering');
-        
-        const fullCanvas = await html2canvas(fullElement, options);
-        pdf.addImage(fullCanvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, Math.min(pdfHeight, (fullCanvas.height * pdfWidth) / fullCanvas.width));
-        pageCount++;
-      }
-      
-      if (formData.photos.length > 0) {
-        const photoChunks = chunk(formData.photos, 4);
-        for (let i = 0; i < photoChunks.length; i++) {
-          const photoPageElement = document.getElementById(`pdf-photo-page-${i}`);
-          if (photoPageElement) {
-              if (pageCount > 0) pdf.addPage();
-              const canvas = await html2canvas(photoPageElement, options);
-              pdf.addImage(canvas.toDataURL(imageType, imageQuality), 'JPEG', 0, 0, pdfWidth, pdfHeight);
-              pageCount++;
-          }
-        }
-      }
-      return pdf.output('blob');
-    } catch (error) {
-      console.error("Failed to generate PDF blob:", error);
-      alert("無法產生PDF，可能是內容過於複雜。請檢查主控台中的錯誤訊息。");
-      return null;
+        await renderPage(page2Element);
+    } else {
+        const fullPageElement = document.getElementById('pdf-pdf-full');
+        if (!fullPageElement) return null;
+        await renderPage(fullPageElement);
     }
-  }, [formData]);
-  
-  const handlePdfAction = useCallback(async (action: 'download' | 'share') => {
-    if (isGeneratingPdf) return;
-    setIsGeneratingPdf(true);
 
-    try {
-        const blob = await generatePdfBlob();
-        if (!blob) return;
-
-        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-        
-        if (action === 'download') {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
-        } else if (action === 'share') {
-            const file = new File([blob], fileName, { type: 'application/pdf' });
-            const shareData = {
-                files: [file],
-                title: '工作服務單',
-                text: `這是來自「${formData.serviceUnit}」的工作服務單。`,
-            };
-
-            if (navigator.canShare && navigator.canShare(shareData)) {
-                await navigator.share(shareData);
-            } else {
-                alert("您的瀏覽器不支援檔案分享功能，將改為下載檔案。");
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
-            }
+    for (let i = 0; i < photoPages.length; i++) {
+        pdf.addPage();
+        const appendixElementId = `pdf-appendix-${i}`;
+        const appendixElement = document.getElementById(appendixElementId);
+        if (appendixElement) {
+          await renderPage(appendixElement);
         }
-    } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-             console.log("Share action was cancelled by the user.");
-        } else {
-            console.error('PDF action failed:', error);
-            alert('PDF 操作失敗，請稍後再試。');
-        }
-    } finally {
-        setIsGeneratingPdf(false);
     }
-  }, [isGeneratingPdf, formData, generatePdfBlob]);
 
-  const handleOpenEmailModal = () => {
-    const { BREVO_API_KEY, BREVO_SENDER_EMAIL } = process.env;
-    if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL) {
-        alert('⛔️ Email 功能設定不完整！\n請開發者依照 README.md 的指示，在 .env.local 或您的託管平台 (如 Netlify) 設定 BREVO_API_KEY 和 BREVO_SENDER_EMAIL。');
-        return;
-    }
-    setIsEmailModalOpen(true);
-  };
+    return pdf.output('blob');
+  }, []);
 
-  const handleCloseEmailModal = useCallback(() => {
-    setIsEmailModalOpen(false);
-    // 延遲重置狀態，讓關閉動畫更流暢
-    setTimeout(() => {
+  const handlePdfAction = useCallback(async (action: 'download' | 'share' | 'email') => {
+    if (action === 'email') {
         setEmailStatus('idle');
         setEmailError('');
-    }, 300);
-  }, []);
+        setIsEmailModalOpen(true);
+        return;
+    }
 
-  const handleSendEmail = useCallback(async (recipientEmail: string) => {
+    setIsGeneratingPdf(true);
+    const blob = await generatePdfBlob(formData);
+    setIsGeneratingPdf(false);
+
+    if (!blob) {
+      alert('產生 PDF 失敗！');
+      return;
+    }
+
+    const fileName = `工作服務單-${formData.serviceUnit || '未命名'}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    
+    if (action === 'download') {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else if (action === 'share') {
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        try {
+            await navigator.share({
+                title: '工作服務單',
+                text: `來自 ${formData.serviceUnit} 的工作服務單`,
+                files: [file],
+            });
+        } catch (error) {
+            console.error('分享失敗:', error);
+            alert('分享失敗，您的裝置或 App 可能不支援此功能。');
+        }
+    }
+  }, [formData, generatePdfBlob]);
+
+  const handleEmailSend = async (recipientEmail: string) => {
     setEmailStatus('sending');
-    setIsGeneratingPdf(true); // 使用相同的鎖定狀態
+
+    if (BREVO_API_KEY === 'BREVO_API_KEY_PLACEHOLDER' || BREVO_SENDER_EMAIL === 'BREVO_SENDER_EMAIL_PLACEHOLDER') {
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const errorMsg = `Email 功能設定不完整!
+
+${isLocalhost ? 
+`偵測到您正在本機開發環境。請檢查：
+1. 專案根目錄下是否存在 .env.local 檔案。
+2. .env.local 檔案中是否已正確填寫 BREVO_API_KEY 和 BREVO_SENDER_EMAIL。
+3. 儲存 .env.local 檔案後，是否已「完全重新啟動」Vite 開發伺服器 (關閉後再執行 npm run dev)？` :
+`偵測到您正在線上環境。請檢查：
+1. 您是否已在您的託管平台 (如 Netlify) 的後台設定了環境變數？
+2. 環境變數的「名稱」是否完全符合：BREVO_API_KEY 和 BREVO_SENDER_EMAIL？
+3. 設定完成後，是否已重新部署 (re-deploy) 您的網站？`
+}`;
+        setEmailError(errorMsg);
+        setEmailStatus('error');
+        return;
+    }
+    
+    const pdfBlob = await generatePdfBlob(formData);
+    if (!pdfBlob) {
+        setEmailError('產生 PDF 檔案時發生錯誤，無法寄送 Email。');
+        setEmailStatus('error');
+        return;
+    }
+    const pdfBase64 = await blobToBase64(pdfBlob);
+    
+    const emailData = {
+        sender: {
+            name: BREVO_SENDER_NAME,
+            email: BREVO_SENDER_EMAIL
+        },
+        to: [{ email: recipientEmail }],
+        subject: `來自 ${BREVO_SENDER_NAME} 的工作服務單`,
+        htmlContent: `
+            <html>
+                <body>
+                    <p>您好，</p>
+                    <p>附件是本次的服務單報告，請查收。</p>
+                    <p>服務單位：${formData.serviceUnit}<br>
+                       日期：${new Date(formData.dateTime).toLocaleDateString()}</p>
+                    <p>感謝您！</p>
+                    <p><strong>${BREVO_SENDER_NAME}</strong></p>
+                </body>
+            </html>
+        `,
+        attachment: [{
+            name: `工作服務單-${formData.serviceUnit || '未命名'}-${new Date().toISOString().slice(0, 10)}.pdf`,
+            content: pdfBase64
+        }]
+    };
 
     try {
-        const blob = await generatePdfBlob();
-        if (!blob) {
-          throw new Error("PDF 產生失敗。");
-        }
-        
-        const base64Content = await blobToBase64(blob);
-        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.BREVO_API_KEY!,
+                'accept': 'application/json',
+                'api-key': BREVO_API_KEY,
+                'content-type': 'application/json'
             },
-            body: JSON.stringify({
-                sender: {
-                    name: process.env.BREVO_SENDER_NAME || '富元機電',
-                    email: process.env.BREVO_SENDER_EMAIL!,
-                },
-                to: [{ email: recipientEmail }],
-                subject: `來自「${process.env.BREVO_SENDER_NAME || '富元機電'}」的工作服務單 - ${formData.serviceUnit}`,
-                htmlContent: `<p>您好：</p><p>請查收附件的 PDF 工作服務單。</p><p>此為系統自動發送信件，請勿直接回覆。</p><p>謝謝您！</p><p>${process.env.BREVO_SENDER_NAME || '富元機電有限公司'}</p>`,
-                attachment: [{
-                    content: base64Content,
-                    name: fileName,
-                }],
-            }),
+            body: JSON.stringify(emailData)
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || `請求失敗，狀態碼: ${response.status}`);
+            const errorBody = await response.json();
+            throw new Error(`Brevo API 錯誤 (${response.status}): ${errorBody.message || '未知錯誤'}`);
         }
         
         setEmailStatus('success');
-
-    } catch (error) {
-        console.error('Email sending failed:', error);
-        setEmailError(error instanceof Error ? error.message : '發生未知錯誤');
+    } catch (error: any) {
+        console.error('Email 傳送失敗:', error);
+        setEmailError(error.message);
         setEmailStatus('error');
-    } finally {
-        setIsGeneratingPdf(false);
     }
-  }, [formData, generatePdfBlob]);
-  
+  };
+
+
+  // PDF 產生所需的隱藏容器
+  const PdfRenderContainer = () => {
+    const tasksLines = calculateVisualLines(formData.tasks);
+    const statusLines = calculateVisualLines(formData.status);
+    const productsCount = formData.products.reduce((acc, p) => acc + p.quantity, 0);
+    const remarksLines = calculateVisualLines(formData.remarks);
+    
+    const isSplitNeeded = (tasksLines + statusLines > TASKS_STATUS_LIMIT) || (productsCount + remarksLines > PRODUCTS_REMARKS_LIMIT);
+    const photoPages = formData.photos.length > 0 ? chunk(formData.photos, 2) : [];
+    const totalPages = (isSplitNeeded ? 2 : 1) + photoPages.length;
+
+    return (
+      <div ref={pdfRenderContainerRef} className="pdf-render-container">
+        {isSplitNeeded ? (
+          <>
+            <div id="pdf-pdf-page1">
+              <ReportLayout data={formData} mode="pdf-page1" currentPage={1} totalPages={totalPages} />
+            </div>
+            <div id="pdf-pdf-page2">
+              <ReportLayout data={formData} mode="pdf-page2" currentPage={2} totalPages={totalPages} />
+            </div>
+          </>
+        ) : (
+          <div id="pdf-pdf-full">
+            <ReportLayout data={formData} mode="pdf-full" currentPage={1} totalPages={totalPages} />
+          </div>
+        )}
+        {photoPages.map((pagePhotos, index) => (
+            <div id={`pdf-appendix-${index}`} key={index}>
+                <PhotoAppendix photos={pagePhotos} currentPage={(isSplitNeeded ? 2 : 1) + index + 1} totalPages={totalPages} />
+            </div>
+        ))}
+      </div>
+    );
+  };
+
+
   return (
     <div className="min-h-screen bg-slate-100">
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
-           {isSubmitted ? (
-             <ReportView 
-                data={formData}
-                onPdfAction={handlePdfAction}
-                onReset={handleReset}
-                onEdit={handleEdit}
-                onEmailShare={handleOpenEmailModal}
-                isGeneratingPdf={isGeneratingPdf}
-              />
-            ) : (
-            <>
-              {!isApiConfigured && <ApiKeyErrorDisplay />}
-              <WorkOrderForm 
-                formData={formData}
-                onInputChange={handleInputChange}
-                onProductChange={handleProductChange}
-                onProductSerialNumberChange={handleProductSerialNumberChange}
-                onAddProduct={handleAddProduct}
-                onRemoveProduct={handleRemoveProduct}
-                onPhotosChange={handlePhotosChange}
-                onTechnicianSignatureSave={handleTechnicianSignatureSave}
-                onTechnicianSignatureClear={handleTechnicianSignatureClear}
-                onCustomerSignatureSave={handleCustomerSignatureSave}
-                onCustomerSignatureClear={handleCustomerSignatureClear}
-                onSubmit={handleSubmit}
-                onSaveAsDraft={handleSaveAsDraft}
-                onLoadDraft={handleLoadDraft}
-                onDeleteDraft={handleDeleteDraft}
-                onClearData={handleClearData}
-                onImportFromDrive={handleImportFromDrive}
-                onExportToDrive={handleExportToDrive}
-                namedDrafts={namedDrafts}
-              />
-            </>
-            )}
-        </div>
-        
-        <DraftActionModal
-          isOpen={isModalOpen}
-          action={modalAction}
-          drafts={Object.keys(namedDrafts)}
-          onClose={() => setIsModalOpen(false)}
-          onConfirm={handleConfirmDraftAction}
+      <main className="container mx-auto max-w-5xl">
+        <PdfRenderContainer />
+        <DraftActionModal 
+            isOpen={isModalOpen} 
+            action={modalAction} 
+            drafts={Object.keys(namedDrafts)}
+            onClose={() => setIsModalOpen(false)}
+            onConfirm={(draftName) => {
+                if (modalAction === 'delete') confirmDeleteDraft(draftName);
+                if (modalAction === 'export') confirmExportToDrive(draftName);
+            }}
         />
-
-        <EmailShareModal 
+        <EmailModal 
             isOpen={isEmailModalOpen}
-            onClose={handleCloseEmailModal}
-            onSubmit={handleSendEmail}
             status={emailStatus}
             errorMessage={emailError}
+            onClose={() => setIsEmailModalOpen(false)}
+            onConfirm={handleEmailSend}
         />
 
-        {isGeneratingPdf && !isEmailModalOpen && (
-            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="text-center">
-                {/* // 正在產生 PDF 時的提示文字 */}
-                <p className="text-lg font-semibold text-slate-700">正在處理 PDF...</p>
-                <p className="text-sm text-slate-500">請稍候</p>
-              </div>
-            </div>
+        {view === 'form' ? (
+          <WorkOrderForm
+            formData={formData}
+            onInputChange={handleInputChange}
+            onProductChange={handleProductChange}
+            onProductSerialNumberChange={handleProductSerialNumberChange}
+            onAddProduct={handleAddProduct}
+            onRemoveProduct={handleRemoveProduct}
+            onPhotosChange={handlePhotosChange}
+            onTechnicianSignatureSave={(sig) => handleSignatureSave('technicianSignature', sig)}
+            onTechnicianSignatureClear={() => handleSignatureClear('technicianSignature')}
+            onCustomerSignatureSave={(sig) => handleSignatureSave('signature', sig)}
+            onCustomerSignatureClear={() => handleSignatureClear('signature')}
+            onSubmit={handleFormSubmit}
+            onSaveAsDraft={handleSaveAsDraft}
+            onLoadDraft={handleLoadDraft}
+            onDeleteDraft={handleDeleteDraft}
+            onClearData={handleClearData}
+            onImportFromDrive={handleImportFromDrive}
+            onExportToDrive={handleExportToDrive}
+            namedDrafts={namedDrafts}
+          />
+        ) : (
+          <ReportView
+            data={formData}
+            onBack={() => setView('form')}
+            onPdfAction={handlePdfAction}
+            isGenerating={isGeneratingPdf}
+          />
         )}
+      </main>
     </div>
   );
 };
