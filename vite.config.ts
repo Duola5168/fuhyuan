@@ -18,6 +18,12 @@ export default defineConfig(({ mode }) => {
         'process.env.BREVO_API_KEY': JSON.stringify(env.BREVO_API_KEY),
         'process.env.BREVO_SENDER_EMAIL': JSON.stringify(env.BREVO_SENDER_EMAIL),
         'process.env.BREVO_SENDER_NAME': JSON.stringify(env.BREVO_SENDER_NAME),
+        // 新增 NAS 功能所需的環境變數
+        'process.env.NAS_HOST': JSON.stringify(env.NAS_HOST),
+        'process.env.NAS_PORT': JSON.stringify(env.NAS_PORT),
+        'process.env.NAS_USERNAME': JSON.stringify(env.NAS_USERNAME),
+        'process.env.NAS_PASSWORD': JSON.stringify(env.NAS_PASSWORD),
+        'process.env.UPLOAD_PATH': JSON.stringify(env.UPLOAD_PATH),
       },
       resolve: {
         alias: {
