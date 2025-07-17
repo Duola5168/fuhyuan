@@ -457,7 +457,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 // --- 報告相關元件 ---
 const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
     <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
-      <span>本表單(V1.2)由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
+      <span>本表單(V1.3)由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339</span>
       {totalPages && currentPage && (
         <span className="font-mono text-base">{`${currentPage} / ${totalPages}`}</span>
       )}
