@@ -34,6 +34,12 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME;
 
+// --- QNAP NAS API 設定 ---
+const NAS_ENDPOINT = process.env.NAS_ENDPOINT;
+const NAS_USERNAME = process.env.NAS_USERNAME;
+const NAS_PASSWORD = process.env.NAS_PASSWORD;
+const UPLOAD_PATH = process.env.UPLOAD_PATH;
+
 /**
  * 產生 Email HTML 內容的範本函式。
  * @param serviceUnit - 服務單位名稱。
@@ -728,7 +734,7 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount
 
 interface ReportViewProps {
     data: WorkOrderData;
-    onUploadPdf: () => void;
+    onInitiateUpload: () => void;
     onSharePdf: () => void;
     onDownloadPdf: () => void;
     onReset: () => void;
@@ -741,7 +747,7 @@ interface ReportViewProps {
  * @description 當表單提交後，顯示此報告預覽畫面。
  *              它會渲染 ReportLayout（用於螢幕預覽）和一系列隱藏的 PDF 渲染用元件。
  */
-const ReportView: React.FC<ReportViewProps> = ({ data, onUploadPdf, onSharePdf, onDownloadPdf, onReset, onEdit, isProcessing }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onInitiateUpload, onSharePdf, onDownloadPdf, onReset, onEdit, isProcessing }) => {
     // 根據內容計算 PDF 應該有多少文字頁和照片頁
     const photoChunks = chunk(data.photos, 4);
     const tasksLines = calculateVisualLines(data.tasks);
@@ -780,7 +786,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onUploadPdf, onSharePdf, 
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
             <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-3">
-              <button onClick={onUploadPdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
+              <button onClick={onInitiateUpload} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳與分享</button>
               <button onClick={onSharePdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享PDF</button>
               <button onClick={onDownloadPdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
               <button onClick={onEdit} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
@@ -847,6 +853,77 @@ const BrevoApiKeyErrorDisplay = () => {
     </div>
 )};
 
+interface UploadOptionsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => void;
+  isProcessing: boolean;
+  isNasConfigured: boolean;
+  isBrevoConfigured: boolean;
+}
+
+const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose, onConfirm, isProcessing, isNasConfigured, isBrevoConfigured }) => {
+  const [uploadToNas, setUploadToNas] = useState(true);
+  const [sendByEmail, setSendByEmail] = useState(true);
+  const [emailRecipients, setEmailRecipients] = useState('fuhyuan.w5339@msa.hinet.net');
+
+  useEffect(() => {
+    if (isOpen) {
+      setUploadToNas(isNasConfigured);
+      setSendByEmail(isBrevoConfigured);
+    }
+  }, [isOpen, isNasConfigured, isBrevoConfigured]);
+
+  if (!isOpen) return null;
+  
+  const handleConfirm = () => {
+    onConfirm({ uploadToNas, sendByEmail, emailRecipients });
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all">
+        <div className="p-6">
+          <h3 className="text-lg font-medium leading-6 text-gray-900">上傳與分享選項</h3>
+          <div className="mt-4 space-y-4">
+            
+            <div className={`p-4 border rounded-md ${!isNasConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
+              <label className="flex items-center">
+                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={uploadToNas} onChange={(e) => setUploadToNas(e.target.checked)} disabled={!isNasConfigured}/>
+                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 NAS 伺服器</span>
+              </label>
+              {!isNasConfigured && <p className="text-xs text-red-600 mt-2 ml-8">NAS 功能未設定，請參考 README.md 檔案進行設定。</p>}
+            </div>
+
+            <div className={`p-4 border rounded-md ${!isBrevoConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
+                <label className="flex items-center">
+                    <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={sendByEmail} onChange={(e) => setSendByEmail(e.target.checked)} disabled={!isBrevoConfigured}/>
+                    <span className="ml-3 text-sm font-medium text-gray-700">透過 Email 寄送</span>
+                </label>
+                {!isBrevoConfigured && <p className="text-xs text-red-600 mt-2 ml-8">Email 功能未設定，請參考 README.md 檔案進行設定。</p>}
+
+                <div className="mt-3 pl-8">
+                    <label htmlFor="email-recipients" className="block text-xs font-medium text-gray-500 mb-1">收件人 (多個請用 , 分隔)</label>
+                    <input type="text" id="email-recipients" value={emailRecipients} onChange={e => setEmailRecipients(e.target.value)} disabled={!sendByEmail || !isBrevoConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"/>
+                </div>
+            </div>
+
+          </div>
+        </div>
+        <div className="bg-gray-50 px-6 py-4 flex flex-row-reverse gap-3">
+          <button type="button" onClick={handleConfirm} disabled={isProcessing || (!uploadToNas && !sendByEmail)} className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 disabled:opacity-50">
+            {isProcessing ? '處理中...' : '確認執行'}
+          </button>
+          <button type="button" onClick={onClose} disabled={isProcessing} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 /**
  * @component App
  * @description 整個應用程式的根元件。
@@ -866,12 +943,14 @@ export const App: React.FC = () => {
   const pickerApiLoaded = useRef(false); // 標記 Google Picker API 是否已載入
   
   // 彈出視窗相關狀態
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState<'delete' | 'export' | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // 檢查 API 金鑰是否已設定
   const isGoogleApiConfigured = API_KEY && CLIENT_ID;
   const isBrevoApiConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME;
+  const isNasConfigured = NAS_ENDPOINT && NAS_USERNAME && NAS_PASSWORD && UPLOAD_PATH;
 
   // --- 副作用 (Effects) ---
 
@@ -1029,7 +1108,7 @@ export const App: React.FC = () => {
   const handleOpenDraftActionModal = useCallback((action: 'delete' | 'export') => {
     if (action === 'export' && !isGoogleApiConfigured) { alert("Google Drive 功能未設定。"); return; }
     if (Object.keys(namedDrafts).length === 0) { alert(action === 'delete' ? "沒有暫存可以刪除。" : "沒有暫存可以匯出。"); return; }
-    setModalAction(action); setIsModalOpen(true);
+    setModalAction(action); setIsDraftModalOpen(true);
   }, [namedDrafts, isGoogleApiConfigured]);
   
   const handleDeleteDraft = useCallback(() => handleOpenDraftActionModal('delete'), [handleOpenDraftActionModal]);
@@ -1062,7 +1141,7 @@ export const App: React.FC = () => {
     } else if (modalAction === 'export') {
       performExportToDrive(draftName);
     }
-    setIsModalOpen(false); setModalAction(null);
+    setIsDraftModalOpen(false); setModalAction(null);
   };
   
   // 載入 Google Picker API（檔案選擇器）
@@ -1188,83 +1267,111 @@ export const App: React.FC = () => {
     } catch(e) { console.error('PDF share failed:', e); alert('PDF 分享失敗。'); } 
     finally { setIsProcessing(false); }
   }, [isProcessing, formData, generatePdfBlob]);
-
-  // 處理上傳/寄送 PDF
-  const handleUploadPdf = useCallback(async () => {
-    if (!isBrevoApiConfigured) {
-        document.getElementById('brevo-error-display')?.scrollIntoView({ behavior: 'smooth' });
+  
+  const handleConfirmUpload = useCallback(async (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => {
+    const { uploadToNas, sendByEmail, emailRecipients } = options;
+    if (!uploadToNas && !sendByEmail) {
+        alert('請至少選擇一個操作 (上傳至 NAS 或透過 Email 寄送)。');
         return;
     }
     
-    if (isProcessing) return;
-
-    const recipientEmailsInput = window.prompt(
-      "請輸入收件人 Email (若有多個，請用逗號 , 分隔):",
-      "fuhyuan.w5339@msa.hinet.net"
-    );
-
-    if (!recipientEmailsInput) {
-        return;
-    }
-    
-    const recipients = recipientEmailsInput
-      .split(',')
-      .map(email => email.trim())
-      .filter(email => email.length > 0);
-
-    if (recipients.length === 0) {
-      alert('請輸入至少一個有效的 Email 地址。');
-      return;
-    }
-
-    if (!window.confirm(`確定要將此服務單傳送至以下信箱嗎？\n\n${recipients.join('\n')}`)) {
-        return;
-    }
-
     setIsProcessing(true);
-    
+    setIsUploadModalOpen(false);
+
     try {
-        const blob = await generatePdfBlob();
-        if (!blob) {
-            alert('無法產生 PDF，郵件無法寄送。');
-            return;
-        }
-
-        const base64Pdf = await blobToBase64(blob);
-        const datePart = formData.dateTime.split('T')[0];
-        const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
-        
-        const toPayload = recipients.map(email => ({ email }));
-
-        const payload = {
-            sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-            to: toPayload,
-            subject: `${datePart}${formData.serviceUnit}的工作服務單`,
-            htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
-            attachment: [{ content: base64Pdf, name: fileName }],
-        };
-
-        // 呼叫 Brevo 的 API 來寄送郵件
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Brevo API request failed');
-        }
-        
-        alert(`✅ 郵件已成功寄送至：\n\n${recipients.join('\n')}`);
+      const blob = await generatePdfBlob();
+      if (!blob) {
+        alert('無法產生 PDF，操作已取消。');
+        return;
+      }
+      
+      const datePart = formData.dateTime.split('T')[0];
+      const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
+      
+      const tasks: Promise<any>[] = [];
+      if (uploadToNas) tasks.push(performNasUpload(blob, fileName));
+      if (sendByEmail) tasks.push(performEmailSend(blob, fileName, emailRecipients));
+      
+      const results = await Promise.allSettled(tasks);
+      const summary = [];
+      if (uploadToNas) {
+        const nasResult = results.shift();
+        summary.push(`- NAS 上傳: ${nasResult?.status === 'fulfilled' ? `✅ 成功` : `❌ 失敗 (${(nasResult as PromiseRejectedResult)?.reason})`}`);
+      }
+      if (sendByEmail) {
+        const emailResult = results.shift();
+        summary.push(`- Email 寄送: ${emailResult?.status === 'fulfilled' ? `✅ 成功` : `❌ 失敗 (${(emailResult as PromiseRejectedResult)?.reason})`}`);
+      }
+      alert(`操作完成：\n\n${summary.join('\n')}`);
 
     } catch (error) {
-        console.error("Brevo email sending failed:", error);
-        alert(`郵件寄送失敗：${error instanceof Error ? error.message : '未知錯誤'}`);
+        console.error("Upload/Share failed:", error);
+        alert(`發生未知錯誤：${error instanceof Error ? error.message : String(error)}`);
     } finally {
         setIsProcessing(false);
     }
-  }, [isProcessing, formData, generatePdfBlob, isBrevoApiConfigured]);
+  }, [formData, generatePdfBlob]);
+
+  const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
+    if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
+
+    const recipients = recipientsStr.split(',').map(email => email.trim()).filter(Boolean);
+    if (recipients.length === 0) throw new Error("請提供至少一個有效的收件人 Email");
+
+    const base64Pdf = await blobToBase64(blob);
+    const toPayload = recipients.map(email => ({ email }));
+
+    const payload = {
+      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+      to: toPayload,
+      subject: `${formData.dateTime.split('T')[0]} ${formData.serviceUnit} 的工作服務單`,
+      htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
+      attachment: [{ content: base64Pdf, name: fileName }],
+    };
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Brevo API 請求失敗');
+    }
+    return 'Email sent successfully';
+  }, [formData, isBrevoApiConfigured]);
+
+  const performNasUpload = useCallback(async (blob: Blob, fileName: string) => {
+    if (!isNasConfigured) throw new Error("NAS API 未設定");
+    
+    // 1. 登入取得 SID
+    const loginUrl = `${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?user=${encodeURIComponent(NAS_USERNAME!)}&pwd=${encodeURIComponent(NAS_PASSWORD!)}&service=filestation`;
+    const loginResponse = await fetch(loginUrl);
+    if (!loginResponse.ok) throw new Error(`NAS 登入失敗 (HTTP ${loginResponse.status})`);
+    
+    const loginText = await loginResponse.text();
+    const sidMatch = /<sid>(.+)<\/sid>/.exec(loginText);
+    if (!sidMatch || !sidMatch[1]) throw new Error("無法從 NAS 回應中取得 SID");
+    const sid = sidMatch[1];
+
+    // 2. 上傳檔案
+    const uploadUrl = `${NAS_ENDPOINT}/cgi-bin/filemanager/utilRequest.cgi?func=upload&sid=${sid}&dest_path=${encodeURIComponent(UPLOAD_PATH!)}&overwrite=1`;
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
+    
+    const uploadResponse = await fetch(uploadUrl, { method: 'POST', body: formData });
+    if (!uploadResponse.ok) {
+        // 登出以清除 session
+        await fetch(`${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?logout=1&sid=${sid}`);
+        throw new Error(`NAS 上傳失敗 (HTTP ${uploadResponse.status})`);
+    }
+
+    // 登出
+    await fetch(`${NAS_ENDPOINT}/cgi-bin/authLogin.cgi?logout=1&sid=${sid}`);
+
+    return 'File uploaded to NAS successfully';
+  }, [isNasConfigured]);
 
 
   // --- JSX 渲染 ---
@@ -1280,7 +1387,7 @@ export const App: React.FC = () => {
            {isSubmitted ? (
              <ReportView 
                 data={formData}
-                onUploadPdf={handleUploadPdf}
+                onInitiateUpload={() => setIsUploadModalOpen(true)}
                 onSharePdf={handleSharePdf}
                 onDownloadPdf={handleDownloadPdf}
                 onReset={handleReset}
@@ -1307,7 +1414,17 @@ export const App: React.FC = () => {
         </div>
         
         {/* 暫存管理彈出視窗 */}
-        <DraftActionModal isOpen={isModalOpen} action={modalAction} drafts={Object.keys(namedDrafts)} onClose={() => setIsModalOpen(false)} onConfirm={handleConfirmDraftAction} />
+        <DraftActionModal isOpen={isDraftModalOpen} action={modalAction} drafts={Object.keys(namedDrafts)} onClose={() => setIsDraftModalOpen(false)} onConfirm={handleConfirmDraftAction} />
+        
+        {/* 上傳選項彈出視窗 */}
+        <UploadOptionsModal 
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onConfirm={handleConfirmUpload}
+          isProcessing={isProcessing}
+          isNasConfigured={!!isNasConfigured}
+          isBrevoConfigured={!!isBrevoApiConfigured}
+        />
 
         {/* 正在處理時顯示的遮罩層 */}
         {isProcessing && (
