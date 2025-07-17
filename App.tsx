@@ -35,7 +35,9 @@ const getEmailHtmlContent = (serviceUnit: string, dateTime: string): string => {
   <p>附件為 ${datePart} ${serviceUnit} 的工作服務單，請查收。</p>
   <p>此為系統自動發送信件，請勿直接回覆。</p>
   <p>謝謝您！</p>
-  <p>富元機電有限公司</p>
+  <p>富元機電有限公司 TEL:(02)2697-5163 FAX:(02)2697-5339</p>
+  <p>新北市汐止區新台五路一段99號14樓之12</p>
+  <p>E-mail：fuhyuan.w5339@msa.hinet.net</p>
 `;
 };
 // ------------------------------
