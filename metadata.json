@@ -1,7 +1,6 @@
-
 {
-  "name": "富元機電有限公司 - 工作服務單 (V1.7)",
-  "description": "一個用於建立和管理工作服務單的應用程式 (V1.7)，支援 Dropbox 自動同步、Google Drive 備份、客戶簽名和照片附件。",
+  "name": "富元機電有限公司 - 工作服務單 (V1.4)",
+  "description": "一個用於建立和管理工作服務單的應用程式 (V1.4)，包括本地暫存、Google Drive 雲端同步、客戶簽名和照片附件。",
   "requestFramePermissions": [
     "camera"
   ],
