@@ -44,14 +44,6 @@ export interface WorkOrderData {
    * @property {string} contactPhone - 接洽人的連絡電話。
    */
   contactPhone: string;
-    /** 
-   * @property {string} manufacturingOrderNo - 製造單號。
-   */
-  manufacturingOrderNo: string;
-  /** 
-   * @property {string} salesReportNo - 業務會報單號。
-   */
-  salesReportNo: string;
   /** 
    * @property {ProductItem[]} products - 服務單中包含的產品項目列表。
    */
