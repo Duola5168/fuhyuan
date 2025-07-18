@@ -1,4 +1,5 @@
 
+
 /**
  * @file App.tsx
  * @description 這是工作服務單應用程式的主元件檔案。
@@ -113,6 +114,8 @@ const initialFormData: WorkOrderData = {
   serviceUnit: '',
   contactPerson: '',
   contactPhone: '',
+  manufacturingOrderNo: '',
+  salesReportNo: '',
   products: [initialProduct],
   tasks: '',
   status: '',
@@ -180,7 +183,7 @@ const migrateWorkOrderData = (data: any): WorkOrderData => {
         return product;
     });
     // 確保所有字串類型欄位都是字串
-    const stringKeys: (keyof WorkOrderData)[] = ['dateTime', 'serviceUnit', 'contactPerson', 'contactPhone', 'tasks', 'status', 'remarks'];
+    const stringKeys: (keyof WorkOrderData)[] = ['dateTime', 'serviceUnit', 'contactPerson', 'contactPhone', 'manufacturingOrderNo', 'salesReportNo', 'tasks', 'status', 'remarks'];
     stringKeys.forEach(key => { if (typeof sanitizedData[key] !== 'string') sanitizedData[key] = ''; });
     // 確保照片、簽名等欄位型別正確
     sanitizedData.photos = Array.isArray(sanitizedData.photos) ? sanitizedData.photos : [];
@@ -374,6 +377,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="服務單位" id="serviceUnit" value={formData.serviceUnit} onChange={onInputChange} required />
             <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
             <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
+            <FormField label="製造單號" id="manufacturingOrderNo" value={formData.manufacturingOrderNo} onChange={onInputChange} />
+            <FormField label="業務會報單號" id="salesReportNo" value={formData.salesReportNo} onChange={onInputChange} />
             <FormField label="處理事項" id="tasks" type="textarea" value={formData.tasks} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`} />
             <FormField label="處理情形" id="status" type="textarea" value={formData.status} onChange={onInputChange} rows={8} cornerHint={`${tasksStatusTotal}/${TASKS_STATUS_LIMIT} 行`}/>
             
@@ -535,8 +540,12 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         <div className="grid grid-cols-12 gap-x-6 gap-y-4 text-lg">
           <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
           <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
-          <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
-          <div className="col-span-12"><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</div>
+          <div className="col-span-5"><strong>製造單號：</strong>{data.manufacturingOrderNo || 'N/A'}</div>
+          <div className="col-span-7 flex flex-wrap">
+            <span className="pr-12"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</span>
+            <span><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</span>
+          </div>
+          <div className="col-span-5"><strong>業務會報單號：</strong>{data.salesReportNo || 'N/A'}</div>
         </div>
       </>
 
