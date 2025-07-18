@@ -166,8 +166,9 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
 // --- 圖示元件 ---
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> );
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg> );
-const CloudArrowUpIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M17.25 12c0 2.899-2.351 5.25-5.25 5.25S6.75 14.899 6.75 12 9.101 6.75 12 6.75s5.25 2.351 5.25 5.25z" /></svg> );
 const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066-.417-.042-.85-.327-1.157-.285-.308-.704-.453-1.116-.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83-.09 1.116-.398.285-.307.393-.74.328-1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344-.41.91-.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
+const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg> );
+const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
 
 // --- 統一彈出視窗元件 (New Unified Modal System) ---
 interface ModalState {
@@ -794,7 +795,7 @@ export const App: React.FC = () => {
       </select>
     </div>;
 
-    setModalState({ isOpen: true, title, content, onConfirm: onConfirmAction, confirmText, confirmClass, onClose: closeModal, backgroundIcon: <Cog6ToothIcon className="w-48 h-48" /> });
+    setModalState({ isOpen: true, title, content, onConfirm: onConfirmAction, confirmText, confirmClass, onClose: closeModal, backgroundIcon: action === 'delete' ? undefined : <Cog6ToothIcon className="w-48 h-48" /> });
   };
   
   const handleDeleteDraft = () => openDraftActionModal('delete');
@@ -988,25 +989,45 @@ export const App: React.FC = () => {
         emailRecipients = emails;
         
         return (
-          <div className="space-y-4">
-            <div className={`p-4 border rounded-md ${!isDropboxConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
-              <label className="flex items-center">
-                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={nasChecked} onChange={(e) => setNasChecked(e.target.checked)} disabled={!isDropboxConfigured}/>
-                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 NAS</span>
-              </label>
-              <p className={`text-xs text-slate-500 mt-2 ml-8`}>將PDF上傳至公司雲端硬碟。</p>
-              {!isDropboxConfigured && <p className="text-xs text-red-600 mt-1 ml-8">此功能未設定，請參考 README.md 檔案進行設定。</p>}
-            </div>
-            <div className={`p-4 border rounded-md ${!isBrevoApiConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
-                <label className="flex items-center">
-                    <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={emailChecked} onChange={(e) => setEmailChecked(e.target.checked)} disabled={!isBrevoApiConfigured}/>
-                    <span className="ml-3 text-sm font-medium text-gray-700">透過 Email 寄送</span>
+          <div className="space-y-4 text-left">
+            <div className={`flex items-start gap-4 p-4 rounded-lg transition-all ${!isDropboxConfigured ? 'bg-slate-100 opacity-70 cursor-not-allowed' : 'bg-slate-50'}`}>
+              <div className="flex-shrink-0 w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+                <ServerStackIcon className="w-6 h-6" />
+              </div>
+              <div className="flex-grow">
+                <p className="font-semibold text-slate-800">上傳至 NAS</p>
+                <p className="text-sm text-slate-500">將PDF上傳至公司雲端硬碟。</p>
+                {!isDropboxConfigured && <p className="text-xs text-red-600 mt-1">此功能未設定。</p>}
+              </div>
+              <div className="flex-shrink-0">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={nasChecked} onChange={(e) => setNasChecked(e.target.checked)} disabled={!isDropboxConfigured} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
-                {!isBrevoApiConfigured && <p className="text-xs text-red-600 mt-2 ml-8">Email 功能未設定，請參考 README.md 檔案進行設定。</p>}
-                <div className="mt-3 pl-8">
-                    <label htmlFor="email-recipients" className="block text-xs font-medium text-gray-500 mb-1">收件人 (多個請用 , 分隔)</label>
-                    <input type="text" id="email-recipients" value={emails} onChange={e => setEmails(e.target.value)} disabled={!emailChecked || !isBrevoApiConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"/>
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-lg transition-all duration-300 ${!isBrevoApiConfigured ? 'bg-slate-100 opacity-70 cursor-not-allowed' : 'bg-slate-50'}`}>
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-teal-100 text-teal-600 rounded-lg flex items-center justify-center">
+                    <EnvelopeIcon className="w-6 h-6"/>
                 </div>
+                <div className="flex-grow">
+                  <p className="font-semibold text-slate-800">透過 Email 寄送</p>
+                  <p className="text-sm text-slate-500">將服務單寄送給指定收件人。</p>
+                  {!isBrevoApiConfigured && <p className="text-xs text-red-600 mt-1">此功能未設定。</p>}
+                </div>
+                <div className="flex-shrink-0">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={emailChecked} onChange={(e) => setEmailChecked(e.target.checked)} disabled={!isBrevoApiConfigured} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                    </label>
+                </div>
+              </div>
+              <div className={`pl-[56px] pt-3 transition-all duration-300 ease-in-out ${emailChecked && isBrevoApiConfigured ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                  <label htmlFor="email-recipients" className="block text-xs font-medium text-gray-500 mb-1">收件人 (多個請用 , 分隔)</label>
+                  <input type="text" id="email-recipients" value={emails} onChange={e => setEmails(e.target.value)} disabled={!emailChecked || !isBrevoApiConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"/>
+              </div>
             </div>
           </div>
         );
@@ -1019,7 +1040,7 @@ export const App: React.FC = () => {
         onConfirm: () => handleConfirmUpload({ uploadToNas, sendByEmail, emailRecipients }),
         confirmText: "確認執行",
         onClose: closeModal,
-        backgroundIcon: <CloudArrowUpIcon className="w-64 h-64" />
+        backgroundIcon: undefined
     });
   };
 
