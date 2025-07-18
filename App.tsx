@@ -221,17 +221,17 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
   return (
     <div>
       <div className="flex justify-between items-baseline mb-1">
-        <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+        <label htmlFor={id} className="block text-base font-medium text-slate-700">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
-        {cornerHint && <span className="text-xs text-slate-500 font-mono">{cornerHint}</span>}
+        {cornerHint && <span className="text-sm text-slate-500 font-mono">{cornerHint}</span>}
       </div>
       <div>
         {type === 'textarea' ? (
-          <textarea ref={textareaRef} id={id} name={id} rows={autoSize ? 1 : rows} value={value} onChange={onChange} required={required} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" style={autoSize ? { overflowY: 'hidden', resize: 'none' } : {}} />
+          <textarea ref={textareaRef} id={id} name={id} rows={autoSize ? 1 : rows} value={value} onChange={onChange} required={required} className="appearance-none block w-full px-3 py-2 border border-slate-400 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-base" style={autoSize ? { overflowY: 'hidden', resize: 'none' } : {}} />
         ) : (
-          <input id={id} name={id} type={type} value={value} onChange={onChange} required={required} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+          <input id={id} name={id} type={type} value={value} onChange={onChange} required={required} className="appearance-none block w-full px-3 py-2 border border-slate-400 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-base" />
         )}
       </div>
     </div>
@@ -241,7 +241,7 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
 // --- 圖示元件 (SVG) ---
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> );
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg> );
-const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327-1.157-.285-.308-.704-.453-1.116-.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83-.09 1.116-.398.285-.307.393-.74.328-1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344-.41.91-.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
+const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285-.308-.704-.453-1.116-.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83.09 1.116-.398.285.307.393.74.328-1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
 const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg> );
 const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
 
@@ -273,12 +273,12 @@ const CustomModal: React.FC<ModalState> = ({ isOpen, title, content, onConfirm, 
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm sm:max-w-md transform transition-all overflow-hidden border border-slate-200/50">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm sm:max-w-md transform transition-all overflow-hidden border border-slate-300">
         {backgroundIcon && <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">{backgroundIcon}</div>}
         <div className="relative z-10">
           <div className="p-6">
-            <h3 id="modal-title" className="text-lg font-semibold leading-6 text-gray-900">{title}</h3>
-            <div className="mt-4 text-sm text-gray-600">{content}</div>
+            <h3 id="modal-title" className="text-xl font-semibold leading-6 text-gray-900">{title}</h3>
+            <div className="mt-4 text-base text-gray-600">{content}</div>
           </div>
           <div className="bg-gray-50/70 backdrop-blur-sm px-6 py-4 flex flex-row-reverse gap-3 border-t border-slate-200">
             {onConfirm && (
@@ -286,7 +286,7 @@ const CustomModal: React.FC<ModalState> = ({ isOpen, title, content, onConfirm, 
                 type="button"
                 onClick={onConfirm}
                 disabled={isProcessing}
-                className={`inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm ${confirmClass || 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'} disabled:opacity-50`}
+                className={`inline-flex justify-center px-4 py-2 text-base font-medium text-white border border-transparent rounded-md shadow-sm ${confirmClass || 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'} disabled:opacity-50`}
               >
                 {isProcessing ? '處理中...' : (confirmText || '確認')}
               </button>
@@ -295,7 +295,7 @@ const CustomModal: React.FC<ModalState> = ({ isOpen, title, content, onConfirm, 
               type="button"
               onClick={onClose}
               disabled={isProcessing}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="px-4 py-2 text-base font-medium text-gray-700 bg-white border border-gray-400 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               {onConfirm ? '取消' : '關閉'}
             </button>
@@ -345,8 +345,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     return (
      <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
         <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-800">富元機電有限公司</h1>
-            <h2 className="text-xl font-semibold text-slate-600 mt-1">工作服務單</h2>
+            <h1 className="text-3xl font-bold text-slate-800">富元機電有限公司</h1>
+            <h2 className="text-2xl font-semibold text-slate-600 mt-1">工作服務單</h2>
         </div>
         <div className="space-y-6">
             <FormField label="工作日期及時間" id="dateTime" type="datetime-local" value={formData.dateTime} onChange={onInputChange} required />
@@ -358,29 +358,29 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             
             <div>
               <div className="flex justify-between items-baseline mb-2">
-                <label className="block text-sm font-medium text-slate-700">產品項目</label>
-                <span className="text-xs text-slate-500 font-mono">{`${productsRemarksTotal}/${PRODUCTS_REMARKS_LIMIT} 行`}</span>
+                <label className="block text-base font-medium text-slate-700">產品項目</label>
+                <span className="text-sm text-slate-500 font-mono">{`${productsRemarksTotal}/${PRODUCTS_REMARKS_LIMIT} 行`}</span>
               </div>
               <div className="space-y-4">
                 {formData.products.map((product, index) => (
-                    <div key={product.id} className="grid grid-cols-12 gap-x-3 gap-y-4 p-4 border border-slate-200 rounded-lg relative">
+                    <div key={product.id} className="grid grid-cols-12 gap-x-3 gap-y-4 p-4 border border-slate-300 rounded-lg relative">
                         <div className="col-span-12 sm:col-span-8">
-                            <label htmlFor={`product-name-${index}`} className="block text-xs font-medium text-slate-600">產品品名</label>
-                            <input id={`product-name-${index}`} type="text" value={product.name} onChange={(e) => onProductChange(index, 'name', e.target.value)} className="mt-1 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                            <label htmlFor={`product-name-${index}`} className="block text-sm font-medium text-slate-600">產品品名</label>
+                            <input id={`product-name-${index}`} type="text" value={product.name} onChange={(e) => onProductChange(index, 'name', e.target.value)} className="mt-1 appearance-none block w-full px-3 py-2 border border-slate-400 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-base" />
                         </div>
                         <div className="col-span-12 sm:col-span-4">
-                            <label htmlFor={`product-quantity-${index}`} className="block text-xs font-medium text-slate-600">數量</label>
-                            <select id={`product-quantity-${index}`} value={product.quantity} onChange={(e) => onProductChange(index, 'quantity', parseInt(e.target.value, 10))} className="mt-1 block w-full pl-3 pr-8 py-2 text-base border-slate-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <label htmlFor={`product-quantity-${index}`} className="block text-sm font-medium text-slate-600">數量</label>
+                            <select id={`product-quantity-${index}`} value={product.quantity} onChange={(e) => onProductChange(index, 'quantity', parseInt(e.target.value, 10))} className="mt-1 block w-full pl-3 pr-8 py-2 border-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-base rounded-md">
                                 {Array.from({ length: 20 }, (_, i) => i + 1).map(q => <option key={q} value={q}>{q}</option>)}
                             </select>
                         </div>
                         <div className="col-span-12">
-                            {(product.serialNumbers?.length || 0) > 0 && <label className="block text-xs font-medium text-slate-600 mb-2">序號</label>}
+                            {(product.serialNumbers?.length || 0) > 0 && <label className="block text-sm font-medium text-slate-600 mb-2">序號</label>}
                             <div className="space-y-2">
                                 {(product.serialNumbers || []).map((serial, serialIndex) => (
                                     <div key={serialIndex} className="flex items-center gap-2">
-                                        <span className="text-sm text-slate-500 font-mono w-8 text-right pr-2">#{serialIndex + 1}</span>
-                                        <input type="text" value={serial} onChange={(e) => onProductSerialNumberChange(index, serialIndex, e.target.value)} placeholder={`第 ${serialIndex + 1} 組產品序號`} className="flex-1 min-w-0 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                        <span className="text-base text-slate-500 font-mono w-8 text-right pr-2">#{serialIndex + 1}</span>
+                                        <input type="text" value={serial} onChange={(e) => onProductSerialNumberChange(index, serialIndex, e.target.value)} placeholder={`第 ${serialIndex + 1} 組產品序號`} className="flex-1 min-w-0 appearance-none block w-full px-3 py-2 border border-slate-400 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-base" />
                                     </div>
                                 ))}
                             </div>
@@ -392,7 +392,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         )}
                     </div>
                 ))}
-                <button type="button" onClick={onAddProduct} className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-slate-300 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 focus:outline-none">
+                <button type="button" onClick={onAddProduct} className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-slate-400 rounded-md text-base font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-500 focus:outline-none">
                     <PlusIcon className="w-5 h-5 mr-2" />
                     新增項目
                 </button>
@@ -402,15 +402,15 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <FormField label="備註" id="remarks" type="textarea" value={formData.remarks} onChange={onInputChange} autoSize cornerHint={`${productsRemarksTotal}/${PRODUCTS_REMARKS_LIMIT} 行`} />
             
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">拍照插入圖片</label>
+                <label className="block text-base font-medium text-slate-700 mb-2">拍照插入圖片</label>
                 <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">服務人員</label>
+                <label className="block text-base font-medium text-slate-700 mb-1">服務人員</label>
                 <SignaturePad signatureDataUrl={formData.technicianSignature} onSave={onTechnicianSignatureSave} onClear={onTechnicianSignatureClear} />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">客戶簽認</label>
+                <label className="block text-base font-medium text-slate-700 mb-1">客戶簽認</label>
                 <SignaturePad signatureDataUrl={formData.signature} onSave={onCustomerSignatureSave} onClear={onCustomerSignatureClear} />
             </div>
         </div>
@@ -429,7 +429,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                             e.target.value = '';
                         }}
                         defaultValue=""
-                        className="w-full sm:w-auto px-3 py-2 border border-slate-300 text-slate-700 rounded-md shadow-sm text-base font-medium bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="w-full sm:w-auto px-3 py-2 border border-slate-400 text-slate-700 rounded-md shadow-sm text-lg font-medium bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
                          <option value="" disabled>載入/管理暫存</option>
                          {draftNames.length > 0 && (
@@ -446,14 +446,14 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                          </optgroup>
                     </select>
 
-                    <button type="button" onClick={onSaveAsDraft} className="flex-1 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-base font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <button type="button" onClick={onSaveAsDraft} className="flex-1 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-lg font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         另存新檔
                     </button>
-                    <button type="button" onClick={onClearData} className="flex-1 sm:w-auto px-4 py-2 border border-red-600 text-red-600 rounded-md shadow-sm text-base font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <button type="button" onClick={onClearData} className="flex-1 sm:w-auto px-4 py-2 border border-red-600 text-red-600 rounded-md shadow-sm text-lg font-medium hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                         清除資料
                     </button>
                 </div>
-                <button type="submit" className="w-full sm:w-auto px-8 py-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <button type="submit" className="w-full sm:w-auto px-8 py-4 border border-transparent rounded-md shadow-sm text-xl font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                     產生服務單報告
                 </button>
             </div>
@@ -467,9 +467,9 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
  * PDF 頁尾元件。
  */
 const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
-    <div className="flex-shrink-0 flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-2 mt-auto">
+    <div className="flex-shrink-0 flex justify-between items-center text-sm text-slate-500 border-t border-slate-200 pt-2 mt-auto">
       <span>{`本表單(${APP_VERSION})由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339`}</span>
-      {totalPages && currentPage && (<span className="font-mono text-base">{`${currentPage} / ${totalPages}`}</span>)}
+      {totalPages && currentPage && (<span className="font-mono text-lg">{`${currentPage} / ${totalPages}`}</span>)}
     </div>
 );
 
@@ -508,10 +508,10 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
     <div id={isPdf ? `pdf-${mode}` : undefined} className="p-8 bg-white" style={{ width: isPdf ? '210mm' : '100%', minHeight: isPdf ? '297mm' : 'auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'" }}>
       <>
         <div className="text-center mb-10 flex-shrink-0">
-          <h1 className="text-3xl font-bold text-gray-800">富元機電有限公司</h1>
-          <h2 className="text-2xl font-semibold text-gray-600 mt-2">工作服務單{mode === 'pdf-page2' && ' (產品項目與備註)'}</h2>
+          <h1 className="text-4xl font-bold text-gray-800">富元機電有限公司</h1>
+          <h2 className="text-3xl font-semibold text-gray-600 mt-2">工作服務單{mode === 'pdf-page2' && ' (產品項目與備註)'}</h2>
         </div>
-        <div className="grid grid-cols-12 gap-x-6 gap-y-4">
+        <div className="grid grid-cols-12 gap-x-6 gap-y-4 text-lg">
           <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
           <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
           <div className="col-span-5"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</div>
@@ -519,20 +519,20 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
         </div>
       </>
 
-      <div className="flex-grow text-base text-gray-800 space-y-5 pt-5">
+      <div className="flex-grow text-lg text-gray-800 space-y-5 pt-5">
         {showTasksAndStatus && (
           <>
-            <div><strong className="text-base">處理事項：</strong><div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.tasks || '\u00A0'}</div></div>
-            <div><strong className="text-base">處理情形：</strong><div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[9rem]">{data.status || '\u00A0'}</div></div>
+            <div><strong className="text-lg">處理事項：</strong><div className="mt-1 p-3 border border-slate-300 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[10rem]">{data.tasks || '\u00A0'}</div></div>
+            <div><strong className="text-lg">處理情形：</strong><div className="mt-1 p-3 border border-slate-300 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[10rem]">{data.status || '\u00A0'}</div></div>
           </>
         )}
         {showProductsAndRemarks && (
           <div>
-            <strong className="text-base">產品項目：</strong>
-            <div className="mt-2 border border-slate-200 rounded-md overflow-hidden">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50"><tr><th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">產品品名</th><th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">数量</th><th scope="col" className="px-3 py-2 text-left font-medium text-slate-600">序號</th></tr></thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
+            <strong className="text-lg">產品項目：</strong>
+            <div className="mt-2 border border-slate-300 rounded-md overflow-hidden">
+              <table className="min-w-full divide-y divide-slate-300 text-base">
+                <thead className="bg-slate-100"><tr><th scope="col" className="px-3 py-2 text-left font-medium text-slate-700">產品品名</th><th scope="col" className="px-3 py-2 text-left font-medium text-slate-700">数量</th><th scope="col" className="px-3 py-2 text-left font-medium text-slate-700">序號</th></tr></thead>
+                <tbody className="divide-y divide-slate-300 bg-white">
                   {hasProducts ? (
                     data.products.filter(p => p.name.trim() !== '').map((product, index) => (
                       <tr key={index}>
@@ -554,18 +554,18 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
           </div>
         )}
         {showProductsAndRemarks && (
-          <div><strong className="text-base">備註：</strong><div className="mt-1 p-3 border border-slate-200 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[3rem]">{data.remarks || '\u00A0'}</div></div>
+          <div><strong className="text-lg">備註：</strong><div className="mt-1 p-3 border border-slate-300 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[3rem]">{data.remarks || '\u00A0'}</div></div>
         )}
         {mode === 'screen' && data.photos.length > 0 && (
-          <div><strong className="text-base">現場照片：</strong><div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">{data.photos.map((photo, index) => (<img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />))}</div></div>
+          <div><strong className="text-lg">現場照片：</strong><div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">{data.photos.map((photo, index) => (<img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />))}</div></div>
         )}
       </div>
 
        <div className="pt-12 mt-auto">
-          <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-base`}>
-              {showManagerApproval && (<div className="text-center"><strong>經理核可：</strong><div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center"></div></div>)}
-              <div className="text-center"><strong>服務人員：</strong><div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">{data.technicianSignature ? (<img src={data.technicianSignature} alt="服務人員" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
-              <div className="text-center"><strong>客戶簽認：</strong><div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">{data.signature ? (<img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
+          <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-lg`}>
+              {showManagerApproval && (<div className="text-center"><strong>經理核可：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center"></div></div>)}
+              <div className="text-center"><strong>服務人員：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">{data.technicianSignature ? (<img src={data.technicianSignature} alt="服務人員" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
+              <div className="text-center"><strong>客戶簽認：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">{data.signature ? (<img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
           </div>
           {isPdf && <PdfFooter currentPage={currentPage} totalPages={totalPages} />}
        </div>
@@ -582,9 +582,9 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount
 
     return (
         <div id={`pdf-photo-page-${pageNumber - 1}`} className="p-8 bg-white" style={{ width: '210mm', height: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-            <div className="text-center mb-4 flex-shrink-0"><h3 className="text-xl font-semibold text-slate-700">{pageTitle}</h3></div>
+            <div className="text-center mb-4 flex-shrink-0"><h3 className="text-2xl font-semibold text-slate-700">{pageTitle}</h3></div>
             <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow">
-                {photos.map((photo, index) => (<div key={index} className="flex items-center justify-center border border-slate-200 p-1 bg-slate-50 rounded-md overflow-hidden"><img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" /></div>))}
+                {photos.map((photo, index) => (<div key={index} className="flex items-center justify-center border border-slate-300 p-1 bg-slate-50 rounded-md overflow-hidden"><img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" /></div>))}
                 {/* 使用空白 div 填充剩餘的格子，確保佈局穩定 */}
                 {Array(4 - photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
             </div>
@@ -639,11 +639,11 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
 
       {/* 操作按鈕區域 */}
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-4 justify-between items-center">
-            <button onClick={onReset} className="px-6 py-3 text-base bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
+            <button onClick={onReset} className="px-6 py-3 text-lg bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-4">
-              <button onClick={onOpenUploadModal} disabled={isProcessing} className="px-6 py-3 text-base font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
-              <button onClick={onDownloadPdf} disabled={isProcessing} className="px-6 py-3 text-base font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
-              <button onClick={onEdit} disabled={isProcessing} className="px-6 py-3 text-base font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
+              <button onClick={onOpenUploadModal} disabled={isProcessing} className="px-6 py-3 text-lg font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
+              <button onClick={onDownloadPdf} disabled={isProcessing} className="px-6 py-3 text-lg font-semibold bg-white border border-slate-400 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
+              <button onClick={onEdit} disabled={isProcessing} className="px-6 py-3 text-lg font-semibold bg-white border border-slate-400 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
             </div>
       </div>
     </>
@@ -657,9 +657,9 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
  */
 const ApiKeyErrorDisplay = () => (
     <div className="p-8 text-center bg-red-50 border-l-4 border-red-400">
-        <h3 className="text-xl font-bold text-red-800">⛔️ Google Drive 功能設定錯誤</h3>
-        <p className="mt-2 text-md text-red-700">應用程式偵測到 Google API 金鑰或用戶端 ID 尚未設定。</p>
-        <p className="mt-4 text-sm text-slate-600 bg-slate-100 p-3 rounded-md">請開發者依照 <code>README.md</code> 檔案中的指示，建立 <code>.env.local</code> 檔案並填入正確的金鑰資訊，以啟用雲端硬碟匯出/匯入功能。</p>
+        <h3 className="text-2xl font-bold text-red-800">⛔️ Google Drive 功能設定錯誤</h3>
+        <p className="mt-2 text-lg text-red-700">應用程式偵測到 Google API 金鑰或用戶端 ID 尚未設定。</p>
+        <p className="mt-4 text-base text-slate-600 bg-slate-100 p-3 rounded-md">請開發者依照 <code>README.md</code> 檔案中的指示，建立 <code>.env.local</code> 檔案並填入正確的金鑰資訊，以啟用雲端硬碟匯出/匯入功能。</p>
     </div>
 );
 
@@ -671,9 +671,9 @@ const BrevoApiKeyErrorDisplay = () => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     return (
     <div className="p-8 text-center bg-orange-50 border-l-4 border-orange-400">
-        <h3 className="text-xl font-bold text-orange-800">✉️ Email 功能設定不完整</h3>
-        <p className="mt-2 text-md text-orange-700">應用程式偵測到 Email 發送服務所需的部分資訊尚未設定。</p>
-        <div className="mt-4 text-sm text-slate-600 bg-slate-100 p-4 rounded-md text-left">
+        <h3 className="text-2xl font-bold text-orange-800">✉️ Email 功能設定不完整</h3>
+        <p className="mt-2 text-lg text-orange-700">應用程式偵測到 Email 發送服務所需的部分資訊尚未設定。</p>
+        <div className="mt-4 text-base text-slate-600 bg-slate-100 p-4 rounded-md text-left">
            <p className="font-semibold">請開發者依照以下步驟解決：</p>
            {isLocal ? (
             <ul className="list-disc list-inside mt-2 space-y-1">
@@ -751,7 +751,7 @@ export const App: React.FC = () => {
     let inputValue = '';
     const PromptContent = <>
       {content}
-      <input type="text" autoFocus onChange={e => inputValue = e.target.value} className="mt-2 appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+      <input type="text" autoFocus onChange={e => inputValue = e.target.value} className="mt-2 appearance-none block w-full px-3 py-2 border border-slate-400 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-base" />
     </>;
     setModalState({ isOpen: true, title, content: PromptContent, onConfirm: () => { onConfirm(inputValue); closeModal(); }, confirmText: "確認", onClose: closeModal});
   };
@@ -765,7 +765,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     // 避免每次重載都顯示提示
     if (sessionStorage.getItem('welcomeBannerDismissed') !== 'true') {
-        alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等瀏覽器開啟，以確保所有功能正常運作，謝謝！');
+        alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等現代瀏覽器開啟，以確保所有功能正常運作，謝謝！');
         sessionStorage.setItem('welcomeBannerDismissed', 'true');
     }
     // 如果未設定 Google API 金鑰，則不執行載入
@@ -1002,7 +1002,7 @@ export const App: React.FC = () => {
     
     const content = <div>
       <label htmlFor="draft-select" className="text-sm text-gray-500 mb-2 block">請從下方選擇要操作的暫存檔：</label>
-      <select id="draft-select" defaultValue={selectedDraft} onChange={(e) => selectedDraft = e.target.value} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+      <select id="draft-select" defaultValue={selectedDraft} onChange={(e) => selectedDraft = e.target.value} className="mt-1 block w-full pl-3 pr-10 py-2 text-lg border-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-base rounded-md">
         {draftNames.map(name => <option key={name} value={name}>{name}</option>)}
       </select>
     </div>;
@@ -1282,9 +1282,9 @@ export const App: React.FC = () => {
                 <ServerStackIcon className="w-6 h-6" />
               </div>
               <div className="flex-grow">
-                <p className="font-semibold text-slate-800">上傳至 NAS</p>
-                <p className="text-sm text-slate-500">將PDF上傳至公司雲端硬碟。</p>
-                {!isDropboxConfigured && <p className="text-xs text-red-600 mt-1">此功能未設定。</p>}
+                <p className="font-semibold text-lg text-slate-800">上傳至 NAS</p>
+                <p className="text-base text-slate-500">將PDF上傳至公司雲端硬碟。</p>
+                {!isDropboxConfigured && <p className="text-sm text-red-600 mt-1">此功能未設定。</p>}
               </div>
               <div className="flex-shrink-0">
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -1300,9 +1300,9 @@ export const App: React.FC = () => {
                     <EnvelopeIcon className="w-6 h-6"/>
                 </div>
                 <div className="flex-grow">
-                  <p className="font-semibold text-slate-800">透過 Email 寄送</p>
-                  <p className="text-sm text-slate-500">將服務單寄送給指定收件人。</p>
-                  {!isBrevoApiConfigured && <p className="text-xs text-red-600 mt-1">此功能未設定。</p>}
+                  <p className="font-semibold text-lg text-slate-800">透過 Email 寄送</p>
+                  <p className="text-base text-slate-500">將服務單寄送給指定收件人。</p>
+                  {!isBrevoApiConfigured && <p className="text-sm text-red-600 mt-1">此功能未設定。</p>}
                 </div>
                 <div className="flex-shrink-0">
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -1312,8 +1312,8 @@ export const App: React.FC = () => {
                 </div>
               </div>
               <div className={`pl-[56px] pt-3 transition-all duration-300 ease-in-out ${emailChecked && isBrevoApiConfigured ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                  <label htmlFor="email-recipients" className="block text-xs font-medium text-gray-500 mb-1">收件人 (多個請用 , 分隔)</label>
-                  <input type="text" id="email-recipients" value={emails} onChange={e => setEmails(e.target.value)} disabled={!emailChecked || !isBrevoApiConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"/>
+                  <label htmlFor="email-recipients" className="block text-sm font-medium text-gray-500 mb-1">收件人 (多個請用 , 分隔)</label>
+                  <input type="text" id="email-recipients" value={emails} onChange={e => setEmails(e.target.value)} disabled={!emailChecked || !isBrevoApiConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-400 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-base disabled:bg-slate-100 disabled:cursor-not-allowed"/>
               </div>
             </div>
           </div>
@@ -1335,7 +1335,7 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100">
         <div className="relative max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
-           <span className="absolute top-4 right-6 text-xs font-mono text-slate-400 select-none" aria-label={`應用程式版本 ${APP_VERSION}`}>{APP_VERSION}</span>
+           <span className="absolute top-4 right-6 text-sm font-mono text-slate-400 select-none" aria-label={`應用程式版本 ${APP_VERSION}`}>{APP_VERSION}</span>
            
            {isSubmitted ? (
              <ReportView data={formData} onOpenUploadModal={handleOpenUploadModal} onDownloadPdf={handleDownloadPdf} onReset={handleReset} onEdit={handleEdit} isProcessing={isProcessing} />
@@ -1381,8 +1381,8 @@ export const App: React.FC = () => {
                     </svg>
                     <span className="sr-only">Loading...</span>
                 </div>
-                <p className="text-lg font-semibold text-slate-700 mt-4">正在處理中...</p>
-                <p className="text-sm text-slate-500">請稍候</p>
+                <p className="text-xl font-semibold text-slate-700 mt-4">正在處理中...</p>
+                <p className="text-base text-slate-500">請稍候</p>
               </div>
             </div>
         )}
