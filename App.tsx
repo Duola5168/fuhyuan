@@ -298,6 +298,25 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const XMarkIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
+
+const CloudArrowUpIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M17.25 12c0 2.899-2.351 5.25-5.25 5.25S6.75 14.899 6.75 12 9.101 6.75 12 6.75s5.25 2.351 5.25 5.25z" />
+    </svg>
+);
+
+const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066-.417-.042-.85-.327-1.157-.285-.308-.704-.453-1.116-.397-.512.07-.996-.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83-.09 1.116-.398.285-.307.393-.74.328-1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344-.41.91-.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+    </svg>
+);
+
 
 // --- 互動式彈出視窗元件 ---
 interface DraftActionModalProps {
@@ -340,10 +359,11 @@ const DraftActionModal: React.FC<DraftActionModalProps> = ({ isOpen, action, dra
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm transform transition-all">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm transform transition-all overflow-hidden border border-slate-200/50">
+        <Cog6ToothIcon className="absolute -bottom-10 -left-10 w-48 h-48 text-slate-100/80 opacity-50" />
         <form onSubmit={handleSubmit}>
-          <div className="p-6">
+          <div className="p-6 relative z-10">
             <h3 id="modal-title" className="text-lg font-medium leading-6 text-gray-900">{title}</h3>
             <div className="mt-4">
               <label htmlFor="draft-select" className="text-sm text-gray-500 mb-2 block">請從下方選擇要操作的暫存檔：</label>
@@ -361,7 +381,7 @@ const DraftActionModal: React.FC<DraftActionModalProps> = ({ isOpen, action, dra
               )}
             </div>
           </div>
-          <div className="bg-gray-50 px-6 py-4 flex flex-row-reverse gap-3">
+          <div className="bg-gray-50/70 backdrop-blur-sm px-6 py-4 flex flex-row-reverse gap-3 relative z-10 border-t border-slate-200">
             <button
               type="submit"
               disabled={!selectedDraft}
@@ -784,7 +804,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onInitiateUpload, onShare
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
             <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-3">
-              <button onClick={onInitiateUpload} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳與分享</button>
+              <button onClick={onInitiateUpload} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
               <button onClick={onSharePdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50">分享PDF</button>
               <button onClick={onDownloadPdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
               <button onClick={onEdit} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
@@ -854,20 +874,20 @@ const BrevoApiKeyErrorDisplay = () => {
 interface UploadOptionsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (options: { uploadToDropbox: boolean; sendByEmail: boolean; emailRecipients: string }) => void;
+  onConfirm: (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => void;
   isProcessing: boolean;
   isDropboxConfigured: boolean;
   isBrevoConfigured: boolean;
 }
 
 const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose, onConfirm, isProcessing, isDropboxConfigured, isBrevoConfigured }) => {
-  const [uploadToDropbox, setUploadToDropbox] = useState(true);
+  const [uploadToNas, setUploadToNas] = useState(true);
   const [sendByEmail, setSendByEmail] = useState(true);
   const [emailRecipients, setEmailRecipients] = useState('fuhyuan.w5339@msa.hinet.net');
 
   useEffect(() => {
     if (isOpen) {
-      setUploadToDropbox(isDropboxConfigured);
+      setUploadToNas(isDropboxConfigured);
       setSendByEmail(isBrevoConfigured);
     }
   }, [isOpen, isDropboxConfigured, isBrevoConfigured]);
@@ -875,22 +895,25 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
   if (!isOpen) return null;
   
   const handleConfirm = () => {
-    onConfirm({ uploadToDropbox, sendByEmail, emailRecipients });
+    onConfirm({ uploadToNas, sendByEmail, emailRecipients });
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all">
-        <div className="p-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900">上傳與分享選項</h3>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all overflow-hidden border border-slate-200/50">
+        <CloudArrowUpIcon className="absolute -bottom-12 -right-12 w-56 h-56 text-slate-100/80 opacity-60" />
+
+        <div className="p-6 relative z-10">
+          <h3 className="text-lg font-medium leading-6 text-gray-900">上傳PDF選項</h3>
           <div className="mt-4 space-y-4">
             
             <div className={`p-4 border rounded-md ${!isDropboxConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
               <label className="flex items-center">
-                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={uploadToDropbox} onChange={(e) => setUploadToDropbox(e.target.checked)} disabled={!isDropboxConfigured}/>
-                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 Dropbox</span>
+                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={uploadToNas} onChange={(e) => setUploadToNas(e.target.checked)} disabled={!isDropboxConfigured}/>
+                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 NAS</span>
               </label>
-              {!isDropboxConfigured && <p className="text-xs text-red-600 mt-2 ml-8">Dropbox 功能未設定，請參考 README.md 檔案進行設定。</p>}
+              <p className={`text-xs text-slate-500 mt-2 ml-8`}>將PDF上傳至公司雲端硬碟。</p>
+              {!isDropboxConfigured && <p className="text-xs text-red-600 mt-1 ml-8">此功能未設定，請參考 README.md 檔案進行設定。</p>}
             </div>
 
             <div className={`p-4 border rounded-md ${!isBrevoConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
@@ -908,8 +931,8 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
 
           </div>
         </div>
-        <div className="bg-gray-50 px-6 py-4 flex flex-row-reverse gap-3">
-          <button type="button" onClick={handleConfirm} disabled={isProcessing || (!uploadToDropbox && !sendByEmail)} className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 disabled:opacity-50">
+        <div className="bg-gray-50/70 backdrop-blur-sm px-6 py-4 flex flex-row-reverse gap-3 relative z-10 border-t border-slate-200">
+          <button type="button" onClick={handleConfirm} disabled={isProcessing || (!uploadToNas && !sendByEmail)} className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 disabled:opacity-50">
             {isProcessing ? '處理中...' : '確認執行'}
           </button>
           <button type="button" onClick={onClose} disabled={isProcessing} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -920,6 +943,17 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
     </div>
   )
 }
+
+const WelcomeBanner: React.FC<{onDismiss: () => void}> = ({onDismiss}) => (
+    <div className="bg-sky-600 text-white p-4 rounded-b-lg shadow-lg relative mx-4 sm:mx-8 -mt-4 sm:-mt-6 z-20">
+        <button onClick={onDismiss} className="absolute top-2 right-2 p-1 hover:bg-sky-500 rounded-full">
+            <XMarkIcon className="w-5 h-5"/>
+        </button>
+        <p className="font-semibold text-center text-sm sm:text-base">
+            溫馨提醒：請記得使用Chrome、Edge、Firefox等現代瀏覽器開啟，以確保所有功能正常運作，謝謝！
+        </p>
+    </div>
+);
 
 
 /**
@@ -933,6 +967,7 @@ export const App: React.FC = () => {
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({}); // 所有已儲存の本地暫存
   const [isSubmitted, setIsSubmitted] = useState(false); // 標記表單是否已提交，以切換到報告預覽畫面
   const [isProcessing, setIsProcessing] = useState(false); // 標記是否正在處理耗時操作（如產生PDF、上傳），用於顯示載入畫面
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
   
   // Google API 相關狀態
   const [gapiReady, setGapiReady] = useState(false); // Google API Client 是否載入完成
@@ -970,12 +1005,19 @@ export const App: React.FC = () => {
 
   // 元件掛載時，從 localStorage 讀取已儲存の暫存檔
   useEffect(() => {
-    alert("請記得使用chrome.Edge.Firefox等瀏覽器開啟,避免無法產出PDF,謝謝!");
+    if (sessionStorage.getItem('welcomeBannerDismissed') !== 'true') {
+        setShowWelcomeBanner(true);
+    }
     try {
         const savedDrafts = localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY);
         if (savedDrafts) { setNamedDrafts(JSON.parse(savedDrafts)); }
     } catch (error) { console.error("Failed to load named drafts.", error); }
   }, []);
+
+  const handleDismissWelcomeBanner = () => {
+    setShowWelcomeBanner(false);
+    sessionStorage.setItem('welcomeBannerDismissed', 'true');
+  };
 
   // --- 事件處理函式 (Event Handlers) ---
 
@@ -1338,10 +1380,10 @@ export const App: React.FC = () => {
     return 'Email sent successfully';
   }, [formData, isBrevoApiConfigured]);
   
-  const handleConfirmUpload = useCallback(async (options: { uploadToDropbox: boolean; sendByEmail: boolean; emailRecipients: string }) => {
-    const { uploadToDropbox, sendByEmail, emailRecipients } = options;
-    if (!uploadToDropbox && !sendByEmail) {
-        alert('請至少選擇一個操作 (上傳至 Dropbox 或透過 Email 寄送)。');
+  const handleConfirmUpload = useCallback(async (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => {
+    const { uploadToNas, sendByEmail, emailRecipients } = options;
+    if (!uploadToNas && !sendByEmail) {
+        alert('請至少選擇一個操作 (上傳至 NAS 或透過 Email 寄送)。');
         return;
     }
     
@@ -1359,14 +1401,14 @@ export const App: React.FC = () => {
       const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
       
       const tasks: Promise<any>[] = [];
-      if (uploadToDropbox) tasks.push(performDropboxUpload(blob, fileName));
+      if (uploadToNas) tasks.push(performDropboxUpload(blob, fileName));
       if (sendByEmail) tasks.push(performEmailSend(blob, fileName, emailRecipients));
       
       const results = await Promise.allSettled(tasks);
       const summary = [];
-      if (uploadToDropbox) {
+      if (uploadToNas) {
         const dropboxResult = results.shift();
-        summary.push(`- Dropbox 上傳: ${dropboxResult?.status === 'fulfilled' ? `✅ 成功` : `❌ 失敗 (${(dropboxResult as PromiseRejectedResult)?.reason})`}`);
+        summary.push(`- NAS 上傳: ${dropboxResult?.status === 'fulfilled' ? `✅ 成功` : `❌ 失敗 (${(dropboxResult as PromiseRejectedResult)?.reason})`}`);
       }
       if (sendByEmail) {
         const emailResult = results.shift();
@@ -1390,6 +1432,8 @@ export const App: React.FC = () => {
            <span className="absolute top-4 right-6 text-xs font-mono text-slate-400 select-none" aria-label={`應用程式版本 ${APP_VERSION}`}>
               {APP_VERSION}
             </span>
+            
+           {showWelcomeBanner && <WelcomeBanner onDismiss={handleDismissWelcomeBanner} />}
            
            {/* 根據 isSubmitted 狀態，決定要渲染表單畫面還是報告預覽畫面 */}
            {isSubmitted ? (
