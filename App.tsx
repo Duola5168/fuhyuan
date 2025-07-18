@@ -247,6 +247,8 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xm
 const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156-.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83.09 1.116.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
 const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg> );
 const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
+const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
+const XCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
 
 // --- 統一彈出視窗系統 (Unified Modal System) ---
 interface ModalState {
@@ -678,6 +680,41 @@ const ApiKeyErrorDisplay = () => (
     </div>
 );
 
+const DropboxApiKeyErrorDisplay = () => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    return (
+    <div className="p-8 text-center bg-blue-50 border-l-4 border-blue-400">
+        <h3 className="text-2xl font-bold text-blue-800">☁️ Dropbox 功能設定不完整</h3>
+        <p className="mt-2 text-lg text-blue-700">應用程式偵測到 Dropbox 上傳服務所需的部分資訊尚未設定。</p>
+        <div className="mt-4 text-base text-slate-600 bg-slate-100 p-4 rounded-md text-left">
+           <p className="font-semibold">請開發者依照以下步驟解決：</p>
+           {isLocal ? (
+            <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>請在專案的根目錄下，找到或建立 <code>.env.local</code> 檔案。</li>
+                <li>確認檔案中包含以下**所有**變數並已填入正確的值：
+                    <ul className="list-['-_'] list-inside ml-4 mt-1 font-mono bg-slate-200 p-2 rounded">
+                        <li>DROPBOX_APP_KEY</li> <li>DROPBOX_APP_SECRET</li> <li>DROPBOX_REFRESH_TOKEN</li>
+                    </ul>
+                </li>
+                 <li>修改完畢後，請務必**重新啟動**本地開發伺服器 (關閉後再執行 <code>npm run dev</code>)。</li>
+            </ul>
+           ) : (
+            <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>請登入您的網站託管平台 (例如 Netlify, Vercel)。</li>
+                <li>前往網站設定中的「環境變數 (Environment variables)」區塊。</li>
+                <li>確認以下**所有**變數都已建立並填入正確的值：
+                    <ul className="list-['-_'] list-inside ml-4 mt-1 font-mono bg-slate-200 p-2 rounded">
+                        <li>DROPBOX_APP_KEY</li> <li>DROPBOX_APP_SECRET</li> <li>DROPBOX_REFRESH_TOKEN</li>
+                    </ul>
+                </li>
+                <li>儲存設定後，請**重新部署 (re-deploy)** 您的網站以讓變更生效。</li>
+            </ul>
+           )}
+           <p className="mt-3">詳細的權杖取得方式，請參考專案中的 <code>README.md</code> 文件。</p>
+        </div>
+    </div>
+)};
+
 /**
  * 當 Brevo Email API 金鑰未設定時顯示的錯誤提示元件。
  */
@@ -739,6 +776,8 @@ export const App: React.FC = () => {
   const pickerApiLoaded = useRef(false);
   /** 通用彈出視窗的狀態 */
   const [modalState, setModalState] = useState<ModalState>(initialModalState);
+  /** Dropbox 授權狀態 */
+  const [dropboxStatus, setDropboxStatus] = useState<'unchecked' | 'checking' | 'ok' | 'error'>('unchecked');
 
   // --- 組態檢查 ---
   /** 檢查 Dropbox 功能是否已設定 */
@@ -768,7 +807,8 @@ export const App: React.FC = () => {
       {content}
       <input type="text" autoFocus onChange={e => inputValue = e.target.value} className="mt-2 appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg" />
     </>;
-    setModalState({ isOpen: true, title, content: PromptContent, onConfirm: () => { onConfirm(inputValue); closeModal(); }, confirmText: "確認", onClose: closeModal});
+    // The modal is replaced by the next one in the confirm logic, not closed here.
+    setModalState({ isOpen: true, title, content: PromptContent, onConfirm: () => onConfirm(inputValue), confirmText: "確認", onClose: closeModal});
   };
   
   /**
@@ -793,19 +833,63 @@ export const App: React.FC = () => {
       return new Blob([u8arr], { type: mime });
   };
 
+  const getDropboxAccessToken = useCallback(async (): Promise<string> => {
+    if (!isDropboxConfigured) {
+        throw new Error("Dropbox 應用程式憑證未完整設定。");
+    }
+    
+    const params = new URLSearchParams();
+    params.append('grant_type', 'refresh_token');
+    params.append('refresh_token', DROPBOX_REFRESH_TOKEN!);
+    
+    const authHeader = 'Basic ' + btoa(`${DROPBOX_APP_KEY}:${DROPBOX_APP_SECRET}`);
+
+    const response = await fetch('https://api.dropbox.com/oauth2/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': authHeader,
+        },
+        body: params,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Dropbox token refresh error response:", errorText);
+        throw new Error(`更新 Dropbox 權杖失敗: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  }, [isDropboxConfigured]);
+
+  const checkDropboxStatus = useCallback(async () => {
+    if (!isDropboxConfigured) {
+        setDropboxStatus('error');
+        return;
+    }
+    setDropboxStatus('checking');
+    try {
+        await getDropboxAccessToken();
+        setDropboxStatus('ok');
+    } catch (error) {
+        console.error("Dropbox auth check failed:", error);
+        setDropboxStatus('error');
+    }
+  }, [isDropboxConfigured, getDropboxAccessToken]);
+
   // --- Effect Hooks ---
   /**
    * 應用程式初始化 Effect。
-   * - 顯示一次性的歡迎提示。
-   * - 動態載入 Google API 和 GIS 的腳本。
    */
   useEffect(() => {
-    // 避免每次重載都顯示提示
     if (sessionStorage.getItem('welcomeBannerDismissed') !== 'true') {
         alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等現代瀏覽器開啟，以確保所有功能正常運作，謝謝！');
         sessionStorage.setItem('welcomeBannerDismissed', 'true');
     }
-    // 如果未設定 Google API 金鑰，則不執行載入
+
+    checkDropboxStatus();
+
     if (!isGoogleApiConfigured) return;
 
     const gapiScript = document.createElement('script');
@@ -820,9 +904,8 @@ export const App: React.FC = () => {
     gisScript.onload = () => { const client = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '', }); setTokenClient(client); setGisReady(true); };
     document.body.appendChild(gisScript);
 
-    // 清理函式，在元件卸載時移除 script 標籤
     return () => { document.body.removeChild(gapiScript); document.body.removeChild(gisScript); };
-  }, [isGoogleApiConfigured]);
+  }, [isGoogleApiConfigured, checkDropboxStatus]);
 
   /**
    * 從 localStorage 載入已儲存的暫存檔。
@@ -849,7 +932,6 @@ export const App: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => {
       const tempState = {...prev, [name]: value};
-      // 檢查行數限制，如果超過則不更新狀態
       if ((name === 'tasks' || name === 'status') && calculateVisualLines(tempState.tasks) + calculateVisualLines(tempState.status) > TASKS_STATUS_LIMIT) return prev;
       if (name === 'remarks' && prev.products.reduce((acc, p) => acc + p.quantity, 0) + calculateVisualLines(tempState.remarks) > PRODUCTS_REMARKS_LIMIT) return prev;
       return tempState;
@@ -866,13 +948,11 @@ export const App: React.FC = () => {
         
         if (field === 'quantity') {
             const newQuantity = Number(value);
-            // 檢查行數限制
             const otherProductsLines = prev.products.reduce((acc, p, i) => i === index ? acc : acc + p.quantity, 0);
             if (otherProductsLines + newQuantity + calculateVisualLines(prev.remarks) > PRODUCTS_REMARKS_LIMIT) {
                 showAlert('行數超限', `已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法增加數量。`);
                 return prev;
             }
-            // 同步更新序號欄位的數量
             const oldQuantity = productToChange.quantity;
             let newSerialNumbers = productToChange.serialNumbers || [];
             if (newQuantity > oldQuantity) newSerialNumbers = [...newSerialNumbers, ...Array(newQuantity - oldQuantity).fill('')];
@@ -941,22 +1021,27 @@ export const App: React.FC = () => {
    */
   const handleSaveAsDraft = useCallback(() => {
     showPrompt("儲存暫存", "請為此暫存命名：", (draftName) => {
-        if (!draftName) return;
-        const currentDrafts = { ...namedDrafts };
-        const isOverwriting = !!currentDrafts[draftName];
-        if (!isOverwriting && Object.keys(currentDrafts).length >= MAX_DRAFTS) {
-            showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
+        if (!draftName) {
+            closeModal(); // Prompt was cancelled by user
             return;
         }
+        const currentDrafts = { ...namedDrafts };
+        const isOverwriting = !!currentDrafts[draftName];
+
         const confirmSave = () => {
             const newDrafts = { ...currentDrafts, [draftName]: formData };
             setNamedDrafts(newDrafts);
             localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
             showAlert('儲存成功', <>✅ 暫存 "{draftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>);
         };
+
         if (isOverwriting) {
             showConfirm("覆蓋確認", `暫存 "${draftName}" 已存在。要覆蓋它嗎？`, confirmSave, "確認覆蓋");
         } else {
+            if (Object.keys(currentDrafts).length >= MAX_DRAFTS) {
+                showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
+                return;
+            }
             confirmSave();
         }
     });
@@ -968,7 +1053,6 @@ export const App: React.FC = () => {
   const handleLoadDraft = useCallback((name: string) => {
     if (namedDrafts[name]) {
         showConfirm("載入確認", `確定要載入 "${name}" 嗎？這將覆蓋目前內容。`, () => {
-            // 使用 migrateWorkOrderData 確保載入的資料格式正確
             setFormData(migrateWorkOrderData(namedDrafts[name]));
             showAlert('載入成功', `暫存 "${name}" 已載入。`);
         });
@@ -1000,7 +1084,6 @@ export const App: React.FC = () => {
                 resolve(resp);
             }
         };
-        // 如果之前已授權，嘗試靜默獲取；否則，彈出同意視窗
         if (localStorage.getItem(GOOGLE_AUTH_GRANTED_KEY)) {
             tokenClient.requestAccessToken({ prompt: '' });
         } else {
@@ -1011,7 +1094,6 @@ export const App: React.FC = () => {
   
   /**
    * 打開一個用於選擇暫存檔進行刪除或匯出的彈出視窗。
-   * @param {'delete' | 'export'} action - 要執行的操作。
    */
   const openDraftActionModal = (action: 'delete' | 'export') => {
     if (action === 'export' && !isGoogleApiConfigured) { showAlert("功能未設定", "Google Drive 功能未設定。"); return; }
@@ -1052,7 +1134,6 @@ export const App: React.FC = () => {
   
   /**
    * 執行匯出暫存檔至 Google Drive 的操作。
-   * @param {string} nameToExport - 要匯出的暫存檔名稱。
    */
   const performExportToDrive = useCallback(async (nameToExport: string) => {
     if (!gapiReady || !gisReady || !namedDrafts[nameToExport]) { showAlert("匯出錯誤", "匯出功能未就緒或找不到暫存。"); return; }
@@ -1120,7 +1201,10 @@ export const App: React.FC = () => {
         const importedData = (typeof res.result === 'object') ? res.result : JSON.parse(res.result);
         
         showPrompt("匯入暫存", `請為匯入的檔案 (${doc.name}) 命名：`, (dName) => {
-            if (!dName) return;
+            if (!dName) {
+              closeModal();
+              return;
+            }
             setNamedDrafts(cD => {
                 const newDrafts = { ...cD, [dName]: migrateWorkOrderData(importedData) };
                 if (cD[dName]) {
@@ -1148,7 +1232,6 @@ export const App: React.FC = () => {
 
   /**
    * 產生 PDF 檔案的 Blob 物件。
-   * @returns {Promise<Blob | null>} - 成功則回傳 PDF Blob，失敗則回傳 null。
    */
   const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
     try {
@@ -1157,7 +1240,6 @@ export const App: React.FC = () => {
       const options = { scale: 2, useCORS: true, backgroundColor: '#ffffff' };
       const totalContentLines = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status) + formData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(formData.remarks);
 
-      // 根據內容行數決定是否分頁
       if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
         const [p1, p2] = await Promise.all([html2canvas(document.getElementById('pdf-pdf-page1')!, options), html2canvas(document.getElementById('pdf-pdf-page2')!, options)]);
         pdf.addImage(p1.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297); pdf.addPage();
@@ -1167,7 +1249,6 @@ export const App: React.FC = () => {
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, Math.min(297, (canvas.height * 210) / canvas.width));
       }
       
-      // 添加照片附錄頁
       for (let i = 0; i < chunk(formData.photos, 4).length; i++) {
           const photoPageEl = document.getElementById(`pdf-photo-page-${i}`);
           if (photoPageEl) {
@@ -1201,49 +1282,10 @@ export const App: React.FC = () => {
   }, [isProcessing, formData, generatePdfBlob]);
 
   /**
-   * 使用 Refresh Token 獲取一個新的、短期的 Dropbox Access Token。
-   * @returns {Promise<string>} - 新的 Access Token。
-   */
-  const getDropboxAccessToken = async (): Promise<string> => {
-    if (!isDropboxConfigured) {
-        throw new Error("Dropbox 應用程式憑證未完整設定。");
-    }
-    
-    const params = new URLSearchParams();
-    params.append('grant_type', 'refresh_token');
-    params.append('refresh_token', DROPBOX_REFRESH_TOKEN!);
-    
-    // 使用 App Key 和 App Secret 進行 Basic Authentication
-    const authHeader = 'Basic ' + btoa(`${DROPBOX_APP_KEY}:${DROPBOX_APP_SECRET}`);
-
-    const response = await fetch('https://api.dropbox.com/oauth2/token', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': authHeader,
-        },
-        body: params,
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Dropbox token refresh error response:", errorText);
-        throw new Error(`更新 Dropbox 權杖失敗: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.access_token;
-  };
-
-  /**
    * 上傳 Blob 到 Dropbox 的指定路徑。
-   * @param {Blob} blob - 要上傳的檔案 Blob。
-   * @param {string} fullPath - 在 Dropbox 上儲存的完整檔案路徑 (包含資料夾和檔名)。
-   * @param {string} accessToken - 用於授權的短期 Access Token。
    */
   const performDropboxUpload = useCallback(async (blob: Blob, fullPath: string, accessToken: string) => {
     const args = { path: fullPath, mode: 'overwrite', autorename: true, mute: false, strict_conflict: false };
-    // Dropbox API v2 要求 header 中的 JSON 參數必須是 ASCII，因此對非 ASCII 字元進行轉義
     const escapeNonAscii = (str: string) => str.replace(/[\u007f-\uffff]/g, c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4));
     
     const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
@@ -1257,9 +1299,6 @@ export const App: React.FC = () => {
 
   /**
    * 透過 Brevo (Sendinblue) API 發送帶有 PDF 附件的 Email。
-   * @param {Blob} blob - PDF 檔案的 Blob。
-   * @param {string} fileName - 附件的檔案名稱。
-   * @param {string} recipientsStr - 收件人 Email 字串，以逗號分隔。
    */
   const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
     if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
@@ -1285,10 +1324,6 @@ export const App: React.FC = () => {
 
   /**
    * 處理上傳/寄送確認視窗的最終操作。
-   * @param {object} options - 包含上傳和寄送選項的物件。
-   * @param {boolean} options.uploadToNas - 是否上傳到 NAS。
-   * @param {boolean} options.sendByEmail - 是否透過 Email 寄送。
-   * @param {string} options.emailRecipients - Email 收件人列表。
    */
   const handleConfirmUpload = useCallback(async (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => {
     const { uploadToNas, sendByEmail, emailRecipients } = options;
@@ -1298,7 +1333,6 @@ export const App: React.FC = () => {
     closeModal();
 
     try {
-        // Step 1: Generate PDF blob once if either operation needs it.
         const needsPdf = uploadToNas || sendByEmail;
         const pdfBlob = needsPdf ? await generatePdfBlob() : null;
         if (needsPdf && !pdfBlob) {
@@ -1309,19 +1343,15 @@ export const App: React.FC = () => {
         const serviceDate = formData.dateTime.split('T')[0];
         const pdfFileNameForEmail = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
 
-        // Task 1: Dropbox Uploads (PDF + Photos)
         if (uploadToNas && pdfBlob) {
             const dropboxUploadTask = async () => {
                 const accessToken = await getDropboxAccessToken();
                 const folderName = `${serviceDate}-${formData.serviceUnit || '未命名服務'}`;
                 
                 const allFileUploads = [];
-
-                // PDF upload promise
                 const pdfPath = `/工作服務單/${folderName}/工作服務單.pdf`;
                 allFileUploads.push(performDropboxUpload(pdfBlob, pdfPath, accessToken));
 
-                // Photos upload promises
                 formData.photos.forEach((photoDataUrl, index) => {
                     const photoBlob = dataURLtoBlob(photoDataUrl);
                     const photoFileName = `現場照片_${index + 1}.jpg`;
@@ -1329,19 +1359,16 @@ export const App: React.FC = () => {
                     allFileUploads.push(performDropboxUpload(photoBlob, photoPath, accessToken));
                 });
                 
-                // Wait for all individual file uploads to complete.
                 await Promise.all(allFileUploads); 
                 return `成功上傳 PDF 及 ${formData.photos.length} 張照片。`;
             };
             tasks.push(dropboxUploadTask());
         }
 
-        // Task 2: Email Sending
         if (sendByEmail && pdfBlob) {
             tasks.push(performEmailSend(pdfBlob, pdfFileNameForEmail, emailRecipients));
         }
 
-        // Step 2: Execute all tasks and generate a final summary.
         const results = await Promise.allSettled(tasks);
         
         const summary: string[] = [];
@@ -1370,18 +1397,15 @@ export const App: React.FC = () => {
    * 打開上傳選項的彈出視窗。
    */
   const handleOpenUploadModal = () => {
-    // 預設值
     let uploadToNas = isDropboxConfigured;
     let sendByEmail = isBrevoApiConfigured;
     let emailRecipients = 'fuhyuan.w5339@msa.hinet.net';
     
-    // 彈出視窗內的元件，使用自己的 state 來管理選項
     const UploadOptionsContent = () => {
         const [nasChecked, setNasChecked] = useState(uploadToNas);
         const [emailChecked, setEmailChecked] = useState(sendByEmail);
         const [emails, setEmails] = useState(emailRecipients);
 
-        // 將子元件的 state 同步回父元件的作用域變數
         uploadToNas = nasChecked;
         sendByEmail = emailChecked;
         emailRecipients = emails;
@@ -1393,13 +1417,17 @@ export const App: React.FC = () => {
                 <ServerStackIcon className="w-6 h-6" />
               </div>
               <div className="flex-grow">
-                <p className="font-semibold text-lg text-slate-800">上傳至 NAS</p>
+                 <div className="flex items-center">
+                    <p className="font-semibold text-lg text-slate-800">上傳至 NAS</p>
+                    {dropboxStatus === 'checking' && <span className="text-sm text-slate-500 ml-2 animate-pulse">檢查授權中...</span>}
+                    {dropboxStatus === 'ok' && <span className="text-sm text-green-600 ml-2 flex items-center"><CheckCircleIcon className="w-5 h-5 mr-1"/>已授權</span>}
+                    {dropboxStatus === 'error' && <span className="text-sm text-red-600 ml-2 flex items-center"><XCircleIcon className="w-5 h-5 mr-1"/>授權失敗/未設定</span>}
+                </div>
                 <p className="text-base text-slate-500">將PDF及照片上傳至公司雲端硬碟。</p>
-                {!isDropboxConfigured && <p className="text-sm text-red-600 mt-1">此功能未設定，請檢查環境變數。</p>}
               </div>
               <div className="flex-shrink-0">
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={nasChecked} onChange={(e) => setNasChecked(e.target.checked)} disabled={!isDropboxConfigured} className="sr-only peer" />
+                  <input type="checkbox" checked={nasChecked} onChange={(e) => setNasChecked(e.target.checked)} disabled={!isDropboxConfigured || dropboxStatus !== 'ok'} className="sr-only peer" />
                   <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
@@ -1413,7 +1441,6 @@ export const App: React.FC = () => {
                 <div className="flex-grow">
                   <p className="font-semibold text-lg text-slate-800">透過 Email 寄送</p>
                   <p className="text-base text-slate-500">將服務單寄送給指定收件人。</p>
-                  {!isBrevoApiConfigured && <p className="text-sm text-red-600 mt-1">此功能未設定。</p>}
                 </div>
                 <div className="flex-shrink-0">
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -1452,7 +1479,7 @@ export const App: React.FC = () => {
              <ReportView data={formData} onOpenUploadModal={handleOpenUploadModal} onDownloadPdf={handleDownloadPdf} onReset={handleReset} onEdit={handleEdit} isProcessing={isProcessing} />
             ) : (
             <>
-              {/* 僅在表單頁顯示 API 金鑰錯誤提示 */}
+              {!isDropboxConfigured && <DropboxApiKeyErrorDisplay />}
               {!isGoogleApiConfigured && <ApiKeyErrorDisplay />}
               {!isBrevoApiConfigured && <BrevoApiKeyErrorDisplay />}
               <WorkOrderForm 
@@ -1479,7 +1506,6 @@ export const App: React.FC = () => {
             )}
         </div>
         
-        {/* 全域彈出視窗和載入中遮罩 */}
         <CustomModal {...modalState} isProcessing={isProcessing} />
 
         {isProcessing && (
