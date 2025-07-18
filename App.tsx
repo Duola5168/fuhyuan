@@ -856,6 +856,9 @@ export const App: React.FC = () => {
     if (!response.ok) {
         const errorText = await response.text();
         console.error("Dropbox token refresh error response:", errorText);
+        if (errorText.includes("invalid_grant")) {
+            throw new Error(`更新 Dropbox 權杖失敗：無效的 Refresh Token。它可能已過期、被撤銷或不正確。請重新產生一個 Refresh Token 並更新應用程式設定。`);
+        }
         throw new Error(`更新 Dropbox 權杖失敗: ${errorText}`);
     }
 
@@ -1284,7 +1287,8 @@ export const App: React.FC = () => {
   /**
    * 上傳 Blob 到 Dropbox 的指定路徑。
    */
-  const performDropboxUpload = useCallback(async (blob: Blob, fullPath: string, accessToken: string) => {
+  const performDropboxUpload = useCallback(async (blob: Blob, fullPath: string) => {
+    const accessToken = await getDropboxAccessToken();
     const args = { path: fullPath, mode: 'overwrite', autorename: true, mute: false, strict_conflict: false };
     const escapeNonAscii = (str: string) => str.replace(/[\u007f-\uffff]/g, c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4));
     
@@ -1293,9 +1297,19 @@ export const App: React.FC = () => {
       headers: { 'Authorization': `Bearer ${accessToken}`, 'Dropbox-API-Arg': escapeNonAscii(JSON.stringify(args)), 'Content-Type': 'application/octet-stream' },
       body: blob
     });
-    if (!response.ok) throw new Error(`Dropbox API 錯誤: ${await response.text()}`);
+    if (!response.ok) {
+        let errorDetails = "未知錯誤";
+        try {
+            const errorJson = await response.json();
+            errorDetails = errorJson.error_summary || JSON.stringify(errorJson);
+        } catch (e) {
+            errorDetails = await response.text();
+        }
+        console.error("Dropbox API Error:", errorDetails);
+        throw new Error(`Dropbox API 錯誤: ${errorDetails}`);
+    }
     return await response.json();
-  }, []);
+  }, [getDropboxAccessToken]);
 
   /**
    * 透過 Brevo (Sendinblue) API 發送帶有 PDF 附件的 Email。
@@ -1345,14 +1359,12 @@ export const App: React.FC = () => {
 
         if (uploadToNas && pdfBlob) {
             const dropboxUploadTask = async () => {
-                const accessToken = await getDropboxAccessToken();
                 const folderName = `${serviceDate}-${formData.serviceUnit || '未命名服務'}`;
                 const basePath = `/工作服務單/${folderName}`;
 
                 // 1. 循序上傳 PDF 檔案。
-                // 這次上傳會同時在 Dropbox 上建立對應的父資料夾。
                 const pdfPath = `${basePath}/工作服務單.pdf`;
-                await performDropboxUpload(pdfBlob, pdfPath, accessToken);
+                await performDropboxUpload(pdfBlob, pdfPath);
 
                 // 2. 循序、逐一上傳所有照片。
                 for (let index = 0; index < formData.photos.length; index++) {
@@ -1360,8 +1372,7 @@ export const App: React.FC = () => {
                     const photoBlob = dataURLtoBlob(photoDataUrl);
                     const photoFileName = `現場照片_${index + 1}.jpg`;
                     const photoPath = `${basePath}/${photoFileName}`;
-                    // `await` 確保我們在前一張照片上傳完成後，才開始下一次上傳。
-                    await performDropboxUpload(photoBlob, photoPath, accessToken);
+                    await performDropboxUpload(photoBlob, photoPath);
                 }
                 
                 return `成功上傳 PDF 及 ${formData.photos.length} 張照片。`;
@@ -1395,7 +1406,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, getDropboxAccessToken]);
+  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend]);
 
   /**
    * 打開上傳選項的彈出視窗。
