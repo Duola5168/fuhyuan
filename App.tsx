@@ -765,7 +765,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     // 避免每次重載都顯示提示
     if (sessionStorage.getItem('welcomeBannerDismissed') !== 'true') {
-        alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等現代瀏覽器開啟，以確保所有功能正常運作，謝謝！');
+        alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等瀏覽器開啟，以確保所有功能正常運作，謝謝！');
         sessionStorage.setItem('welcomeBannerDismissed', 'true');
     }
     // 如果未設定 Google API 金鑰，則不執行載入
