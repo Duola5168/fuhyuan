@@ -13,7 +13,9 @@ export default defineConfig(({ mode }) => {
         // 將版本號注入到前端程式碼中
         'process.env.APP_VERSION': JSON.stringify(appVersion),
         // 使用更明確的變數名稱來注入金鑰，提升程式碼可讀性與安全性
-        'process.env.DROPBOX_ACCESS_TOKEN': JSON.stringify(env.DROPBOX_ACCESS_TOKEN),
+        'process.env.DROPBOX_APP_KEY': JSON.stringify(env.DROPBOX_APP_KEY),
+        'process.env.DROPBOX_APP_SECRET': JSON.stringify(env.DROPBOX_APP_SECRET),
+        'process.env.DROPBOX_REFRESH_TOKEN': JSON.stringify(env.DROPBOX_REFRESH_TOKEN),
         'process.env.GOOGLE_API_KEY': JSON.stringify(env.GOOGLE_API_KEY),
         'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID),
         'process.env.BREVO_API_KEY': JSON.stringify(env.BREVO_API_KEY),
