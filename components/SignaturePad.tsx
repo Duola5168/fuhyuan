@@ -121,7 +121,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
 
   return (
     <div className="w-full">
-      <div className="relative w-full h-[200px] bg-slate-200/50 rounded-lg border-2 border-dashed border-slate-400 touch-none overflow-hidden">
+      <div className="relative w-full h-[200px] bg-slate-200/50 rounded-lg border-2 border-dashed border-slate-500 touch-none overflow-hidden">
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
@@ -137,7 +137,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
         {!signatureDataUrl && (
             <div className="absolute inset-0 flex items-center justify-center text-slate-500 pointer-events-none">
                 <PenIcon className="w-8 h-8 mr-2" />
-                <span className="text-lg">請在此處簽名</span>
+                <span className="text-xl">請在此處簽名</span>
             </div>
         )}
       </div>
@@ -145,7 +145,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
         <button
           type="button"
           onClick={handleClear}
-          className="flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="flex items-center px-4 py-2 text-base font-medium text-slate-700 bg-white border border-slate-400 rounded-md shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           <ClearIcon className="w-5 h-5 mr-2" />
           清除
