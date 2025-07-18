@@ -13,11 +13,14 @@ declare const gapi: any;
 declare const google: any;
 
 // --- 版本號統一來源 ---
-// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.5.0")
-const rawVersion = process.env.APP_VERSION || '1.5.0'; 
-// 將原始版本號格式化為更容易閱讀的 "V1.5" 格式，用於UI顯示
+// 此變數由 vite.config.ts 在建置階段從 package.json 檔案中自動注入 (例如 "1.6.0")
+const rawVersion = process.env.APP_VERSION || '1.6.0'; 
+// 將原始版本號格式化為更容易閱讀的 "V1.6" 格式，用於UI顯示
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
+
+// --- DROPBOX API 設定 (V1.6) ---
+const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
 
 // --- GOOGLE DRIVE API 設定 ---
 // 從環境變數讀取 Google API 金鑰，這些金鑰應存放在 .env.local 檔案中，以策安全
@@ -34,12 +37,6 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME;
 
-// --- QNAP NAS S3 OBJECT STORAGE API 設定 (V1.5) ---
-const NAS_OBJECT_STORAGE_ENDPOINT = process.env.NAS_OBJECT_STORAGE_ENDPOINT;
-const NAS_BUCKET_NAME = process.env.NAS_BUCKET_NAME;
-const NAS_REGION = process.env.NAS_REGION || 'us-east-1'; // Default region if not provided
-const NAS_ACCESS_KEY = process.env.NAS_ACCESS_KEY;
-const NAS_SECRET_KEY = process.env.NAS_SECRET_KEY;
 
 /**
  * 產生 Email HTML 內容的範本函式。
@@ -857,28 +854,28 @@ const BrevoApiKeyErrorDisplay = () => {
 interface UploadOptionsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => void;
+  onConfirm: (options: { uploadToDropbox: boolean; sendByEmail: boolean; emailRecipients: string }) => void;
   isProcessing: boolean;
-  isNasConfigured: boolean;
+  isDropboxConfigured: boolean;
   isBrevoConfigured: boolean;
 }
 
-const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose, onConfirm, isProcessing, isNasConfigured, isBrevoConfigured }) => {
-  const [uploadToNas, setUploadToNas] = useState(true);
+const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose, onConfirm, isProcessing, isDropboxConfigured, isBrevoConfigured }) => {
+  const [uploadToDropbox, setUploadToDropbox] = useState(true);
   const [sendByEmail, setSendByEmail] = useState(true);
   const [emailRecipients, setEmailRecipients] = useState('fuhyuan.w5339@msa.hinet.net');
 
   useEffect(() => {
     if (isOpen) {
-      setUploadToNas(isNasConfigured);
+      setUploadToDropbox(isDropboxConfigured);
       setSendByEmail(isBrevoConfigured);
     }
-  }, [isOpen, isNasConfigured, isBrevoConfigured]);
+  }, [isOpen, isDropboxConfigured, isBrevoConfigured]);
 
   if (!isOpen) return null;
   
   const handleConfirm = () => {
-    onConfirm({ uploadToNas, sendByEmail, emailRecipients });
+    onConfirm({ uploadToDropbox, sendByEmail, emailRecipients });
   }
 
   return (
@@ -888,6 +885,14 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
           <h3 className="text-lg font-medium leading-6 text-gray-900">上傳與分享選項</h3>
           <div className="mt-4 space-y-4">
             
+            <div className={`p-4 border rounded-md ${!isDropboxConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
+              <label className="flex items-center">
+                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={uploadToDropbox} onChange={(e) => setUploadToDropbox(e.target.checked)} disabled={!isDropboxConfigured}/>
+                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 Dropbox</span>
+              </label>
+              {!isDropboxConfigured && <p className="text-xs text-red-600 mt-2 ml-8">Dropbox 功能未設定，請參考 README.md 檔案進行設定。</p>}
+            </div>
+
             <div className={`p-4 border rounded-md ${!isBrevoConfigured ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
                 <label className="flex items-center">
                     <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={sendByEmail} onChange={(e) => setSendByEmail(e.target.checked)} disabled={!isBrevoConfigured}/>
@@ -900,19 +905,11 @@ const UploadOptionsModal: React.FC<UploadOptionsModalProps> = ({ isOpen, onClose
                     <input type="text" id="email-recipients" value={emailRecipients} onChange={e => setEmailRecipients(e.target.value)} disabled={!sendByEmail || !isBrevoConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"/>
                 </div>
             </div>
-            
-            <div className={`p-4 border rounded-md ${!isNasConfigured ? 'bg-slate-50 opacity-60' : ''}`}>
-              <label className="flex items-center">
-                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={uploadToNas} onChange={(e) => setUploadToNas(e.target.checked)} disabled={!isNasConfigured}/>
-                <span className="ml-3 text-sm font-medium text-gray-700">上傳至 NAS 伺服器</span>
-              </label>
-              {!isNasConfigured && <p className="text-xs text-slate-500 mt-2 ml-8">此功能待開發</p>}
-            </div>
 
           </div>
         </div>
         <div className="bg-gray-50 px-6 py-4 flex flex-row-reverse gap-3">
-          <button type="button" onClick={handleConfirm} disabled={isProcessing || (!uploadToNas && !sendByEmail)} className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 disabled:opacity-50">
+          <button type="button" onClick={handleConfirm} disabled={isProcessing || (!uploadToDropbox && !sendByEmail)} className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 disabled:opacity-50">
             {isProcessing ? '處理中...' : '確認執行'}
           </button>
           <button type="button" onClick={onClose} disabled={isProcessing} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
@@ -949,10 +946,9 @@ export const App: React.FC = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // 檢查 API 金鑰是否已設定
-  const isGoogleApiConfigured = API_KEY && CLIENT_ID;
-  const isBrevoApiConfigured = BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME;
-  // const isNasConfigured = NAS_OBJECT_STORAGE_ENDPOINT && NAS_BUCKET_NAME && NAS_ACCESS_KEY && NAS_SECRET_KEY;
-  const isNasConfigured = false; // 根據使用者要求，暫時停用 NAS 上傳功能
+  const isDropboxConfigured = !!DROPBOX_ACCESS_TOKEN;
+  const isGoogleApiConfigured = !!(API_KEY && CLIENT_ID);
+  const isBrevoApiConfigured = !!(BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME);
 
   // --- 副作用 (Effects) ---
 
@@ -1270,12 +1266,38 @@ export const App: React.FC = () => {
     finally { setIsProcessing(false); }
   }, [isProcessing, formData, generatePdfBlob]);
 
-    // --- S3 Uploader (V1.5) ---
-    const performNasUpload = useCallback(async (blob: Blob, fileName: string) => {
-      // 根據使用者要求，暫時移除此功能，並標記為待開發
-      console.warn("NAS upload functionality has been temporarily removed and is marked as under development.");
-      throw new Error("NAS 上傳功能待開發。");
-    }, []);
+    // --- Dropbox Uploader (V1.6) ---
+    const performDropboxUpload = useCallback(async (blob: Blob, fileName: string) => {
+      if (!isDropboxConfigured) {
+        throw new Error("Dropbox 存取權杖未設定。");
+      }
+      
+      const API_URL = 'https://content.dropboxapi.com/2/files/upload';
+      const args = {
+        path: `/工作服務單/${fileName}`,
+        mode: 'overwrite', // or 'add'
+        autorename: true,
+        mute: false,
+        strict_conflict: false
+      };
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`,
+          'Dropbox-API-Arg': JSON.stringify(args),
+          'Content-Type': 'application/octet-stream'
+        },
+        body: blob
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Dropbox API 錯誤: ${errorText}`);
+      }
+      
+      return await response.json();
+    }, [isDropboxConfigured]);
 
   const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
     if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
@@ -1307,10 +1329,10 @@ export const App: React.FC = () => {
     return 'Email sent successfully';
   }, [formData, isBrevoApiConfigured]);
   
-  const handleConfirmUpload = useCallback(async (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => {
-    const { uploadToNas, sendByEmail, emailRecipients } = options;
-    if (!uploadToNas && !sendByEmail) {
-        alert('請至少選擇一個操作 (上傳至 NAS 或透過 Email 寄送)。');
+  const handleConfirmUpload = useCallback(async (options: { uploadToDropbox: boolean; sendByEmail: boolean; emailRecipients: string }) => {
+    const { uploadToDropbox, sendByEmail, emailRecipients } = options;
+    if (!uploadToDropbox && !sendByEmail) {
+        alert('請至少選擇一個操作 (上傳至 Dropbox 或透過 Email 寄送)。');
         return;
     }
     
@@ -1328,14 +1350,14 @@ export const App: React.FC = () => {
       const fileName = `工作服務單-${datePart}-${formData.serviceUnit || 'report'}.pdf`;
       
       const tasks: Promise<any>[] = [];
-      if (uploadToNas) tasks.push(performNasUpload(blob, fileName));
+      if (uploadToDropbox) tasks.push(performDropboxUpload(blob, fileName));
       if (sendByEmail) tasks.push(performEmailSend(blob, fileName, emailRecipients));
       
       const results = await Promise.allSettled(tasks);
       const summary = [];
-      if (uploadToNas) {
-        const nasResult = results.shift();
-        summary.push(`- NAS 上傳: ${nasResult?.status === 'fulfilled' ? `✅ 成功` : `❌ 失敗 (${(nasResult as PromiseRejectedResult)?.reason})`}`);
+      if (uploadToDropbox) {
+        const dropboxResult = results.shift();
+        summary.push(`- Dropbox 上傳: ${dropboxResult?.status === 'fulfilled' ? `✅ 成功` : `❌ 失敗 (${(dropboxResult as PromiseRejectedResult)?.reason})`}`);
       }
       if (sendByEmail) {
         const emailResult = results.shift();
@@ -1349,7 +1371,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, performNasUpload, performEmailSend]);
+  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend]);
 
   // --- JSX 渲染 ---
   return (
@@ -1399,8 +1421,8 @@ export const App: React.FC = () => {
           onClose={() => setIsUploadModalOpen(false)}
           onConfirm={handleConfirmUpload}
           isProcessing={isProcessing}
-          isNasConfigured={!!isNasConfigured}
-          isBrevoConfigured={!!isBrevoApiConfigured}
+          isDropboxConfigured={isDropboxConfigured}
+          isBrevoConfigured={isBrevoApiConfigured}
         />
 
         {/* 正在處理時顯示の遮罩層 */}
