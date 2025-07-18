@@ -323,7 +323,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                 <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">服務人員簽認</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">服務人員</label>
                 <SignaturePad signatureDataUrl={formData.technicianSignature} onSave={onTechnicianSignatureSave} onClear={onTechnicianSignatureClear} />
             </div>
             <div>
@@ -369,7 +369,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                         清除資料
                     </button>
                 </div>
-                <button type="submit" className="w-full sm:w-auto px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <button type="submit" className="w-full sm:w-auto px-8 py-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                     產生服務單報告
                 </button>
             </div>
@@ -461,7 +461,7 @@ const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, to
        <div className="pt-12 mt-auto">
           <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-base`}>
               {showManagerApproval && (<div className="text-center"><strong>經理核可：</strong><div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center"></div></div>)}
-              <div className="text-center"><strong>服務人員簽認：</strong><div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">{data.technicianSignature ? (<img src={data.technicianSignature} alt="服務人員簽名" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
+              <div className="text-center"><strong>服務人員：</strong><div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">{data.technicianSignature ? (<img src={data.technicianSignature} alt="服務人員" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
               <div className="text-center"><strong>客戶簽認：</strong><div className="mt-2 p-2 border border-slate-300 rounded-lg bg-slate-50 w-full min-h-[100px] flex items-center justify-center">{data.signature ? (<img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
           </div>
           {isPdf && <PdfFooter currentPage={currentPage} totalPages={totalPages} />}
@@ -523,12 +523,12 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-3 justify-between items-center">
-            <button onClick={onReset} className="px-6 py-2 text-sm bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
-            <div className="flex flex-wrap gap-3">
-              <button onClick={onOpenUploadModal} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
-              <button onClick={onDownloadPdf} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
-              <button onClick={onEdit} disabled={isProcessing} className="px-4 py-2 text-sm font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
+      <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-4 justify-between items-center">
+            <button onClick={onReset} className="px-6 py-3 text-base bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
+            <div className="flex flex-wrap gap-4">
+              <button onClick={onOpenUploadModal} disabled={isProcessing} className="px-6 py-3 text-base font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
+              <button onClick={onDownloadPdf} disabled={isProcessing} className="px-6 py-3 text-base font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
+              <button onClick={onEdit} disabled={isProcessing} className="px-6 py-3 text-base font-semibold bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
             </div>
       </div>
     </>
