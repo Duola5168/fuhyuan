@@ -93,7 +93,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange })
         <button
           type="button"
           onClick={triggerCameraInput}
-          className="flex-1 flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-500 rounded-md shadow-sm text-base font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="flex-1 flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-500 rounded-md shadow-sm text-xl font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           <CameraIcon className="w-6 h-6 mr-2" />
           拍照
@@ -101,13 +101,13 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange })
         <button
           type="button"
           onClick={triggerUploadInput}
-          className="flex-1 flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-500 rounded-md shadow-sm text-base font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="flex-1 flex justify-center items-center px-4 py-3 border-2 border-dashed border-slate-500 rounded-md shadow-sm text-xl font-medium text-slate-700 bg-slate-200/50 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           <UploadIcon className="w-6 h-6 mr-2" />
           上傳圖片
         </button>
       </div>
-      <p className="text-base text-slate-500 mt-2 text-center">已上傳 {photos.length} 張照片</p>
+      <p className="text-xl text-slate-500 mt-2 text-center">已上傳 {photos.length} 張照片</p>
 
       {photos.length > 0 && (
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
