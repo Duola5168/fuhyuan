@@ -1,3 +1,4 @@
+
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import { readFileSync } from 'fs';
@@ -12,10 +13,10 @@ export default defineConfig(({ mode }) => {
       define: {
         // 將版本號注入到前端程式碼中
         'process.env.APP_VERSION': JSON.stringify(appVersion),
-        // 注入 Dropbox OAuth 2.0 所需的金鑰
+        // 注入 Dropbox OAuth 2.0 所需的金鑰 (Refresh Token Flow)
         'process.env.DROPBOX_APP_KEY': JSON.stringify(env.DROPBOX_APP_KEY),
         'process.env.DROPBOX_APP_SECRET': JSON.stringify(env.DROPBOX_APP_SECRET),
-        'process.env.DROPBOX_REDIRECT_URI': JSON.stringify(env.DROPBOX_REDIRECT_URI),
+        'process.env.DROPBOX_REFRESH_TOKEN': JSON.stringify(env.DROPBOX_REFRESH_TOKEN),
         // 注入其他服務的金鑰
         'process.env.GOOGLE_API_KEY': JSON.stringify(env.GOOGLE_API_KEY),
         'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID),
