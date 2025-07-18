@@ -264,7 +264,6 @@ const TrashIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xm
 const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83.09 1.116.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
 const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg> );
 const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
-const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
 
 // --- 統一彈出視窗系統 (Unified Modal System) ---
 interface ModalState {
@@ -1453,19 +1452,6 @@ export const App: React.FC = () => {
   }, [formData, generatePdfBlob, isDropboxConfigured, isDropboxAuthenticated, isBrevoApiConfigured, getValidDropboxAccessToken, createDropboxFolder, uploadToDropbox, performEmailSend]);
 
   /**
-   * 觸發 Dropbox 授權流程。
-   */
-  const handleInitiateDropboxAuth = useCallback(() => {
-    const pendingAction = { 
-        formData, 
-        options: { uploadToNas: true, sendByEmail: false, emailRecipients: '' } 
-    };
-    sessionStorage.setItem(PENDING_ACTION_KEY, JSON.stringify(pendingAction));
-    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&redirect_uri=${encodeURIComponent(DROPBOX_REDIRECT_URI!)}&response_type=code&token_access_type=offline`;
-    window.location.href = authUrl;
-  }, [formData]);
-
-  /**
    * 打開上傳選項的彈出視窗。
    */
   const handleOpenUploadModal = () => {
@@ -1475,7 +1461,7 @@ export const App: React.FC = () => {
     let emailRecipients = 'fuhyuan.w5339@msa.hinet.net';
     
     // 彈出視窗內的元件，使用自己的 state 來管理選項
-    const UploadOptionsContent = ({ onInitiateAuth }: { onInitiateAuth: () => void }) => {
+    const UploadOptionsContent = () => {
         const [nasChecked, setNasChecked] = useState(isDropboxAuthenticated);
         const [emailChecked, setEmailChecked] = useState(sendByEmail);
         const [emails, setEmails] = useState(emailRecipients);
@@ -1493,28 +1479,7 @@ export const App: React.FC = () => {
               </div>
               <div className="flex-grow">
                 <p className="font-semibold text-lg text-slate-800">上傳至 NAS</p>
-
-                <div className="mt-1">
-                  {isDropboxAuthenticated ? (
-                      <div className="flex items-center gap-2">
-                          <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-                          <p className="text-base text-slate-600">將檔案上傳至NAS</p>
-                      </div>
-                  ) : (
-                      <div className="flex items-center gap-3">
-                          <button 
-                            type="button" 
-                            onClick={onInitiateAuth} 
-                            disabled={!isDropboxConfigured}
-                            className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex-shrink-0 disabled:bg-slate-400 disabled:cursor-not-allowed"
-                          >
-                              授權
-                          </button>
-                          <p className="text-sm text-amber-700">授權過期需先授權上傳NAS,請多按幾次,感謝~~</p>
-                      </div>
-                  )}
-                </div>
-
+                <p className="text-base text-slate-500">{isDropboxAuthenticated ? "已連線，將上傳至 Dropbox。" : "將PDF及所有照片上傳至雲端。"}</p>
                 {!isDropboxConfigured && <p className="text-sm text-red-600 mt-1">此功能未設定。</p>}
               </div>
               <div className="flex-shrink-0">
@@ -1554,7 +1519,7 @@ export const App: React.FC = () => {
     setModalState({
         isOpen: true,
         title: "上傳與寄送選項",
-        content: <UploadOptionsContent onInitiateAuth={handleInitiateDropboxAuth} />,
+        content: <UploadOptionsContent />,
         onConfirm: () => handleConfirmUpload({ uploadToNas, sendByEmail, emailRecipients }),
         confirmText: "確認執行",
         onClose: closeModal,
