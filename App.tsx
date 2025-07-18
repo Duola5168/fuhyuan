@@ -24,12 +24,8 @@ const rawVersion = process.env.APP_VERSION || '1.6.0';
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 // --- API 設定 (從環境變數讀取，增強安全性) ---
-/** Dropbox OAuth 2.0 App Key */
-const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY;
-/** Dropbox OAuth 2.0 App Secret */
-const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET;
-/** Dropbox OAuth 2.0 Redirect URI */
-const DROPBOX_REDIRECT_URI = process.env.DROPBOX_REDIRECT_URI;
+/** Dropbox API 的存取權杖，用於上傳 PDF 檔案 */
+const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN;
 /** Google Cloud API 金鑰，用於 Google Drive Picker 等服務 */
 const API_KEY = process.env.GOOGLE_API_KEY;
 /** Google Cloud OAuth 2.0 用戶端 ID，用於使用者授權 */
@@ -46,14 +42,6 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
 /** 使用 Brevo 發送 Email 時的寄件人名稱 */
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME;
-
-// --- 本地儲存鍵名 ---
-/** 在 localStorage 中儲存 Dropbox 授權資訊的鍵名 */
-const DROPBOX_AUTH_KEY = 'dropboxAuth';
-/** 在 sessionStorage 中儲存待處理的上傳操作的鍵名 */
-const PENDING_ACTION_KEY = 'pendingDropboxAction';
-/** 在 localStorage 中儲存具名暫存檔的鍵名 */
-const NAMED_DRAFTS_STORAGE_KEY = 'workOrderNamedDrafts';
 
 /**
  * 產生 Email 的 HTML 內容。
@@ -81,6 +69,8 @@ const TOTAL_CONTENT_LINES_LIMIT = 20;
 const TASKS_STATUS_LIMIT = 18; 
 /** 「產品項目」和「備註」兩個區塊的合計視覺行數上限 */
 const PRODUCTS_REMARKS_LIMIT = 16; 
+/** 在 localStorage 中儲存具名暫存檔的鍵名 */
+const NAMED_DRAFTS_STORAGE_KEY = 'workOrderNamedDrafts';
 /** 允許儲存的本機暫存檔數量上限 */
 const MAX_DRAFTS = 3;
 
@@ -261,7 +251,7 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
 // --- 圖示元件 (SVG) ---
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> );
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg> );
-const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83.09 1.116.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
+const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276-.402.75-.643 1.26-.576.413.057.83.09 1.116-.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
 const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg> );
 const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
 
@@ -744,21 +734,14 @@ export const App: React.FC = () => {
   const pickerApiLoaded = useRef(false);
   /** 通用彈出視窗的狀態 */
   const [modalState, setModalState] = useState<ModalState>(initialModalState);
-  /** Dropbox 授權資訊 */
-  const [dropboxAuth, setDropboxAuth] = useState<{ accessToken: string; refreshToken: string | null; expiresAt: number } | null>(null);
-  /** 待處理的上傳操作 */
-  const [pendingUploadAction, setPendingUploadAction] = useState<any>(null);
-
 
   // --- 組態檢查 ---
   /** 檢查 Dropbox 功能是否已設定 */
-  const isDropboxConfigured = !!(DROPBOX_APP_KEY && DROPBOX_APP_SECRET && DROPBOX_REDIRECT_URI);
+  const isDropboxConfigured = !!DROPBOX_ACCESS_TOKEN;
   /** 檢查 Google Drive 功能是否已設定 */
   const isGoogleApiConfigured = !!(API_KEY && CLIENT_ID);
   /** 檢查 Brevo Email 功能是否已設定 */
   const isBrevoApiConfigured = !!(BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME);
-  /** 檢查使用者是否已授權 Dropbox */
-  const isDropboxAuthenticated = !!dropboxAuth?.refreshToken;
 
   // --- 彈出視窗相關函式 ---
   const closeModal = () => setModalState(initialModalState);
@@ -783,79 +766,19 @@ export const App: React.FC = () => {
     setModalState({ isOpen: true, title, content: PromptContent, onConfirm: () => { onConfirm(inputValue); closeModal(); }, confirmText: "確認", onClose: closeModal});
   };
 
-  /** 儲存 Dropbox 授權資訊到狀態和 localStorage */
-  const saveDropboxAuth = useCallback((authData: any) => {
-    const newAuth = {
-        accessToken: authData.access_token,
-        refreshToken: authData.refresh_token || dropboxAuth?.refreshToken, // 保留舊的 refresh token
-        expiresAt: Date.now() + authData.expires_in * 1000,
-    };
-    setDropboxAuth(newAuth);
-    localStorage.setItem(DROPBOX_AUTH_KEY, JSON.stringify(newAuth));
-    return newAuth;
-  }, [dropboxAuth]);
-
-  /** 處理 Dropbox OAuth 2.0 授權碼交換 */
-  const exchangeCodeForToken = useCallback(async (code: string) => {
-    try {
-        const params = new URLSearchParams();
-        params.append('code', code);
-        params.append('grant_type', 'authorization_code');
-        params.append('redirect_uri', DROPBOX_REDIRECT_URI!);
-        params.append('client_id', DROPBOX_APP_KEY!);
-        params.append('client_secret', DROPBOX_APP_SECRET!);
-
-        const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
-            method: 'POST',
-            body: params,
-        });
-        if (!response.ok) throw new Error('Dropbox token exchange failed');
-        const data = await response.json();
-        return saveDropboxAuth(data);
-    } catch (error) {
-        console.error("Dropbox token exchange error:", error);
-        showAlert('Dropbox 授權失敗', '無法完成 Dropbox 授權，請稍後再試。');
-        throw error;
-    }
-  }, [saveDropboxAuth]);
-
-  /** 初始化 Effect */
+  // --- Effect Hooks ---
+  /**
+   * 應用程式初始化 Effect。
+   * - 顯示一次性的歡迎提示。
+   * - 動態載入 Google API 和 GIS 的腳本。
+   */
   useEffect(() => {
-    const initialize = async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-
-        if (code) {
-            // 從 Dropbox 重新導向回來
-            window.history.replaceState({}, document.title, window.location.pathname);
-            setIsProcessing(true);
-            try {
-                await exchangeCodeForToken(code);
-                const pendingActionJSON = sessionStorage.getItem(PENDING_ACTION_KEY);
-                if (pendingActionJSON) {
-                    const pendingAction = JSON.parse(pendingActionJSON);
-                    sessionStorage.removeItem(PENDING_ACTION_KEY);
-                    setFormData(migrateWorkOrderData(pendingAction.formData));
-                    setPendingUploadAction(pendingAction.options); // 設定待處理操作
-                }
-            } finally {
-                setIsProcessing(false);
-            }
-        } else {
-            // 正常載入，檢查本地儲存的授權
-            const savedAuth = localStorage.getItem(DROPBOX_AUTH_KEY);
-            if (savedAuth) {
-                setDropboxAuth(JSON.parse(savedAuth));
-            }
-        }
-    };
-    initialize();
-
+    // 避免每次重載都顯示提示
     if (sessionStorage.getItem('welcomeBannerDismissed') !== 'true') {
         alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等現代瀏覽器開啟，以確保所有功能正常運作，謝謝！');
         sessionStorage.setItem('welcomeBannerDismissed', 'true');
     }
-    
+    // 如果未設定 Google API 金鑰，則不執行載入
     if (!isGoogleApiConfigured) return;
 
     const gapiScript = document.createElement('script');
@@ -870,17 +793,9 @@ export const App: React.FC = () => {
     gisScript.onload = () => { const client = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '', }); setTokenClient(client); setGisReady(true); };
     document.body.appendChild(gisScript);
 
+    // 清理函式，在元件卸載時移除 script 標籤
     return () => { document.body.removeChild(gapiScript); document.body.removeChild(gisScript); };
-  }, [isGoogleApiConfigured, exchangeCodeForToken]);
-
-  /** 處理待定上傳操作的 Effect */
-  useEffect(() => {
-    if (pendingUploadAction && isDropboxAuthenticated) {
-        handleConfirmUpload(pendingUploadAction);
-        setPendingUploadAction(null);
-    }
-  }, [pendingUploadAction, isDropboxAuthenticated]);
-
+  }, [isGoogleApiConfigured]);
 
   /**
    * 從 localStorage 載入已儲存的暫存檔。
@@ -1257,88 +1172,66 @@ export const App: React.FC = () => {
         URL.revokeObjectURL(link.href);
     } finally { setIsProcessing(false); }
   }, [isProcessing, formData, generatePdfBlob]);
-
-  const getValidDropboxAccessToken = useCallback(async () => {
-    if (!dropboxAuth || !dropboxAuth.refreshToken) {
-        throw new Error("Dropbox not authenticated.");
-    }
-    if (dropboxAuth.expiresAt > Date.now()) {
-        return dropboxAuth.accessToken;
-    }
-    // Token expired, refresh it
-    try {
-        const params = new URLSearchParams();
-        params.append('grant_type', 'refresh_token');
-        params.append('refresh_token', dropboxAuth.refreshToken);
-        params.append('client_id', DROPBOX_APP_KEY!);
-        params.append('client_secret', DROPBOX_APP_SECRET!);
-
-        const response = await fetch('https://api.dropboxapi.com/oauth2/token', {
-            method: 'POST',
-            body: params,
-        });
-
-        if (!response.ok) throw new Error('Failed to refresh Dropbox token');
-        const data = await response.json();
-        const newAuth = saveDropboxAuth(data);
-        return newAuth.accessToken;
-    } catch (error) {
-        // If refresh fails, clear auth and re-throw
-        localStorage.removeItem(DROPBOX_AUTH_KEY);
-        setDropboxAuth(null);
-        console.error("Dropbox token refresh error:", error);
-        throw new Error("Dropbox session expired. Please re-authenticate.");
-    }
-  }, [dropboxAuth, saveDropboxAuth]);
-
-  const createDropboxFolder = useCallback(async (folderPath: string, accessToken: string) => {
+  
+  const createDropboxFolder = useCallback(async (folderPath: string) => {
+    if (!isDropboxConfigured) throw new Error("Dropbox 存取權杖未設定。");
     try {
         const response = await fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${accessToken}`,
+                'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ path: folderPath, autorename: false }),
         });
+
         if (!response.ok) {
             const errorData = await response.json();
+            // 如果資料夾已存在，這在我們的流程中不是一個關鍵錯誤，可以繼續執行。
             if (errorData?.error_summary?.startsWith('path/conflict/folder')) {
-                console.log(`Dropbox folder "${folderPath}" already exists.`);
+                console.log(`Dropbox 資料夾 "${folderPath}" 已存在，繼續執行。`);
                 return { success: true, alreadyExists: true };
             }
-            throw new Error(`Dropbox folder creation failed: ${errorData.error_summary || response.statusText}`);
+            // 對於其他錯誤，則拋出。
+            throw new Error(`Dropbox 資料夾建立失敗: ${errorData.error_summary || response.statusText}`);
         }
-        return { success: true, data: await response.json() };
+        return { success: true, alreadyExists: false, data: await response.json() };
     } catch (error) {
-        console.error("Error creating Dropbox folder:", error);
+        console.error("建立 Dropbox 資料夾時發生錯誤:", error);
         throw error;
     }
-  }, []);
+  }, [isDropboxConfigured]);
 
   /**
    * 上傳 Blob 到 Dropbox 指定路徑。
+   * @param {Blob} blob - 要上傳的檔案 Blob。
+   * @param {string} dropboxPath - 在 Dropbox 上儲存的完整檔案路徑 (包含檔名)。
    */
-  const uploadToDropbox = useCallback(async (blob: Blob, dropboxPath: string, accessToken: string) => {
+  const uploadToDropbox = useCallback(async (blob: Blob, dropboxPath: string) => {
+    if (!isDropboxConfigured) throw new Error("Dropbox 存取權杖未設定。");
     const args = { path: dropboxPath, mode: 'overwrite', autorename: true, mute: false, strict_conflict: false };
+    // Dropbox API v2 要求 header 中的 JSON 參數必須是 ASCII，因此對非 ASCII 字元進行轉義
     const escapeNonAscii = (str: string) => str.replace(/[\u007f-\uffff]/g, c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4));
     
     const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Dropbox-API-Arg': escapeNonAscii(JSON.stringify(args)), 'Content-Type': 'application/octet-stream' },
+      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Dropbox-API-Arg': escapeNonAscii(JSON.stringify(args)), 'Content-Type': 'application/octet-stream' },
       body: blob
     });
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Dropbox API Error:', errorText);
-        throw new Error(`Dropbox API error: ${errorText}`);
+        throw new Error(`Dropbox API 錯誤: ${errorText}`);
     }
     return await response.json();
-  }, []);
+  }, [isDropboxConfigured]);
 
 
   /**
    * 透過 Brevo (Sendinblue) API 發送帶有 PDF 附件的 Email。
+   * @param {Blob} blob - PDF 檔案的 Blob。
+   * @param {string} fileName - 附件的檔案名稱。
+   * @param {string} recipientsStr - 收件人 Email 字串，以逗號分隔。
    */
   const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
     if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
@@ -1364,19 +1257,11 @@ export const App: React.FC = () => {
 
   /**
    * 處理上傳/寄送確認視窗的最終操作。
+   * 新邏輯：若選擇上傳，則建立一個資料夾並上傳 PDF 和所有照片。
    */
   const handleConfirmUpload = useCallback(async (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => {
     const { uploadToNas, sendByEmail, emailRecipients } = options;
     if (!uploadToNas && !sendByEmail) { showAlert('未選擇操作', '請至少選擇一個操作 (上傳至 NAS 或透過 Email 寄送)。'); return; }
-
-    // 如果選擇上傳但未授權，則觸發授權流程
-    if (uploadToNas && !isDropboxAuthenticated) {
-        const pendingAction = { formData, options };
-        sessionStorage.setItem(PENDING_ACTION_KEY, JSON.stringify(pendingAction));
-        const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&redirect_uri=${encodeURIComponent(DROPBOX_REDIRECT_URI!)}&response_type=code&token_access_type=offline`;
-        window.location.href = authUrl;
-        return;
-    }
     
     setIsProcessing(true);
     closeModal();
@@ -1400,11 +1285,12 @@ export const App: React.FC = () => {
         tasks.push((async () => {
           if (!isDropboxConfigured) return { service: 'NAS 上傳', status: '❌ 失敗', detail: 'Dropbox 功能未設定。' };
           try {
-            const accessToken = await getValidDropboxAccessToken();
             const folderPath = `/工作服務單/${folderName}`;
             
-            await createDropboxFolder(folderPath, accessToken);
+            // 1. 建立資料夾
+            await createDropboxFolder(folderPath);
 
+            // 2. 準備所有要上傳的檔案
             const filesToUpload: { blob: Blob; path: string; }[] = [];
             filesToUpload.push({ blob: pdfBlob, path: `${folderPath}/${pdfFileName}` });
             
@@ -1417,7 +1303,8 @@ export const App: React.FC = () => {
               filesToUpload.push({ blob: photoBlob, path: `${folderPath}/${photoFileName}` });
             }
 
-            const uploadPromises = filesToUpload.map(file => uploadToDropbox(file.blob, file.path, accessToken));
+            // 3. 平行上傳所有檔案
+            const uploadPromises = filesToUpload.map(file => uploadToDropbox(file.blob, file.path));
             await Promise.all(uploadPromises);
 
             return { service: 'NAS 上傳', status: '✅ 成功', detail: `資料夾 "${folderName}" 已建立 (共 ${filesToUpload.length} 個檔案)` };
@@ -1449,20 +1336,20 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, isDropboxConfigured, isDropboxAuthenticated, isBrevoApiConfigured, getValidDropboxAccessToken, createDropboxFolder, uploadToDropbox, performEmailSend]);
+  }, [formData, generatePdfBlob, isDropboxConfigured, isBrevoApiConfigured, createDropboxFolder, uploadToDropbox, performEmailSend]);
 
   /**
    * 打開上傳選項的彈出視窗。
    */
   const handleOpenUploadModal = () => {
     // 預設值
-    let uploadToNas: boolean;
+    let uploadToNas = isDropboxConfigured;
     let sendByEmail = isBrevoApiConfigured;
     let emailRecipients = 'fuhyuan.w5339@msa.hinet.net';
     
     // 彈出視窗內的元件，使用自己的 state 來管理選項
     const UploadOptionsContent = () => {
-        const [nasChecked, setNasChecked] = useState(isDropboxAuthenticated);
+        const [nasChecked, setNasChecked] = useState(uploadToNas);
         const [emailChecked, setEmailChecked] = useState(sendByEmail);
         const [emails, setEmails] = useState(emailRecipients);
 
@@ -1479,7 +1366,7 @@ export const App: React.FC = () => {
               </div>
               <div className="flex-grow">
                 <p className="font-semibold text-lg text-slate-800">上傳至 NAS</p>
-                <p className="text-base text-slate-500">{isDropboxAuthenticated ? "已連線，將上傳至 Dropbox。" : "將PDF及所有照片上傳至雲端。"}</p>
+                <p className="text-base text-slate-500">將PDF及所有照片打包成資料夾上傳至雲端。</p>
                 {!isDropboxConfigured && <p className="text-sm text-red-600 mt-1">此功能未設定。</p>}
               </div>
               <div className="flex-shrink-0">
