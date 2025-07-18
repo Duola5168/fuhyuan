@@ -1280,12 +1280,21 @@ export const App: React.FC = () => {
         mute: false,
         strict_conflict: false
       };
+      
+      // 修正：將 Dropbox API 參數中的非 ASCII 字元進行轉義處理，
+      // 以避免 'fetch' 標頭中出現不相容的字元而導致的錯誤。
+      // Dropbox API 後端能夠正確解讀這些 \uXXXX 格式的轉義序列。
+      const escapeNonAscii = (str: string) => {
+        return str.replace(/[\u007f-\uffff]/g, c => {
+            return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
+        });
+      };
 
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`,
-          'Dropbox-API-Arg': JSON.stringify(args),
+          'Dropbox-API-Arg': escapeNonAscii(JSON.stringify(args)),
           'Content-Type': 'application/octet-stream'
         },
         body: blob
