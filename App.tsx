@@ -1315,7 +1315,7 @@ export const App: React.FC = () => {
         setLiveRefreshToken(newRefreshToken);
     }
     
-    const args = { path: fullPath, mode: 'overwrite', autorename: true, mute: false, strict_conflict: false };
+    const args = { path: fullPath, mode: 'add', autorename: true, mute: false, strict_conflict: false };
     const escapeNonAscii = (str: string) => str.replace(/[\u007f-\uffff]/g, c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4));
     
     const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
