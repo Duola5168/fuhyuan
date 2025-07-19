@@ -778,10 +778,13 @@ export const App: React.FC = () => {
   const [modalState, setModalState] = useState<ModalState>(initialModalState);
   /** Dropbox 授權狀態 */
   const [dropboxStatus, setDropboxStatus] = useState<'unchecked' | 'checking' | 'ok' | 'error'>('unchecked');
+  /** 用於儲存最新的、有效的 Dropbox Refresh Token */
+  const [liveRefreshToken, setLiveRefreshToken] = useState<string | null>(DROPBOX_REFRESH_TOKEN || null);
+
 
   // --- 組態檢查 ---
   /** 檢查 Dropbox 功能是否已設定 */
-  const isDropboxConfigured = !!(DROPBOX_APP_KEY && DROPBOX_APP_SECRET && DROPBOX_REFRESH_TOKEN);
+  const isDropboxConfigured = !!(DROPBOX_APP_KEY && DROPBOX_APP_SECRET && liveRefreshToken);
   /** 檢查 Google Drive 功能是否已設定 */
   const isGoogleApiConfigured = !!(API_KEY && CLIENT_ID);
   /** 檢查 Brevo Email 功能是否已設定 */
@@ -834,16 +837,16 @@ export const App: React.FC = () => {
   };
 
   /**
-   * 從 Dropbox API 獲取一個新的、短期的 Access Token。
+   * 從 Dropbox API 獲取一個新的 Access Token 並可能更新 Refresh Token。
    */
-  const getDropboxAccessToken = useCallback(async (): Promise<string> => {
+  const getDropboxAccessToken = useCallback(async (): Promise<{ accessToken: string; newRefreshToken?: string }> => {
     if (!isDropboxConfigured) {
         throw new Error("Dropbox 應用程式憑證未完整設定。");
     }
     
     const params = new URLSearchParams();
     params.append('grant_type', 'refresh_token');
-    params.append('refresh_token', DROPBOX_REFRESH_TOKEN!);
+    params.append('refresh_token', liveRefreshToken!);
     
     // 使用 App Key 和 App Secret 進行 Basic Authentication
     const authHeader = 'Basic ' + btoa(`${DROPBOX_APP_KEY}:${DROPBOX_APP_SECRET}`);
@@ -874,8 +877,12 @@ export const App: React.FC = () => {
     if (!data.access_token) {
         throw new Error("從 Dropbox API 回應中找不到 Access Token。");
     }
-    return data.access_token;
-  }, [isDropboxConfigured]);
+    // 返回包含 Access Token 和可能的新 Refresh Token 的物件
+    return {
+        accessToken: data.access_token,
+        newRefreshToken: data.refresh_token, // Dropbox 可能會返回一個新的 refresh token
+    };
+  }, [isDropboxConfigured, liveRefreshToken]);
 
   const checkDropboxStatus = useCallback(async () => {
     if (!isDropboxConfigured) {
@@ -884,7 +891,11 @@ export const App: React.FC = () => {
     }
     setDropboxStatus('checking');
     try {
-        await getDropboxAccessToken();
+        const { newRefreshToken } = await getDropboxAccessToken();
+        // 如果獲取到新的 refresh token，就更新 state
+        if (newRefreshToken) {
+            setLiveRefreshToken(newRefreshToken);
+        }
         setDropboxStatus('ok');
     } catch (error) {
         console.error("Dropbox auth check failed:", error);
@@ -1299,7 +1310,10 @@ export const App: React.FC = () => {
    * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
    */
   const performDropboxUpload = useCallback(async (blob: Blob, fullPath: string) => {
-    const accessToken = await getDropboxAccessToken();
+    const { accessToken, newRefreshToken } = await getDropboxAccessToken();
+    if (newRefreshToken) {
+        setLiveRefreshToken(newRefreshToken);
+    }
     
     const args = { path: fullPath, mode: 'overwrite', autorename: true, mute: false, strict_conflict: false };
     const escapeNonAscii = (str: string) => str.replace(/[\u007f-\uffff]/g, c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4));
