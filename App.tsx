@@ -244,7 +244,7 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
 // --- 圖示元件 (SVG) ---
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> );
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg> );
-const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156-.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32-.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276.402.75-.643 1.26-.576.413.057.83.09 1.116.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
+const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156-.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276.402.75-.643 1.26-.576.413.057.83.09 1.116.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
 const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg> );
 const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
 const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
@@ -833,6 +833,9 @@ export const App: React.FC = () => {
       return new Blob([u8arr], { type: mime });
   };
 
+  /**
+   * 從 Dropbox API 獲取一個新的、短期的 Access Token。
+   */
   const getDropboxAccessToken = useCallback(async (): Promise<string> => {
     if (!isDropboxConfigured) {
         throw new Error("Dropbox 應用程式憑證未完整設定。");
@@ -842,6 +845,7 @@ export const App: React.FC = () => {
     params.append('grant_type', 'refresh_token');
     params.append('refresh_token', DROPBOX_REFRESH_TOKEN!);
     
+    // 使用 App Key 和 App Secret 進行 Basic Authentication
     const authHeader = 'Basic ' + btoa(`${DROPBOX_APP_KEY}:${DROPBOX_APP_SECRET}`);
 
     const response = await fetch('https://api.dropbox.com/oauth2/token', {
@@ -856,13 +860,20 @@ export const App: React.FC = () => {
     if (!response.ok) {
         const errorText = await response.text();
         console.error("Dropbox token refresh error response:", errorText);
+        // 提供更具體的錯誤訊息給開發者
         if (errorText.includes("invalid_grant")) {
             throw new Error(`更新 Dropbox 權杖失敗：無效的 Refresh Token。它可能已過期、被撤銷或不正確。請重新產生一個 Refresh Token 並更新應用程式設定。`);
         }
-        throw new Error(`更新 Dropbox 權杖失敗: ${errorText}`);
+        if (errorText.includes("invalid_client")) {
+            throw new Error(`更新 Dropbox 權杖失敗：無效的 App Key 或 App Secret。請檢查應用程式設定。`);
+        }
+        throw new Error(`更新 Dropbox 權杖失敗 (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();
+    if (!data.access_token) {
+        throw new Error("從 Dropbox API 回應中找不到 Access Token。");
+    }
     return data.access_token;
   }, [isDropboxConfigured]);
 
@@ -1285,28 +1296,44 @@ export const App: React.FC = () => {
   }, [isProcessing, formData, generatePdfBlob]);
 
   /**
-   * 上傳 Blob 到 Dropbox 的指定路徑。
+   * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
    */
   const performDropboxUpload = useCallback(async (blob: Blob, fullPath: string) => {
     const accessToken = await getDropboxAccessToken();
+    
     const args = { path: fullPath, mode: 'overwrite', autorename: true, mute: false, strict_conflict: false };
     const escapeNonAscii = (str: string) => str.replace(/[\u007f-\uffff]/g, c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4));
     
     const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Dropbox-API-Arg': escapeNonAscii(JSON.stringify(args)), 'Content-Type': 'application/octet-stream' },
+      headers: { 
+        'Authorization': `Bearer ${accessToken}`, 
+        'Dropbox-API-Arg': escapeNonAscii(JSON.stringify(args)), 
+        'Content-Type': 'application/octet-stream' 
+      },
       body: blob
     });
+
     if (!response.ok) {
         let errorDetails = "未知錯誤";
+        let userFriendlyMessage = "";
         try {
             const errorJson = await response.json();
             errorDetails = errorJson.error_summary || JSON.stringify(errorJson);
+            
+            if (typeof errorDetails === 'string' && errorDetails.includes('invalid_access_token')) {
+                userFriendlyMessage = `無效的存取權杖 (invalid_access_token)。\n\n這通常表示 App 的權限不足 (例如缺少 'files.content.write')，或是 Refresh Token 已失效或被撤銷。\n\n請依照 README 文件，前往 Dropbox App 設定頁面，確認已勾選 'files.content.write' 權限後，再重新產生一個 Refresh Token 並更新至您的應用程式設定。`;
+            } else if (typeof errorDetails === 'string' && errorDetails.includes('path/not_found')) {
+                userFriendlyMessage = `找不到指定的路徑。請確認 '/工作服務單' 資料夾存在於您的 Dropbox 根目錄。`;
+            } else {
+                userFriendlyMessage = `Dropbox API 錯誤: ${errorDetails}`;
+            }
         } catch (e) {
             errorDetails = await response.text();
+            userFriendlyMessage = `Dropbox API 錯誤: ${errorDetails}`;
         }
-        console.error("Dropbox API Error:", errorDetails);
-        throw new Error(`Dropbox API 錯誤: ${errorDetails}`);
+        console.error(`Dropbox API Error for path: ${fullPath}`, errorDetails);
+        throw new Error(userFriendlyMessage);
     }
     return await response.json();
   }, [getDropboxAccessToken]);
@@ -1353,50 +1380,54 @@ export const App: React.FC = () => {
             throw new Error('PDF 產生失敗，操作已取消。');
         }
 
-        const tasks: Promise<any>[] = [];
+        const tasks: { type: 'nas' | 'email'; promise: Promise<any> }[] = [];
         const serviceDate = formData.dateTime.split('T')[0];
         const pdfFileNameForEmail = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
+        
+        // 建立一個統一的錯誤處理函式，以便追蹤
+        const createNasUploadTask = async () => {
+          if (!pdfBlob) return; // 確保 pdfBlob 存在
+          const folderName = `${serviceDate}-${formData.serviceUnit || '未命名服務'}`;
+          const basePath = `/工作服務單/${folderName}`;
 
-        if (uploadToNas && pdfBlob) {
-            const dropboxUploadTask = async () => {
-                const folderName = `${serviceDate}-${formData.serviceUnit || '未命名服務'}`;
-                const basePath = `/工作服務單/${folderName}`;
+          // 1. 上傳 PDF。
+          const pdfPath = `${basePath}/工作服務單.pdf`;
+          await performDropboxUpload(pdfBlob, pdfPath);
 
-                // 1. 循序上傳 PDF 檔案。
-                const pdfPath = `${basePath}/工作服務單.pdf`;
-                await performDropboxUpload(pdfBlob, pdfPath);
+          // 2. 循序上傳所有照片。
+          for (let index = 0; index < formData.photos.length; index++) {
+              const photoDataUrl = formData.photos[index];
+              const photoBlob = dataURLtoBlob(photoDataUrl);
+              const photoFileName = `現場照片_${index + 1}.jpg`;
+              const photoPath = `${basePath}/${photoFileName}`;
+              await performDropboxUpload(photoBlob, photoPath);
+          }
+          return `成功上傳 PDF 及 ${formData.photos.length} 張照片。`;
+        };
 
-                // 2. 循序、逐一上傳所有照片。
-                for (let index = 0; index < formData.photos.length; index++) {
-                    const photoDataUrl = formData.photos[index];
-                    const photoBlob = dataURLtoBlob(photoDataUrl);
-                    const photoFileName = `現場照片_${index + 1}.jpg`;
-                    const photoPath = `${basePath}/${photoFileName}`;
-                    await performDropboxUpload(photoBlob, photoPath);
-                }
-                
-                return `成功上傳 PDF 及 ${formData.photos.length} 張照片。`;
-            };
-            tasks.push(dropboxUploadTask());
+        if (uploadToNas) {
+            tasks.push({ type: 'nas', promise: createNasUploadTask() });
         }
 
         if (sendByEmail && pdfBlob) {
-            tasks.push(performEmailSend(pdfBlob, pdfFileNameForEmail, emailRecipients));
+            tasks.push({ type: 'email', promise: performEmailSend(pdfBlob, pdfFileNameForEmail, emailRecipients) });
         }
 
-        const results = await Promise.allSettled(tasks);
+        const results = await Promise.allSettled(tasks.map(t => t.promise));
         
         const summary: string[] = [];
-        let taskIndex = 0;
-
-        if (uploadToNas) {
-            const res = results[taskIndex++];
-            summary.push(`- NAS 上傳: ${res.status === 'fulfilled' ? `✅ ${res.value}` : `❌ 失敗 (${(res as PromiseRejectedResult).reason?.message || res.reason})`}`);
-        }
-        if (sendByEmail) {
-            const res = results[taskIndex++];
-            summary.push(`- Email 寄送: ${res.status === 'fulfilled' ? '✅ 成功' : `❌ 失敗 (${(res as PromiseRejectedResult).reason?.message || res.reason})`}`);
-        }
+        results.forEach((res, index) => {
+            const taskType = tasks[index].type;
+            const taskName = taskType === 'nas' ? 'NAS 上傳' : 'Email 寄送';
+            if (res.status === 'fulfilled') {
+                const successMessage = res.value || '成功';
+                summary.push(`- ${taskName}: ✅ ${successMessage}`);
+            } else {
+                const reason = (res as PromiseRejectedResult).reason;
+                const errorMessage = reason instanceof Error ? reason.message : String(reason);
+                summary.push(`- ${taskName}: ❌ 失敗 (${errorMessage})`);
+            }
+        });
 
         showAlert('操作完成', <div className="text-left whitespace-pre-wrap">{summary.join('\n')}</div>);
 
