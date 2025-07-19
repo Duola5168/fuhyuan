@@ -360,7 +360,7 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
                 <FormField label="接洽人" id="contactPerson" value={formData.contactPerson} onChange={onInputChange} />
                 <FormField label="連絡電話" id="contactPhone" type="tel" value={formData.contactPhone} onChange={onInputChange} />
-                <FormField label="製作單號" id="manufacturingOrderNumber" value={formData.manufacturingOrderNumber || ''} onChange={onInputChange} />
+                <FormField label="製造單號" id="manufacturingOrderNumber" value={formData.manufacturingOrderNumber || ''} onChange={onInputChange} />
                 <FormField label="業務會報單號" id="businessReportNumber" value={formData.businessReportNumber || ''} onChange={onInputChange} />
             </div>
 
@@ -909,7 +909,7 @@ export const App: React.FC = () => {
    */
   useEffect(() => {
     if (sessionStorage.getItem('welcomeBannerDismissed') !== 'true') {
-        alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等現代瀏覽器開啟，以確保所有功能正常運作，謝謝！');
+        alert('溫馨提醒：請記得使用Chrome、Edge、Firefox等瀏覽器開啟，以確保所有功能正常運作，謝謝！');
         sessionStorage.setItem('welcomeBannerDismissed', 'true');
     }
 
