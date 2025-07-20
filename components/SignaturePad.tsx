@@ -1,5 +1,4 @@
 
-
 import React, { useRef, useEffect, useState } from 'react';
 
 interface SignaturePadProps {
@@ -40,7 +39,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
       const context = getCanvasContext();
       if (context) {
         context.strokeStyle = "#000000";
-        context.lineWidth = 2;
+        context.lineWidth = 6; // Increased from 5 to 6 for a bolder line
         context.lineCap = 'round';
         context.lineJoin = 'round';
       }
