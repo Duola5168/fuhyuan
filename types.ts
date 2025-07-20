@@ -14,11 +14,11 @@ export interface ProductItem {
    */
   name: string;
   /** 
-   * @property {number} quantity - 產品的數量。
+   * @property {number} quantity - 產品的數量 (此欄位將根據 serialNumbers 的長度自動計算)。
    */
   quantity: number;
   /** 
-   * @property {string[]} serialNumbers - 產品的序號列表，陣列長度應與 quantity 相符。
+   * @property {string[]} serialNumbers - 產品的序號列表。
    */
   serialNumbers: string[];
 }
