@@ -147,9 +147,43 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
   const stopDrawing = () => {
     if (!isDrawing) return;
     const context = getCanvasContext();
-    if(context) { context.closePath(); }
+    if (context) {
+      context.closePath();
+    }
     setIsDrawing(false);
-    if (canvasRef.current) { onSave(canvasRef.current.toDataURL('image/png')); }
+  
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+  
+    // 如果在全螢幕模式且裝置為橫向 (寬 > 高)，則自動旋轉簽名
+    const needsRotation = isFullScreen && canvas.width > canvas.height;
+  
+    if (needsRotation) {
+      const rotatedCanvas = document.createElement('canvas');
+      const rotatedContext = rotatedCanvas.getContext('2d');
+  
+      if (rotatedContext) {
+        // 交換寬高以進行旋轉
+        rotatedCanvas.width = canvas.height;
+        rotatedCanvas.height = canvas.width;
+  
+        // 移至中心點並旋轉 90 度
+        rotatedContext.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+        rotatedContext.rotate(90 * Math.PI / 180);
+  
+        // 將原始 canvas 內容繪製到旋轉後的 canvas 上
+        // 需將繪製起點平移至 (-寬/2, -高/2) 以使其置中
+        rotatedContext.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+  
+        onSave(rotatedCanvas.toDataURL('image/png'));
+      } else {
+        // 若無法建立旋轉後的 canvas，則儲存原始版本
+        onSave(canvas.toDataURL('image/png'));
+      }
+    } else {
+      // 不需要旋轉，直接儲存
+      onSave(canvas.toDataURL('image/png'));
+    }
   };
   
   const handleClear = () => { onClear(); };
