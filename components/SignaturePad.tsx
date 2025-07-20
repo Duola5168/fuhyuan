@@ -43,6 +43,18 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
     if (!canvas || !context) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 在全螢幕模式下繪製浮水印以提示簽名方向
+    if (isFullScreen) {
+        context.save();
+        context.font = "bold 48px sans-serif";
+        context.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText("簽名方向→", canvas.width / 2, canvas.height / 2);
+        context.restore();
+    }
+    
     if (url) {
         const image = new Image();
         image.onload = () => {
@@ -56,7 +68,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
         };
         image.src = url;
     }
-  }, []);
+  }, [isFullScreen]); // 將 isFullScreen 加入依賴項
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
