@@ -155,45 +155,58 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
 
     const canvas = canvasRef.current;
     if (canvas) {
-      // 處理簽名旋轉：
-      // 1. 檢查是否在「手機簽名」全螢幕模式下。
-      // 2. 檢查畫布是否為直向 (高度大於寬度)。這通常發生在使用者鎖定螢幕方向後，將手機橫放簽名。
-      //    在這種情況下，簽名本身是橫的，需要旋轉90度才能在表單上正確顯示。
-      // 3. 如果畫布本身就是橫向的 (寬度大於高度)，代表手機的自動旋轉已啟用且正常運作，
-      //    簽名方向已經是正確的，不需要額外處理。
-      if (isFullScreen && canvas.height > canvas.width) {
-        // 建立一個暫時的 canvas 來執行旋轉操作
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-
-        // 新的 canvas 尺寸是原來的寬高互換
-        tempCanvas.width = canvas.height;
-        tempCanvas.height = canvas.width;
-
-        if (tempCtx) {
-          // 移動到新的中心點並旋轉畫布
-          tempCtx.save();
-          tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
-          tempCtx.rotate(90 * Math.PI / 180); // 順時針旋轉 90 度
-          // 將原始 canvas 繪製到旋轉後的畫布上，注意座標要調整
-          tempCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
-          tempCtx.restore();
-          
-          // 儲存旋轉後的圖片
-          onSave(tempCanvas.toDataURL('image/png'));
-        } else {
-          // 如果無法取得 context，則退回儲存原始圖片
-          onSave(canvas.toDataURL('image/png'));
-        }
-      } else {
-        // 如果不是需要旋轉的情況 (例如在桌機上簽名，或手機已處於正確的橫向模式)，
-        // 則直接儲存原始圖片。
-        onSave(canvas.toDataURL('image/png'));
-      }
+      // 每次提筆時，都儲存一次畫布的當前狀態 (未旋轉)。
+      // 這對於多筆劃簽名是必要的，因為每次儲存後，父元件會更新並將簽名資料傳回，
+      // 以便在畫布上重繪，避免內容丟失。
+      // 最終的旋轉邏輯將在 `handleConfirm` 中處理。
+      onSave(canvas.toDataURL('image/png'));
     }
   };
   
   const handleClear = () => { onClear(); };
+
+  /**
+   * 處理用戶點擊 "確認" 按鈕的邏輯。
+   * 這是執行簽名旋轉的唯一地方。
+   */
+  const handleConfirm = () => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      // 根據畫布的最終狀態來決定是否需要旋轉。
+      // 這個判斷只在退出全螢幕前執行一次。
+      if (isFullScreen && canvas.height > canvas.width) {
+        // 建立一個暫時的 canvas 來執行旋轉操作。
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // 新的 canvas 尺寸是原來的寬高互換。
+        tempCanvas.width = canvas.height;
+        tempCanvas.height = canvas.width;
+
+        if (tempCtx) {
+          // 移動到新的中心點並旋轉畫布。
+          tempCtx.save();
+          tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
+          tempCtx.rotate(90 * Math.PI / 180); // 順時針旋轉 90 度。
+          // 將原始 canvas 繪製到旋轉後的畫布上，注意座標要調整。
+          tempCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+          tempCtx.restore();
+          
+          // 儲存最終旋轉後的圖片。
+          onSave(tempCanvas.toDataURL('image/png'));
+        } else {
+          // 如果無法取得 context，則退回儲存原始圖片。
+          onSave(canvas.toDataURL('image/png'));
+        }
+      } else {
+        // 如果不需要旋轉 (例如在桌機上簽名，或手機已處於正確的橫向模式)，
+        // 則直接儲存最終的原始圖片。
+        onSave(canvas.toDataURL('image/png'));
+      }
+    }
+    // 完成儲存後，退出全螢幕模式。
+    setIsFullScreen(false);
+  };
 
   const fullScreenClasses = isFullScreen 
     ? "fixed inset-0 bg-slate-900/90 z-50 flex flex-col items-center justify-center p-4" 
@@ -256,7 +269,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
         {isFullScreen && (
             <button
                 type="button"
-                onClick={() => setIsFullScreen(false)}
+                onClick={handleConfirm}
                 className="flex items-center px-6 py-3 text-xl font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700"
             >
                 確認
