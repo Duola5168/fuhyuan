@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface SignaturePadProps {
@@ -151,38 +152,44 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
       context.closePath();
     }
     setIsDrawing(false);
-  
+
     const canvas = canvasRef.current;
-    if (!canvas) return;
-  
-    // 如果在全螢幕模式且裝置為橫向 (寬 > 高)，則自動旋轉簽名
-    const needsRotation = isFullScreen && canvas.width > canvas.height;
-  
-    if (needsRotation) {
-      const rotatedCanvas = document.createElement('canvas');
-      const rotatedContext = rotatedCanvas.getContext('2d');
-  
-      if (rotatedContext) {
-        // 交換寬高以進行旋轉
-        rotatedCanvas.width = canvas.height;
-        rotatedCanvas.height = canvas.width;
-  
-        // 移至中心點並旋轉 90 度
-        rotatedContext.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
-        rotatedContext.rotate(90 * Math.PI / 180);
-  
-        // 將原始 canvas 內容繪製到旋轉後的 canvas 上
-        // 需將繪製起點平移至 (-寬/2, -高/2) 以使其置中
-        rotatedContext.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
-  
-        onSave(rotatedCanvas.toDataURL('image/png'));
+    if (canvas) {
+      // 處理簽名旋轉：
+      // 1. 檢查是否在「手機簽名」全螢幕模式下。
+      // 2. 檢查畫布是否為直向 (高度大於寬度)。這通常發生在使用者鎖定螢幕方向後，將手機橫放簽名。
+      //    在這種情況下，簽名本身是橫的，需要旋轉90度才能在表單上正確顯示。
+      // 3. 如果畫布本身就是橫向的 (寬度大於高度)，代表手機的自動旋轉已啟用且正常運作，
+      //    簽名方向已經是正確的，不需要額外處理。
+      if (isFullScreen && canvas.height > canvas.width) {
+        // 建立一個暫時的 canvas 來執行旋轉操作
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // 新的 canvas 尺寸是原來的寬高互換
+        tempCanvas.width = canvas.height;
+        tempCanvas.height = canvas.width;
+
+        if (tempCtx) {
+          // 移動到新的中心點並旋轉畫布
+          tempCtx.save();
+          tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
+          tempCtx.rotate(90 * Math.PI / 180); // 順時針旋轉 90 度
+          // 將原始 canvas 繪製到旋轉後的畫布上，注意座標要調整
+          tempCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+          tempCtx.restore();
+          
+          // 儲存旋轉後的圖片
+          onSave(tempCanvas.toDataURL('image/png'));
+        } else {
+          // 如果無法取得 context，則退回儲存原始圖片
+          onSave(canvas.toDataURL('image/png'));
+        }
       } else {
-        // 若無法建立旋轉後的 canvas，則儲存原始版本
+        // 如果不是需要旋轉的情況 (例如在桌機上簽名，或手機已處於正確的橫向模式)，
+        // 則直接儲存原始圖片。
         onSave(canvas.toDataURL('image/png'));
       }
-    } else {
-      // 不需要旋轉，直接儲存
-      onSave(canvas.toDataURL('image/png'));
     }
   };
   
