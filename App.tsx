@@ -1,3 +1,4 @@
+
 /**
  * @file App.tsx
  * @description 這是工作服務單應用程式的主元件檔案。
@@ -9,6 +10,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { WorkOrderData, ProductItem } from './types';
 import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
+import { ReportLayout, PdfFooter } from './components/ReportLayout';
+import { LegacyReportLayout } from './components/LegacyReportLayout';
+
 
 // --- 全域型別宣告 (用於從 CDN 載入的函式庫) ---
 declare const jsPDF: any;
@@ -18,8 +22,8 @@ declare const google: any;
 
 // --- 版本號統一來源 ---
 // 從 Vite 環境變數讀取版本號，此變數在 vite.config.ts 中被注入
-const rawVersion = process.env.APP_VERSION || '1.6.0'; 
-// 將 '1.6.0' 格式化為 'V1.6' 以顯示在 UI 上
+const rawVersion = process.env.APP_VERSION || '1.7.0'; 
+// 將 '1.7.0' 格式化為 'V1.7' 以顯示在 UI 上
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 // --- API 設定 (從環境變數讀取，增強安全性) ---
@@ -244,7 +248,7 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
 // --- 圖示元件 (SVG) ---
 const PlusIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> );
 const TrashIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg> );
-const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156-.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344-.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276.402.75-.643 1.26-.576.413.057.83.09 1.116.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
+const Cog6ToothIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.11-1.226.55-.22 1.156-.22 1.706 0 .55.22 1.02.684 1.11 1.226l.082.499a.95.95 0 00.994.819c.595-.024 1.162.23 1.506.639.344.408.51.956.464 1.49l-.044.274c-.066.417.042.85.327 1.157.285.308.704.453 1.116.397.512-.07.996.174 1.32.57C21.056 9.31 21.2 9.8 21.2 10.337v3.326c0 .537-.144 1.027-.42 1.428-.276.402-.75.643-1.26.576-.413-.057-.83.09-1.116.398-.285.307-.393.74-.328 1.157l.044.273c.046.537-.12 1.082-.464 1.49-.344.41-.91.664-1.506.64l-.994-.04a.95.95 0 00-.994.818l-.082.499c-.09.542-.56 1.007-1.11 1.226-.55.22-1.156-.22-1.706 0-.55-.22-1.02-.684-1.11-1.226l-.082-.499a.95.95 0 00-.994-.819c-.595.024-1.162-.23-1.506-.639-.344.408-.51-.956-.464-1.49l.044-.274c.066.417-.042.85-.327 1.157-.285.308-.704.453-1.116.397-.512.07-.996.174-1.32.57C2.944 15.09 2.8 14.6 2.8 14.063v-3.326c0-.537.144-1.027.42-1.428.276.402.75-.643 1.26-.576.413.057.83.09 1.116.398.285.307.393.74.328 1.157l-.044-.273c-.046-.537.12-1.082-.464-1.49.344.41.91.664-1.506-.64l.994.04c.33.028.65.12.943.284.294.164.55.393.756.67l.082.499z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg> );
 const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg> );
 const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
 const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
@@ -475,122 +479,6 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
 // --- 報告相關元件 ---
 
 /**
- * PDF 頁尾元件。
- */
-const PdfFooter: React.FC<{ currentPage?: number; totalPages?: number; }> = ({ currentPage, totalPages }) => (
-    <div className="flex-shrink-0 flex justify-between items-center text-sm text-slate-500 border-t border-slate-200 pt-2 mt-auto">
-      <span>{`本表單(${APP_VERSION})由富元機電有限公司提供,電話(02)2697-5163 傳真(02)2697-5339`}</span>
-      {totalPages && currentPage && (<span className="font-mono text-lg">{`${currentPage} / ${totalPages}`}</span>)}
-    </div>
-);
-
-/**
- * ReportLayout 的屬性。
- * @property {WorkOrderData} data - 要顯示的服務單資料。
- * @property {'screen' | 'pdf-full' | 'pdf-page1' | 'pdf-page2'} mode - 渲染模式。
- *   - 'screen': 在螢幕上預覽的模式。
- *   - 'pdf-full': 內容不分頁時，用於產生 PDF 的完整佈局。
- *   - 'pdf-page1': 內容分頁時，第一頁的佈局 (事項/情形)。
- *   - 'pdf-page2': 內容分頁時，第二頁的佈局 (產品/備註)。
- * @property {number} [currentPage] - 目前頁碼 (用於 PDF)。
- * @property {number} [totalPages] - 總頁碼 (用於 PDF)。
- */
-type ReportLayoutProps = {
-  data: WorkOrderData;
-  mode: 'screen' | 'pdf-full' | 'pdf-page1' | 'pdf-page2';
-  currentPage?: number;
-  totalPages?: number;
-};
-
-/**
- * 服務單報告的核心佈局元件，可根據不同模式渲染。
- */
-const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentPage, totalPages }) => {
-  const isPdf = mode.startsWith('pdf');
-  const formattedDateTime = data.dateTime ? new Date(data.dateTime).toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('下午', ' 下午').replace('上午', ' 上午') : 'N/A';
-  const hasProducts = data.products && data.products.filter(p => p.name.trim() !== '').length > 0;
-  
-  // 根據模式決定顯示哪些區塊
-  const showManagerApproval = mode !== 'pdf-page2';
-  const showTasksAndStatus = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page1';
-  const showProductsAndRemarks = mode === 'screen' || mode === 'pdf-full' || mode === 'pdf-page2';
-
-  return (
-    <div id={isPdf ? `pdf-${mode}` : undefined} className="p-8 bg-white" style={{ width: isPdf ? '210mm' : '100%', minHeight: isPdf ? '297mm' : 'auto', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', fontFamily: "'Helvetica Neue', 'Arial', 'sans-serif'" }}>
-      <>
-        <div className="text-center mb-10 flex-shrink-0">
-          <h1 className="text-4xl font-bold text-gray-800">富元機電有限公司</h1>
-          <h2 className="text-3xl font-semibold text-gray-600 mt-2">工作服務單{mode === 'pdf-page2' && ' (產品項目與備註)'}</h2>
-        </div>
-        <div className="grid grid-cols-12 gap-x-6 gap-y-4 text-xl">
-            <div className="col-span-12"><strong>工作日期及時間：</strong>{formattedDateTime}</div>
-            
-            <div className="col-span-7"><strong>服務單位：</strong>{data.serviceUnit || 'N/A'}</div>
-            <div className="col-span-5"><strong>製造單號：</strong>{data.manufacturingOrderNumber || 'N/A'}</div>
-
-            <div className="col-span-7">
-                <span className="mr-8"><strong>接洽人：</strong>{data.contactPerson || 'N/A'}</span>
-                <span><strong>連絡電話：</strong>{data.contactPhone || 'N/A'}</span>
-            </div>
-            <div className="col-span-5"><strong>業務會報單號：</strong>{data.businessReportNumber || 'N/A'}</div>
-        </div>
-      </>
-
-      <div className="flex-grow text-xl text-gray-800 space-y-5 pt-5">
-        {showTasksAndStatus && (
-          <>
-            <div><strong className="text-xl block mb-2">處理事項：</strong><div className="p-3 border border-slate-300 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[10rem]">{data.tasks || '\u00A0'}</div></div>
-            <div><strong className="text-xl block mb-2">處理情形：</strong><div className="p-3 border border-slate-300 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[10rem]">{data.status || '\u00A0'}</div></div>
-          </>
-        )}
-        {showProductsAndRemarks && (
-          <div>
-            <strong className="text-xl block mb-2">產品項目：</strong>
-            <div className="border border-slate-300 rounded-md overflow-hidden">
-              <table className="min-w-full divide-y divide-slate-300 text-lg">
-                <thead className="bg-slate-100"><tr><th scope="col" className="px-3 py-2 text-left font-medium text-slate-700">產品品名</th><th scope="col" className="px-3 py-2 text-left font-medium text-slate-700">数量</th><th scope="col" className="px-3 py-2 text-left font-medium text-slate-700">序號</th></tr></thead>
-                <tbody className="divide-y divide-slate-300 bg-white">
-                  {hasProducts ? (
-                    data.products.filter(p => p.name.trim() !== '').map((product, index) => (
-                      <tr key={index}>
-                        <td className="px-3 py-2 whitespace-nowrap">{product.name}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">{product.quantity}</td>
-                        <td className="px-3 py-2 align-top">
-                          {(() => {
-                            const serials = (product.serialNumbers || []).map(s => s.trim()).filter(s => s);
-                            if (serials.length === 0) return 'N/A';
-                            return (<div className="flex flex-col">{serials.map((s, idx) => (<React.Fragment key={idx}>{idx > 0 && <div className="border-t border-slate-200 my-1"></div>}<span>{`#${idx + 1}: ${s}`}</span></React.Fragment>))}</div>);
-                          })()}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (<tr><td className="px-3 py-2 whitespace-nowrap">&nbsp;</td><td className="px-3 py-2 whitespace-nowrap">&nbsp;</td><td className="px-3 py-2 align-top">&nbsp;</td></tr>)}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        {showProductsAndRemarks && (
-          <div><strong className="text-xl block mb-2">備註：</strong><div className="p-3 border border-slate-300 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[3rem]">{data.remarks || '\u00A0'}</div></div>
-        )}
-        {mode === 'screen' && data.photos.length > 0 && (
-          <div><strong className="text-xl block mb-2">現場照片：</strong><div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">{data.photos.map((photo, index) => (<img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />))}</div></div>
-        )}
-      </div>
-
-       <div className="pt-12 mt-auto">
-          <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-xl`}>
-              {showManagerApproval && (<div className="text-center"><strong>經理核可：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center"></div></div>)}
-              <div className="text-center"><strong>服務人員：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">{data.technicianSignature ? (<img src={data.technicianSignature} alt="服務人員" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
-              <div className="text-center"><strong>客戶簽認：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">{data.signature ? (<img src={data.signature} alt="客戶簽名" className="h-20 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
-          </div>
-          {isPdf && <PdfFooter currentPage={currentPage} totalPages={totalPages} />}
-       </div>
-    </div>
-  );
-};
-
-/**
  * 專門用於產生 PDF 的照片附錄頁面元件。
  */
 const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount, pdfTotalPages }: { photos: string[], pageNumber:number, totalPhotoPages: number, data: WorkOrderData, textPageCount: number, pdfTotalPages: number }) => {
@@ -600,7 +488,7 @@ const PdfPhotoPage = ({ photos, pageNumber, totalPhotoPages, data, textPageCount
     return (
         <div id={`pdf-photo-page-${pageNumber - 1}`} className="p-8 bg-white" style={{ width: '210mm', height: '297mm', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
             <div className="text-center mb-4 flex-shrink-0"><h3 className="text-2xl font-semibold text-slate-700">{pageTitle}</h3></div>
-            <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow">
+            <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-grow min-h-0">
                 {photos.map((photo, index) => (<div key={index} className="flex items-center justify-center border border-slate-300 p-1 bg-slate-50 rounded-md overflow-hidden"><img src={photo} alt={`photo-${index}`} className="max-w-full max-h-full object-contain" /></div>))}
                 {/* 使用空白 div 填充剩餘的格子，確保佈局穩定 */}
                 {Array(4 - photos.length).fill(0).map((_, i) => <div key={`placeholder-${i}`}></div>)}
@@ -617,12 +505,14 @@ interface ReportViewProps {
     onReset: () => void;
     onEdit: () => void;
     isProcessing: boolean;
+    selectedTemplate: 'modern' | 'legacy';
+    onTemplateChange: (template: 'modern' | 'legacy') => void;
 }
 
 /**
  * 報告預覽畫面元件，包含螢幕預覽和 PDF 操作按鈕。
  */
-const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDownloadPdf, onReset, onEdit, isProcessing }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDownloadPdf, onReset, onEdit, isProcessing, selectedTemplate, onTemplateChange }) => {
     const photoChunks = chunk(data.photos, 4);
     
     // 預先計算 PDF 所需的頁數
@@ -631,33 +521,65 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
     const productsLines = data.products.filter(p => p.name.trim() !== '').length;
     const remarksLines = calculateVisualLines(data.remarks);
     const totalContentLines = tasksLines + statusLines + productsLines + remarksLines;
-    const textPages = totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? 2 : 1;
+    
+    // 為「智慧排版」計算頁數
+    const modernTextPages = totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? 2 : 1;
     const photoPages = photoChunks.length;
-    const totalPages = textPages + photoPages;
+    const modernTotalPages = modernTextPages + photoPages;
+
+    // 為「舊式表格」計算頁數
+    const legacyTextPages = 1;
+    const legacyTotalPages = legacyTextPages + photoPages;
+    
+    const totalPages = selectedTemplate === 'modern' ? modernTotalPages : legacyTotalPages;
+    const textPageCount = selectedTemplate === 'modern' ? modernTextPages : legacyTextPages;
 
     return (
     <>
       {/* 這些是隱藏的容器，專門用於 html2canvas 渲染成 PDF */}
       <div className="pdf-render-container">
+        {/* Modern Layouts for PDF */}
         {totalContentLines > TOTAL_CONTENT_LINES_LIMIT ? (
-            <><ReportLayout data={data} mode="pdf-page1" currentPage={1} totalPages={totalPages} /><ReportLayout data={data} mode="pdf-page2" currentPage={2} totalPages={totalPages} /></>
+            <><ReportLayout data={data} mode="pdf-page1" currentPage={1} totalPages={modernTotalPages} /><ReportLayout data={data} mode="pdf-page2" currentPage={2} totalPages={modernTotalPages} /></>
         ) : (
-            <ReportLayout data={data} mode="pdf-full" currentPage={1} totalPages={totalPages} />
+            <ReportLayout data={data} mode="pdf-full" currentPage={1} totalPages={modernTotalPages} />
         )}
-        {photoChunks.map((photoChunk, index) => (<PdfPhotoPage key={index} photos={photoChunk} pageNumber={index + 1} totalPhotoPages={photoChunks.length} data={data} textPageCount={textPages} pdfTotalPages={totalPages} />))}
+
+        {/* Legacy Layout for PDF */}
+        <LegacyReportLayout data={data} currentPage={1} totalPages={legacyTotalPages} />
+        
+        {/* Photo Pages for BOTH Modern and Legacy PDFs */}
+        {photoChunks.map((photoChunk, index) => (
+            <PdfPhotoPage 
+                key={index} 
+                photos={photoChunk} 
+                pageNumber={index + 1} 
+                totalPhotoPages={photoChunks.length} 
+                data={data} 
+                textPageCount={textPageCount}
+                pdfTotalPages={totalPages} 
+            />
+        ))}
       </div>
       
       {/* 這是顯示在螢幕上的預覽 */}
       <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto">
-        <div className="w-full max-w-[800px] mx-auto origin-top">
-            <div className="shadow-lg"><ReportLayout data={data} mode="screen" /></div>
+        <div className="w-full max-w-[800px] mx-auto origin-top flex justify-center">
+             {selectedTemplate === 'modern' 
+                ? <div className="shadow-lg w-full"><ReportLayout data={data} mode="screen" /></div>
+                : <div className="shadow-lg transform scale-[0.9] origin-top"><LegacyReportLayout data={data} /></div>
+            }
         </div>
       </div>
 
       {/* 操作按鈕區域 */}
       <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-4 justify-between items-center">
             <button onClick={onReset} className="px-6 py-3 text-xl bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center p-1 bg-white rounded-md border border-slate-300 shadow-sm">
+                <button onClick={() => onTemplateChange('modern')} disabled={isProcessing} className={`transition-all duration-200 px-3 py-1.5 text-lg rounded ${selectedTemplate === 'modern' ? 'bg-indigo-600 text-white shadow' : 'hover:bg-slate-100 text-slate-700'}`}>智慧排版</button>
+                <button onClick={() => onTemplateChange('legacy')} disabled={isProcessing} className={`transition-all duration-200 px-3 py-1.5 text-lg rounded ${selectedTemplate === 'legacy' ? 'bg-indigo-600 text-white shadow' : 'hover:bg-slate-100 text-slate-700'}`}>舊式表格</button>
+              </div>
               <button onClick={onOpenUploadModal} disabled={isProcessing} className="px-6 py-3 text-xl font-semibold bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50">上傳PDF</button>
               <button onClick={onDownloadPdf} disabled={isProcessing} className="px-6 py-3 text-xl font-semibold bg-white border border-slate-400 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
               <button onClick={onEdit} disabled={isProcessing} className="px-6 py-3 text-xl font-semibold bg-white border border-slate-400 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
@@ -780,6 +702,8 @@ export const App: React.FC = () => {
   const [dropboxStatus, setDropboxStatus] = useState<'unchecked' | 'checking' | 'ok' | 'error'>('unchecked');
   /** 用於儲存最新的、有效的 Dropbox Refresh Token */
   const [liveRefreshToken, setLiveRefreshToken] = useState<string | null>(DROPBOX_REFRESH_TOKEN || null);
+  /** 使用者選擇的報告模板 */
+  const [selectedTemplate, setSelectedTemplate] = useState<'modern' | 'legacy'>('modern');
 
 
   // --- 組態檢查 ---
@@ -1258,53 +1182,73 @@ export const App: React.FC = () => {
   /**
    * 產生 PDF 檔案的 Blob 物件。
    */
-  const generatePdfBlob = useCallback(async (): Promise<Blob | null> => {
+  const generatePdfBlob = useCallback(async (template: 'modern' | 'legacy'): Promise<Blob | null> => {
     try {
       const { jsPDF: JSPDF } = (window as any).jspdf;
       const pdf = new JSPDF('p', 'mm', 'a4');
       const options = { scale: 2, useCORS: true, backgroundColor: '#ffffff' };
-      const totalContentLines = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status) + formData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(formData.remarks);
+      const photoChunks = chunk(formData.photos, 4);
 
-      if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
-        const [p1, p2] = await Promise.all([html2canvas(document.getElementById('pdf-pdf-page1')!, options), html2canvas(document.getElementById('pdf-pdf-page2')!, options)]);
-        pdf.addImage(p1.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297); pdf.addPage();
-        pdf.addImage(p2.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
-      } else {
-        const canvas = await html2canvas(document.getElementById('pdf-pdf-full')!, options);
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, Math.min(297, (canvas.height * 210) / canvas.width));
+      if (template === 'legacy') {
+        const legacyEl = document.getElementById('pdf-legacy-report');
+        if (!legacyEl) {
+          showAlert("PDF 產生失敗", "找不到舊式表格的渲染元素。");
+          return null;
+        }
+        const canvas = await html2canvas(legacyEl, options);
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+      } else { // Modern layout logic
+        const totalContentLines = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status) + formData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(formData.remarks);
+        if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
+          const [p1, p2] = await Promise.all([html2canvas(document.getElementById('pdf-pdf-page1')!, options), html2canvas(document.getElementById('pdf-pdf-page2')!, options)]);
+          pdf.addImage(p1.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+          pdf.addPage();
+          pdf.addImage(p2.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+        } else {
+          const canvas = await html2canvas(document.getElementById('pdf-pdf-full')!, options);
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, Math.min(297, (canvas.height * 210) / canvas.width));
+        }
       }
       
-      for (let i = 0; i < chunk(formData.photos, 4).length; i++) {
-          const photoPageEl = document.getElementById(`pdf-photo-page-${i}`);
-          if (photoPageEl) {
-              pdf.addPage();
-              const canvas = await html2canvas(photoPageEl, options);
-              pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
-          }
+      // Add photo pages for BOTH templates
+      for (let i = 0; i < photoChunks.length; i++) {
+        const photoPageEl = document.getElementById(`pdf-photo-page-${i}`);
+        if (photoPageEl) {
+          pdf.addPage();
+          const canvas = await html2canvas(photoPageEl, options);
+          pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+        }
       }
+      
       return pdf.output('blob');
-    } catch (error) { 
-        console.error("PDF blob generation failed:", error); 
-        showAlert("PDF 產生失敗", "無法產生PDF，請檢查主控台錯誤。"); 
-        return null; 
+    } catch (error) {
+      console.error("PDF blob generation failed:", error);
+      showAlert("PDF 產生失敗", "無法產生PDF，請檢查主控台錯誤。");
+      return null;
     }
   }, [formData]);
 
   /**
    * 處理下載 PDF 到本機。
    */
-  const handleDownloadPdf = useCallback(async () => {
-    if (isProcessing) return; setIsProcessing(true);
+    const handleDownloadPdf = useCallback(async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
     try {
-        const blob = await generatePdfBlob();
-        if (!blob) return;
-        const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob); link.download = fileName;
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-    } finally { setIsProcessing(false); }
-  }, [isProcessing, formData, generatePdfBlob]);
+      const blob = await generatePdfBlob(selectedTemplate);
+      if (!blob) return;
+      const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [isProcessing, formData, generatePdfBlob, selectedTemplate]);
 
   /**
    * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
@@ -1389,7 +1333,7 @@ export const App: React.FC = () => {
 
     try {
         const needsPdf = uploadToNas || sendByEmail;
-        const pdfBlob = needsPdf ? await generatePdfBlob() : null;
+        const pdfBlob = needsPdf ? await generatePdfBlob(selectedTemplate) : null;
         if (needsPdf && !pdfBlob) {
             throw new Error('PDF 產生失敗，操作已取消。');
         }
@@ -1451,7 +1395,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend]);
+  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate]);
 
   /**
    * 打開上傳選項的彈出視窗。
@@ -1536,7 +1480,16 @@ export const App: React.FC = () => {
            <span className="absolute top-4 right-6 text-sm font-mono text-slate-400 select-none" aria-label={`應用程式版本 ${APP_VERSION}`}>{APP_VERSION}</span>
            
            {isSubmitted ? (
-             <ReportView data={formData} onOpenUploadModal={handleOpenUploadModal} onDownloadPdf={handleDownloadPdf} onReset={handleReset} onEdit={handleEdit} isProcessing={isProcessing} />
+             <ReportView 
+                data={formData} 
+                onOpenUploadModal={handleOpenUploadModal} 
+                onDownloadPdf={handleDownloadPdf} 
+                onReset={handleReset} 
+                onEdit={handleEdit} 
+                isProcessing={isProcessing}
+                selectedTemplate={selectedTemplate}
+                onTemplateChange={setSelectedTemplate}
+             />
             ) : (
             <>
               {!isDropboxConfigured && <DropboxApiKeyErrorDisplay />}
