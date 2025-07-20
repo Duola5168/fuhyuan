@@ -637,7 +637,8 @@ const DropboxApiKeyErrorDisplay = () => {
            <p className="mt-3">詳細的權杖取得方式，請參考專案中的 <code>README.md</code> 文件。</p>
         </div>
     </div>
-)};
+    );
+};
 
 /**
  * 當 Brevo Email API 金鑰未設定時顯示的錯誤提示元件。
