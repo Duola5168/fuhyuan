@@ -1,4 +1,5 @@
 
+
 /**
  * @file App.tsx
  * @description 這是工作服務單應用程式的主元件檔案。
@@ -474,7 +475,8 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
             </div>
         </div>
     </form>
-)};
+    );
+};
 
 // --- 報告相關元件 ---
 
