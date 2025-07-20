@@ -31,6 +31,8 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // 新增一個 state 來追蹤裝置是否處於直向模式 (螢幕高度大於寬度)
+  const [isPortrait, setIsPortrait] = useState(false);
 
   const getCanvasContext = (): CanvasRenderingContext2D | null => {
       const canvas = canvasRef.current;
@@ -43,17 +45,6 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
     if (!canvas || !context) return;
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 在全螢幕模式下繪製浮水印以提示簽名方向
-    if (isFullScreen) {
-        context.save();
-        context.font = "bold 48px sans-serif";
-        context.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText("簽名方向→", canvas.width / 2, canvas.height / 2);
-        context.restore();
-    }
     
     if (url) {
         const image = new Image();
@@ -68,12 +59,15 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
         };
         image.src = url;
     }
-  }, [isFullScreen]); // 將 isFullScreen 加入依賴項
+  }, []); // 浮水印已改用 CSS 實現，不再需要 isFullScreen 依賴
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = wrapperRef.current;
     if (!canvas || !container) return;
+
+    // 每次調整大小時，都更新目前的螢幕方向狀態
+    setIsPortrait(window.innerHeight > window.innerWidth);
 
     if (isFullScreen) {
         const padding = 32; // 16px on each side
@@ -243,6 +237,19 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
       )}
 
       <div className={`signature-canvas-container ${canvasContainerClasses}`} style={fullScreenCanvasStyle}>
+        {/* 將浮水印改為使用 HTML 元素和 CSS 實現 */}
+        {/* 這樣它就只是一個視覺提示，不會被畫入最終的簽名圖片中 */}
+        {isFullScreen && (
+            <div className="absolute inset-0 flex items-center justify-center text-black/10 pointer-events-none" aria-hidden="true">
+                <span 
+                    className="text-5xl font-bold select-none transition-transform duration-300 ease-in-out"
+                    // 當裝置處於直向模式時，將浮水印旋轉 90 度，以提示使用者橫放手機
+                    style={{ transform: isPortrait ? 'rotate(90deg)' : 'none' }}
+                >
+                    簽名方向→
+                </span>
+            </div>
+        )}
         <canvas
             ref={canvasRef}
             onMouseDown={startDrawing}
@@ -252,7 +259,8 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
             onTouchStart={startDrawing}
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
-            className="w-full h-full"
+            // 加上 relative 和 z-10 確保畫布在浮水印之上
+            className="w-full h-full relative z-10"
         />
         {!signatureDataUrl && !isFullScreen && (
             <div className="absolute inset-0 flex items-center justify-center text-slate-500 pointer-events-none">
