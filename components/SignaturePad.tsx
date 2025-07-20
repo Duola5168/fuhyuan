@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface SignaturePadProps {
@@ -225,10 +224,6 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
       </div>
     </div>
   );
-};
-
-export default SignaturePad;
-
 };
 
 export default SignaturePad;
