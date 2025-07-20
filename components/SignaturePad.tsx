@@ -187,7 +187,10 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
           // 移動到新的中心點並旋轉畫布。
           tempCtx.save();
           tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
-          tempCtx.rotate(90 * Math.PI / 180); // 順時針旋轉 90 度。
+          // 修正：根據使用者回饋，簽名被旋轉了180度（方向顛倒）。
+          // 這通常發生在使用者將手機頂部朝右橫放簽名時。
+          // 將順時針(+90度)旋轉改為逆時針(-90度)旋轉以校正方向。
+          tempCtx.rotate(-90 * Math.PI / 180); // 逆時針旋轉 90 度。
           // 將原始 canvas 繪製到旋轉後的畫布上，注意座標要調整。
           tempCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
           tempCtx.restore();
