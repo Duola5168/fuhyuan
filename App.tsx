@@ -1,5 +1,3 @@
-
-
 /**
  * @file App.tsx
  * @description 這是工作服務單應用程式的主元件檔案。
@@ -23,8 +21,8 @@ declare const google: any;
 
 // --- 版本號統一來源 ---
 // 從 Vite 環境變數讀取版本號，此變數在 vite.config.ts 中被注入
-const rawVersion = process.env.APP_VERSION || '1.7.0'; 
-// 將 '1.7.0' 格式化為 'V1.7' 以顯示在 UI 上
+const rawVersion = process.env.APP_VERSION || '1.8.0'; 
+// 將 '1.8.0' 格式化為 'V1.8' 以顯示在 UI 上
 const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 // --- API 設定 (從環境變數讀取，增強安全性) ---
@@ -79,6 +77,11 @@ const PRODUCTS_REMARKS_LIMIT = 16;
 const NAMED_DRAFTS_STORAGE_KEY = 'workOrderNamedDrafts';
 /** 允許儲存的本機暫存檔數量上限 */
 const MAX_DRAFTS = 3;
+/** 舊式表格中，文字區域的建議行數上限 */
+const LEGACY_TEXT_AREA_LINE_LIMIT = 11;
+/** 舊式表格中，產品區域的建議行數上限 */
+const LEGACY_PRODUCT_AREA_LINE_LIMIT = 4;
+
 
 /**
  * 取得目前日期和時間，並格式化為 YYYY-MM-DDTHH:mm 格式。
@@ -118,6 +121,8 @@ const initialFormData: WorkOrderData = {
   photos: [],
   signature: null,
   technicianSignature: null,
+  serviceRating: '',
+  serviceConclusion: '',
 };
 
 // --- 工具函式 ---
@@ -178,7 +183,7 @@ const migrateWorkOrderData = (data: any): WorkOrderData => {
         return product;
     });
     // 確保所有字串類型欄位都是字串
-    const stringKeys: (keyof WorkOrderData)[] = ['dateTime', 'serviceUnit', 'contactPerson', 'contactPhone', 'manufacturingOrderNumber', 'businessReportNumber', 'tasks', 'status', 'remarks'];
+    const stringKeys: (keyof WorkOrderData)[] = ['dateTime', 'serviceUnit', 'contactPerson', 'contactPhone', 'manufacturingOrderNumber', 'businessReportNumber', 'tasks', 'status', 'remarks', 'serviceRating', 'serviceConclusion'];
     stringKeys.forEach(key => { if (typeof sanitizedData[key] !== 'string') sanitizedData[key] = ''; });
     // 確保照片、簽名等欄位型別正確
     sanitizedData.photos = Array.isArray(sanitizedData.photos) ? sanitizedData.photos : [];
@@ -207,15 +212,16 @@ interface FormFieldProps {
   label: string;
   id: keyof WorkOrderData | string;
   value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  type?: 'text' | 'textarea' | 'datetime-local' | 'tel';
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  type?: 'text' | 'textarea' | 'datetime-local' | 'tel' | 'select';
   required?: boolean;
   rows?: number;
   autoSize?: boolean;
   cornerHint?: string;
+  children?: React.ReactNode;
 }
 
-const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type = 'text', required = false, rows = 3, autoSize = false, cornerHint, }) => {
+const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type = 'text', required = false, rows = 3, autoSize = false, cornerHint, children }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // 實現 textarea 高度自動增長
   useEffect(() => {
@@ -225,6 +231,8 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
       textarea.style.height = `${textarea.scrollHeight}px`; 
     }
   }, [autoSize, value]);
+
+  const commonClasses = "appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg";
 
   return (
     <div>
@@ -237,9 +245,13 @@ const FormField: React.FC<FormFieldProps> = ({ label, id, value, onChange, type 
       </div>
       <div>
         {type === 'textarea' ? (
-          <textarea ref={textareaRef} id={id} name={id} rows={autoSize ? 1 : rows} value={value} onChange={onChange} required={required} className="appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg" style={autoSize ? { overflowY: 'hidden', resize: 'none' } : {}} />
+          <textarea ref={textareaRef} id={id} name={id} rows={autoSize ? 1 : rows} value={value} onChange={onChange} required={required} className={commonClasses} style={autoSize ? { overflowY: 'hidden', resize: 'none' } : {}} />
+        ) : type === 'select' ? (
+          <select id={id} name={id} value={value} onChange={onChange} required={required} className={`${commonClasses} pr-8`}>
+            {children}
+          </select>
         ) : (
-          <input id={id} name={id} type={type} value={value} onChange={onChange} required={required} className="appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg" />
+          <input id={id} name={id} type={type} value={value} onChange={onChange} required={required} className={commonClasses} />
         )}
       </div>
     </div>
@@ -322,7 +334,7 @@ const CustomModal: React.FC<ModalState> = ({ isOpen, title, content, onConfirm, 
  */
 interface WorkOrderFormProps {
     formData: WorkOrderData;
-    onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
     onProductChange: (index: number, field: 'name' | 'quantity', value: string | number) => void;
     onProductSerialNumberChange: (productIndex: number, serialIndex: number, value: string) => void;
     onAddProduct: () => void;
@@ -340,17 +352,24 @@ interface WorkOrderFormProps {
     onImportFromDrive: () => void;
     onExportToDrive: () => void;
     namedDrafts: { [name: string]: WorkOrderData };
+    technicianInputMode: 'signature' | 'select';
+    onTechnicianInputModeChange: (mode: 'signature' | 'select') => void;
+    onSelectTechnician: () => void;
 }
 
 const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
     formData, onInputChange, onProductChange, onProductSerialNumberChange, onAddProduct, onRemoveProduct, onPhotosChange,
     onTechnicianSignatureSave, onTechnicianSignatureClear, onCustomerSignatureSave, onCustomerSignatureClear,
-    onSubmit, onSaveAsDraft, onLoadDraft, onDeleteDraft, onClearData, onImportFromDrive, onExportToDrive, namedDrafts
+    onSubmit, onSaveAsDraft, onLoadDraft, onDeleteDraft, onClearData, onImportFromDrive, onExportToDrive, namedDrafts,
+    technicianInputMode, onTechnicianInputModeChange, onSelectTechnician
 }) => {
     // 動態計算行數以提供使用者提示
     const tasksStatusTotal = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status);
     const productsRemarksTotal = formData.products.reduce((acc, product) => acc + product.quantity, 0) + calculateVisualLines(formData.remarks);
     const draftNames = Object.keys(namedDrafts);
+
+    const serviceRatingOptions = ["", "1. 劣", "2. 尚可", "3. 好", "4. 優良"];
+    const serviceConclusionOptions = ["", "1. 圓滿完成", "2. 剩餘部份自行處理", "3. 另準備材料", "4. 再派員服務", "5. 提出檢修報價"];
 
     return (
      <form onSubmit={onSubmit} className="p-6 sm:p-8 space-y-8">
@@ -422,12 +441,55 @@ const WorkOrderForm: React.FC<WorkOrderFormProps> = ({
                 <ImageUploader photos={formData.photos} onPhotosChange={onPhotosChange} />
             </div>
             <div>
-                <label className="block text-lg font-medium text-slate-700 mb-1">服務人員</label>
-                <SignaturePad signatureDataUrl={formData.technicianSignature} onSave={onTechnicianSignatureSave} onClear={onTechnicianSignatureClear} />
+                <div className="flex justify-between items-center mb-1">
+                    <label className="block text-lg font-medium text-slate-700">服務人員</label>
+                    <div className="flex items-center space-x-2">
+                        <span className={`text-lg transition-colors ${technicianInputMode === 'signature' ? 'text-indigo-600 font-semibold' : 'text-slate-500'}`}>簽名</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" checked={technicianInputMode === 'select'} onChange={(e) => {
+                                onTechnicianInputModeChange(e.target.checked ? 'select' : 'signature');
+                                onTechnicianSignatureClear();
+                            }} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                        <span className={`text-lg transition-colors ${technicianInputMode === 'select' ? 'text-indigo-600 font-semibold' : 'text-slate-500'}`}>選單</span>
+                    </div>
+                </div>
+                {technicianInputMode === 'signature' ? (
+                    <SignaturePad 
+                        signatureDataUrl={typeof formData.technicianSignature === 'string' && formData.technicianSignature.startsWith('data:image') ? formData.technicianSignature : null} 
+                        onSave={onTechnicianSignatureSave} 
+                        onClear={onTechnicianSignatureClear} 
+                    />
+                ) : (
+                    <div className="mt-2 p-4 border-2 border-dashed border-slate-500 rounded-lg bg-slate-50 min-h-[212px] flex items-center justify-center text-center">
+                        {formData.technicianSignature && typeof formData.technicianSignature === 'string' && !formData.technicianSignature.startsWith('data:image') ? (
+                            <div>
+                                <p className="text-5xl" style={{fontFamily: '"BiauKai", "KaiTi", "標楷體", serif'}}>{formData.technicianSignature}</p>
+                                <button type="button" onClick={onTechnicianSignatureClear} className="mt-4 px-4 py-2 text-lg font-medium rounded-md shadow-sm text-red-600 bg-white border border-red-500 hover:bg-red-50">
+                                    清除重選
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={onSelectTechnician} className="px-6 py-3 text-xl font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700">
+                                從選單選擇服務人員
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
             <div>
                 <label className="block text-lg font-medium text-slate-700 mb-1">客戶簽認</label>
                 <SignaturePad signatureDataUrl={formData.signature} onSave={onCustomerSignatureSave} onClear={onCustomerSignatureClear} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <FormField label="服務總評" id="serviceRating" type="select" value={formData.serviceRating || ''} onChange={onInputChange}>
+                    {serviceRatingOptions.map((opt, i) => <option key={i} value={opt} disabled={i===0}>{opt || '--- 請選擇 ---'}</option>)}
+                </FormField>
+                <FormField label="服務結案" id="serviceConclusion" type="select" value={formData.serviceConclusion || ''} onChange={onInputChange}>
+                    {serviceConclusionOptions.map((opt, i) => <option key={i} value={opt} disabled={i===0}>{opt || '--- 請選擇 ---'}</option>)}
+                </FormField>
             </div>
         </div>
 
@@ -509,12 +571,14 @@ interface ReportViewProps {
     isProcessing: boolean;
     selectedTemplate: 'modern' | 'legacy';
     onTemplateChange: (template: 'modern' | 'legacy') => void;
+    legacyLayoutOffsets: { x: number; y: number; };
+    onLegacyOffsetChange: (axis: 'x' | 'y', value: number) => void;
 }
 
 /**
  * 報告預覽畫面元件，包含螢幕預覽和 PDF 操作按鈕。
  */
-const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDownloadPdf, onReset, onEdit, isProcessing, selectedTemplate, onTemplateChange }) => {
+const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDownloadPdf, onReset, onEdit, isProcessing, selectedTemplate, onTemplateChange, legacyLayoutOffsets, onLegacyOffsetChange }) => {
     const photoChunks = chunk(data.photos, 4);
     
     // 預先計算 PDF 所需的頁數
@@ -536,6 +600,13 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
     const totalPages = selectedTemplate === 'modern' ? modernTotalPages : legacyTotalPages;
     const textPageCount = selectedTemplate === 'modern' ? modernTextPages : legacyTextPages;
 
+    // 為「舊式表格」的 PDF 版本建立專用的位移量
+    // 根據使用者要求，在產生 PDF 時，將內容額外向上移動 9px (Y 軸 +9)
+    const pdfLegacyOffsets = {
+        x: legacyLayoutOffsets.x,
+        y: legacyLayoutOffsets.y + 9,
+    };
+
     return (
     <>
       {/* 這些是隱藏的容器，專門用於 html2canvas 渲染成 PDF */}
@@ -548,7 +619,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
         )}
 
         {/* Legacy Layout for PDF */}
-        <LegacyReportLayout data={data} currentPage={1} totalPages={legacyTotalPages} />
+        <LegacyReportLayout data={data} currentPage={1} totalPages={legacyTotalPages} offsets={pdfLegacyOffsets} />
         
         {/* Photo Pages for BOTH Modern and Legacy PDFs */}
         {photoChunks.map((photoChunk, index) => (
@@ -569,13 +640,14 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
         <div className="w-full max-w-[800px] mx-auto origin-top flex justify-center">
              {selectedTemplate === 'modern' 
                 ? <div className="shadow-lg w-full"><ReportLayout data={data} mode="screen" /></div>
-                : <div className="shadow-lg transform scale-[0.9] origin-top"><LegacyReportLayout data={data} /></div>
+                : <div className="shadow-lg transform scale-[0.9] origin-top"><LegacyReportLayout data={data} offsets={legacyLayoutOffsets} /></div>
             }
         </div>
       </div>
 
       {/* 操作按鈕區域 */}
-      <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap gap-4 justify-between items-center">
+      <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex flex-col gap-4">
+        <div className="flex flex-wrap gap-4 justify-between items-center">
             <button onClick={onReset} className="px-6 py-3 text-xl bg-red-600 text-white font-semibold rounded-md shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">建立新服務單</button>
             <div className="flex flex-wrap gap-4 items-center">
               <div className="flex items-center p-1 bg-white rounded-md border border-slate-300 shadow-sm">
@@ -586,6 +658,25 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
               <button onClick={onDownloadPdf} disabled={isProcessing} className="px-6 py-3 text-xl font-semibold bg-white border border-slate-400 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 disabled:opacity-50">下載PDF</button>
               <button onClick={onEdit} disabled={isProcessing} className="px-6 py-3 text-xl font-semibold bg-white border border-slate-400 text-slate-700 rounded-md shadow-sm hover:bg-slate-50">修改內容</button>
             </div>
+        </div>
+         {selectedTemplate === 'legacy' && (
+            <div className="p-3 bg-slate-200/70 rounded-md border border-slate-300 w-full flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-lg">
+                <h4 className="font-semibold text-slate-800">版面位置微調:</h4>
+                <div className="flex items-center gap-2">
+                    <label htmlFor="offsetX" className="font-medium">左右 (X):</label>
+                    <input type="range" id="offsetX" min="-20" max="20" step="1" value={legacyLayoutOffsets.x} onChange={(e) => onLegacyOffsetChange('x', parseInt(e.target.value, 10))} className="w-32 sm:w-40" />
+                    <span className="font-mono w-12 text-center tabular-nums">{legacyLayoutOffsets.x}px</span>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <label htmlFor="offsetY" className="font-medium">上下 (Y):</label>
+                    <input type="range" id="offsetY" min="-20" max="20" step="1" value={legacyLayoutOffsets.y} onChange={(e) => onLegacyOffsetChange('y', parseInt(e.target.value, 10))} className="w-32 sm:w-40" />
+                    <span className="font-mono w-12 text-center tabular-nums">{legacyLayoutOffsets.y}px</span>
+                </div>
+                <button onClick={() => { onLegacyOffsetChange('x', 0); onLegacyOffsetChange('y', 0); }} className="px-3 py-1 text-base bg-white border border-slate-400 rounded-md shadow-sm hover:bg-slate-100">
+                    重設
+                </button>
+            </div>
+        )}
       </div>
     </>
     );
@@ -707,6 +798,10 @@ export const App: React.FC = () => {
   const [liveRefreshToken, setLiveRefreshToken] = useState<string | null>(DROPBOX_REFRESH_TOKEN || null);
   /** 使用者選擇的報告模板 */
   const [selectedTemplate, setSelectedTemplate] = useState<'modern' | 'legacy'>('modern');
+  /** 舊式表格的 XY 軸偏移量 */
+  const [legacyLayoutOffsets, setLegacyLayoutOffsets] = useState({ x: 0, y: 0 });
+  /** 服務人員簽名輸入模式 */
+  const [technicianInputMode, setTechnicianInputMode] = useState<'signature' | 'select'>('signature');
 
 
   // --- 組態檢查 ---
@@ -880,7 +975,7 @@ export const App: React.FC = () => {
   /**
    * 處理表單欄位的通用輸入變更。
    */
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => {
       const tempState = {...prev, [name]: value};
@@ -968,6 +1063,64 @@ export const App: React.FC = () => {
     }, "確認清除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
   }, [clearCurrentForm]);
 
+  const handleLegacyOffsetChange = (axis: 'x' | 'y', value: number) => {
+    setLegacyLayoutOffsets(prev => ({ ...prev, [axis]: value }));
+  };
+
+  /**
+   * 處理報告模板的切換，並在切換至舊式表格時檢查內容是否超限。
+   */
+  const handleTemplateChange = (template: 'modern' | 'legacy') => {
+    if (template === 'legacy') {
+        const errorMessages = [];
+
+        // 檢查文字內容是否超過 11 行
+        const tasksLines = calculateVisualLines(formData.tasks, 25);
+        if (tasksLines > LEGACY_TEXT_AREA_LINE_LIMIT) {
+            errorMessages.push(`「處理事項」內容超過版面限制 (約 ${LEGACY_TEXT_AREA_LINE_LIMIT} 行)。`);
+        }
+        const statusLines = calculateVisualLines(formData.status, 20);
+        if (statusLines > LEGACY_TEXT_AREA_LINE_LIMIT) {
+            errorMessages.push(`「處理情形」內容超過版面限制 (約 ${LEGACY_TEXT_AREA_LINE_LIMIT} 行)。`);
+        }
+        const remarksLines = calculateVisualLines(formData.remarks, 15);
+        if (remarksLines > LEGACY_TEXT_AREA_LINE_LIMIT) {
+            errorMessages.push(`「備註」內容超過版面限制 (約 ${LEGACY_TEXT_AREA_LINE_LIMIT} 行)。`);
+        }
+
+        // 檢查產品項目總行數是否超過 4 行
+        const productItemsText = formData.products
+          .filter(p => p.name.trim() !== '')
+          .map(p => {
+            const serials = (p.serialNumbers || []).map(s => s.trim()).filter(Boolean);
+            const serialsText = serials.length > 0 ? ` S/N: ${serials.join(', ')}` : '';
+            return `${p.name} (數量: ${p.quantity})${serialsText}`;
+          })
+          .join('\n');
+        
+        // 舊式表格的產品欄位是單欄滿版，因此使用較大的每行字元數估算
+        const totalProductLines = calculateVisualLines(productItemsText, 50);
+        
+        if (totalProductLines > LEGACY_PRODUCT_AREA_LINE_LIMIT) {
+            errorMessages.push(`「產品品名及S/N」內容超過版面限制 (約 ${LEGACY_PRODUCT_AREA_LINE_LIMIT} 行)。`);
+        }
+
+        if (errorMessages.length > 0) {
+            const fullMessage = (
+                <div>
+                    <p>內容在舊式表格中可能會被裁切：</p>
+                    <ul className="list-disc list-inside mt-2 text-left">
+                        {errorMessages.map((msg, i) => <li key={i}>{msg}</li>)}
+                    </ul>
+                    <p className="mt-4">建議您縮減內容，或使用「智慧排版」以獲得最佳顯示效果。</p>
+                </div>
+            );
+            showAlert('內容可能過長', fullMessage);
+        }
+    }
+    setSelectedTemplate(template);
+  };
+  
   /**
    * 儲存目前表單內容為一個具名暫存檔。
    */
@@ -1476,6 +1629,30 @@ export const App: React.FC = () => {
     });
   };
   
+  /**
+   * 處理從選單選擇服務人員的邏輯。
+   */
+  const handleSelectTechnician = useCallback(() => {
+    const technicians = ['1. 凃寬基', '2. 曾國榮', '3. 陳怡誠', '4. 林少宇', '5. 廖紹志'];
+    let selectedTechnician = technicians[0];
+    const content = (
+        <div>
+            <p className="mb-2">請選擇服務人員：</p>
+            <select
+                className="block w-full px-3 py-2 text-lg border border-slate-500 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                onChange={(e) => selectedTechnician = e.target.value}
+                autoFocus
+            >
+                {technicians.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+        </div>
+    );
+    showConfirm('選擇服務人員', content, () => {
+        const nameOnly = selectedTechnician.replace(/^\d+\.\s*/, '');
+        handleTechnicianSignatureSave(nameOnly);
+    }, '確認選取');
+  }, [handleTechnicianSignatureSave]);
+
   // --- 主渲染邏輯 ---
   return (
     <div className="min-h-screen bg-slate-100">
@@ -1491,7 +1668,9 @@ export const App: React.FC = () => {
                 onEdit={handleEdit} 
                 isProcessing={isProcessing}
                 selectedTemplate={selectedTemplate}
-                onTemplateChange={setSelectedTemplate}
+                onTemplateChange={handleTemplateChange}
+                legacyLayoutOffsets={legacyLayoutOffsets}
+                onLegacyOffsetChange={handleLegacyOffsetChange}
              />
             ) : (
             <>
@@ -1517,7 +1696,11 @@ export const App: React.FC = () => {
                 onClearData={handleClearData} 
                 onImportFromDrive={handleImportFromDrive} 
                 onExportToDrive={handleExportToDrive} 
-                namedDrafts={namedDrafts} />
+                namedDrafts={namedDrafts} 
+                technicianInputMode={technicianInputMode}
+                onTechnicianInputModeChange={setTechnicianInputMode}
+                onSelectTechnician={handleSelectTechnician}
+                />
             </>
             )}
         </div>
