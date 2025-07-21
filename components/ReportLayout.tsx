@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { WorkOrderData } from '../types';
 
@@ -99,6 +98,14 @@ export const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentP
         {showProductsAndRemarks && (
           <div><strong className="text-xl block mb-2">備註：</strong><div className="p-3 border border-slate-300 rounded-md bg-slate-50 whitespace-pre-wrap w-full min-h-[3rem]">{data.remarks || '\u00A0'}</div></div>
         )}
+
+        {showProductsAndRemarks && (data.serviceRating || data.serviceConclusion) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 pt-5 mt-5 border-t border-slate-200">
+                {data.serviceRating && <div><strong>服務總評：</strong>{data.serviceRating}</div>}
+                {data.serviceConclusion && <div><strong>服務結案：</strong>{data.serviceConclusion}</div>}
+            </div>
+        )}
+
         {mode === 'screen' && data.photos.length > 0 && (
           <div><strong className="text-xl block mb-2">現場照片：</strong><div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-4">{data.photos.map((photo, index) => (<img key={index} src={photo} alt={`現場照片 ${index + 1}`} className="rounded-lg shadow-md w-full h-auto object-cover aspect-square" />))}</div></div>
         )}
@@ -107,8 +114,24 @@ export const ReportLayout: React.FC<ReportLayoutProps> = ({ data, mode, currentP
        <footer className="pt-12 mt-auto flex-shrink-0">
           <div className={`grid ${showManagerApproval ? 'grid-cols-3' : 'grid-cols-2'} gap-x-8 text-xl`}>
               {showManagerApproval && (<div className="text-center"><strong>經理核可：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center"></div></div>)}
-              <div className="text-center"><strong>服務人員：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">{data.technicianSignature ? (<img src={data.technicianSignature} alt="服務人員" className="h-28 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
-              <div className="text-center"><strong>客戶簽認：</strong><div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">{data.signature ? (<img src={data.signature} alt="客戶簽名" className="h-28 w-auto" />) : <span className="text-slate-400">未簽名</span>}</div></div>
+              <div className="text-center">
+                <strong>服務人員：</strong>
+                <div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">
+                    {data.technicianSignature ? (
+                        typeof data.technicianSignature === 'string' && data.technicianSignature.startsWith('data:image') ? (
+                            <img src={data.technicianSignature} alt="服務人員簽名" className="h-28 w-auto object-contain" />
+                        ) : (
+                            <span className="text-5xl" style={{ fontFamily: '"BiauKai", "KaiTi", "標楷體", serif' }}>{data.technicianSignature}</span>
+                        )
+                    ) : <span className="text-slate-400">未簽名</span>}
+                </div>
+              </div>
+              <div className="text-center">
+                <strong>客戶簽認：</strong>
+                <div className="mt-2 p-2 border border-slate-400 rounded-lg bg-slate-50 w-full min-h-[120px] flex items-center justify-center">
+                    {data.signature ? (<img src={data.signature} alt="客戶簽名" className="h-28 w-auto" />) : <span className="text-slate-400">未簽名</span>}
+                </div>
+              </div>
           </div>
           {isPdf && <PdfFooter currentPage={currentPage} totalPages={totalPages} />}
        </footer>
