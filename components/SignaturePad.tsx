@@ -85,7 +85,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ signatureDataUrl, onSave, o
     if (context) {
         context.strokeStyle = "#000000";
         // 根據使用者回饋加粗線條，讓PDF輸出更清晰
-        context.lineWidth = isFullScreen ? 5 : 2.5;
+        context.lineWidth = isFullScreen ? 5 : 3;
         context.lineCap = 'round';
         context.lineJoin = 'round';
     }
