@@ -34,6 +34,8 @@ const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN;
 const API_KEY = process.env.GOOGLE_API_KEY;
 /** Google Cloud OAuth 2.0 用戶端 ID，用於使用者授權 */
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+/** 外出/加班紀錄表的連結 */
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 /** Google Drive API 的探索文件路徑，用於客戶端初始化 */
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 /** Google OAuth 授權範圍，此處指定為僅能存取由本應用建立的檔案 */
@@ -268,6 +270,12 @@ const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <
 const XCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
 
 // --- 統一彈出視窗系統 (Unified Modal System) ---
+interface ModalButton {
+  text: string;
+  onClick: () => void;
+  className?: string;
+}
+
 interface ModalState {
   isOpen: boolean;
   title: string;
@@ -278,6 +286,7 @@ interface ModalState {
   onClose?: () => void;
   isProcessing?: boolean;
   backgroundIcon?: React.ReactNode;
+  footerButtons?: ModalButton[];
 }
 
 const initialModalState: ModalState = {
@@ -290,19 +299,19 @@ const initialModalState: ModalState = {
  * 通用的彈出視窗元件。
  * 透過 `ModalState` 控制其顯示、內容和行為。
  */
-const CustomModal: React.FC<ModalState> = ({ isOpen, title, content, onConfirm, confirmText, confirmClass, onClose, isProcessing, backgroundIcon }) => {
+const CustomModal: React.FC<ModalState> = ({ isOpen, title, content, onConfirm, confirmText, confirmClass, onClose, isProcessing, backgroundIcon, footerButtons }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm sm:max-w-md transform transition-all overflow-hidden border border-slate-300">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg transform transition-all overflow-hidden border border-slate-300">
         {backgroundIcon && <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">{backgroundIcon}</div>}
         <div className="relative z-10">
           <div className="p-6">
             <h3 id="modal-title" className="text-xl font-semibold leading-6 text-gray-900">{title}</h3>
             <div className="mt-4 text-lg text-gray-600">{content}</div>
           </div>
-          <div className="bg-gray-50/70 backdrop-blur-sm px-6 py-4 flex flex-row-reverse gap-3 border-t border-slate-200">
+          <div className="bg-gray-50/70 backdrop-blur-sm px-6 py-4 flex flex-row-reverse flex-wrap gap-3 border-t border-slate-200">
             {onConfirm && (
               <button
                 type="button"
@@ -321,6 +330,17 @@ const CustomModal: React.FC<ModalState> = ({ isOpen, title, content, onConfirm, 
             >
               {onConfirm ? '取消' : '關閉'}
             </button>
+            {(footerButtons || []).map((button, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={button.onClick}
+                  disabled={isProcessing}
+                  className={`inline-flex justify-center px-4 py-2 text-lg font-medium rounded-md shadow-sm ${button.className || 'text-white bg-green-600 hover:bg-green-700 border border-transparent focus:ring-green-500'}`}
+                >
+                  {button.text}
+                </button>
+            ))}
           </div>
         </div>
       </div>
@@ -1387,7 +1407,7 @@ export const App: React.FC = () => {
   /**
    * 處理下載 PDF 到本機。
    */
-    const handleDownloadPdf = useCallback(async () => {
+  const handleDownloadPdf = useCallback(async () => {
     if (isProcessing) return;
     setIsProcessing(true);
     try {
@@ -1401,10 +1421,43 @@ export const App: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
+
+      const successButtons: ModalButton[] = [
+        {
+          text: '修改內容',
+          onClick: () => { closeModal(); handleEdit(); },
+          className: 'text-slate-700 bg-white border border-slate-400 hover:bg-slate-50'
+        },
+        {
+          text: '建立新服務單',
+          onClick: () => { closeModal(); handleReset(); },
+          className: 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500'
+        }
+      ];
+    
+      if (GOOGLE_REDIRECT_URI) {
+        successButtons.unshift({
+          text: '外出/加班紀錄表',
+          onClick: () => {
+            window.open(GOOGLE_REDIRECT_URI, '_blank');
+          },
+          className: 'text-white bg-sky-600 hover:bg-sky-700 focus:ring-sky-500'
+        });
+      }
+      
+      setModalState({
+          isOpen: true,
+          title: '✅ 下載成功',
+          content: `檔案 ${fileName} 已開始下載。`,
+          onClose: closeModal,
+          backgroundIcon: <CheckCircleIcon className="w-48 h-48" />,
+          footerButtons: successButtons,
+      });
+
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, formData, generatePdfBlob, selectedTemplate]);
+  }, [isProcessing, formData, generatePdfBlob, selectedTemplate, handleEdit, handleReset]);
 
   /**
    * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
@@ -1543,7 +1596,37 @@ export const App: React.FC = () => {
             }
         });
 
-        showAlert('操作完成', <div className="text-left whitespace-pre-wrap">{summary.join('\n')}</div>);
+        const successButtons: ModalButton[] = [
+          {
+            text: '修改內容',
+            onClick: () => { closeModal(); handleEdit(); },
+            className: 'text-slate-700 bg-white border border-slate-400 hover:bg-slate-50'
+          },
+          {
+            text: '建立新服務單',
+            onClick: () => { closeModal(); handleReset(); },
+            className: 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500'
+          }
+        ];
+      
+        if (GOOGLE_REDIRECT_URI) {
+          successButtons.unshift({
+            text: '外出/加班紀錄表',
+            onClick: () => {
+              window.open(GOOGLE_REDIRECT_URI, '_blank');
+            },
+            className: 'text-white bg-sky-600 hover:bg-sky-700 focus:ring-sky-500'
+          });
+        }
+
+        setModalState({
+            isOpen: true,
+            title: '🚀 操作完成',
+            content: <div className="text-left whitespace-pre-wrap">{summary.join('\n')}</div>,
+            onClose: closeModal,
+            backgroundIcon: <CheckCircleIcon className="w-48 h-48" />,
+            footerButtons: successButtons,
+        });
 
     } catch (error) {
         console.error("Upload/Share failed:", error);
@@ -1551,7 +1634,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate]);
+  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate, handleEdit, handleReset]);
 
   /**
    * 打開上傳選項的彈出視窗。
