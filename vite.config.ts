@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
         'process.env.DROPBOX_REFRESH_TOKEN': JSON.stringify(env.DROPBOX_REFRESH_TOKEN),
         'process.env.GOOGLE_API_KEY': JSON.stringify(env.GOOGLE_API_KEY),
         'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID),
+        'process.env.GOOGLE_REDIRECT_URI': JSON.stringify(env.GOOGLE_REDIRECT_URI),
         'process.env.BREVO_API_KEY': JSON.stringify(env.BREVO_API_KEY),
         'process.env.BREVO_SENDER_EMAIL': JSON.stringify(env.BREVO_SENDER_EMAIL),
         'process.env.BREVO_SENDER_NAME': JSON.stringify(env.BREVO_SENDER_NAME),
