@@ -656,13 +656,19 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
       </div>
       
       {/* 這是顯示在螢幕上的預覽 */}
-      <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto">
-        <div className="w-full max-w-[800px] mx-auto origin-top flex justify-center">
-             {selectedTemplate === 'modern' 
-                ? <div className="shadow-lg w-full"><ReportLayout data={data} mode="screen" /></div>
-                : <div className="shadow-lg transform scale-[0.9] origin-top"><LegacyReportLayout data={data} offsets={legacyLayoutOffsets} /></div>
-            }
-        </div>
+      <div className="p-4 sm:p-6 bg-slate-50/50 overflow-x-auto text-center">
+        {selectedTemplate === 'modern' 
+          ? (
+            <div className="w-full max-w-[800px] mx-auto text-left">
+              <div className="shadow-lg w-full"><ReportLayout data={data} mode="screen" /></div>
+            </div>
+            )
+          : (
+            <div className="inline-block shadow-lg transform scale-[0.9] origin-top">
+              <LegacyReportLayout data={data} offsets={legacyLayoutOffsets} />
+            </div>
+            )
+        }
       </div>
 
       {/* 操作按鈕區域 */}
@@ -1422,18 +1428,7 @@ export const App: React.FC = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
 
-      const successButtons: ModalButton[] = [
-        {
-          text: '修改內容',
-          onClick: () => { closeModal(); handleEdit(); },
-          className: 'text-slate-700 bg-white border border-slate-400 hover:bg-slate-50'
-        },
-        {
-          text: '建立新服務單',
-          onClick: () => { closeModal(); handleReset(); },
-          className: 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500'
-        }
-      ];
+      const successButtons: ModalButton[] = [];
     
       if (GOOGLE_REDIRECT_URI) {
         successButtons.unshift({
@@ -1596,18 +1591,7 @@ export const App: React.FC = () => {
             }
         });
 
-        const successButtons: ModalButton[] = [
-          {
-            text: '修改內容',
-            onClick: () => { closeModal(); handleEdit(); },
-            className: 'text-slate-700 bg-white border border-slate-400 hover:bg-slate-50'
-          },
-          {
-            text: '建立新服務單',
-            onClick: () => { closeModal(); handleReset(); },
-            className: 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500'
-          }
-        ];
+        const successButtons: ModalButton[] = [];
       
         if (GOOGLE_REDIRECT_URI) {
           successButtons.unshift({
