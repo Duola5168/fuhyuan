@@ -83,9 +83,10 @@ export const LegacyReportLayout: React.FC<LegacyReportLayoutProps> = ({ data, cu
                     </div>
                     <div className="col-span-12 border-t border-black"></div>
                     <LabelCell text="日 期" offset={offsets} className="col-span-2 border-r border-black" />
-                    <div className="col-span-3 border-r border-black p-2 text-xl">{formattedDate}</div>
+                    <div className="col-span-3 border-r border-black p-2 text-xl"><MovableText offset={offsets}>{formattedDate}</MovableText></div>
                     <LabelCell text="服務人員" offset={offsets} className="col-span-2 border-r border-black" />
                     <div className="col-span-5 p-2 text-xl flex items-center justify-center">
+                        <MovableText offset={offsets}>
                          {data.technicianSignature ? (
                             typeof data.technicianSignature === 'string' && data.technicianSignature.startsWith('data:image') ? (
                                 <img src={data.technicianSignature} alt="服務人員簽名" className="h-12 w-auto object-contain" />
@@ -93,21 +94,22 @@ export const LegacyReportLayout: React.FC<LegacyReportLayoutProps> = ({ data, cu
                                 <span className="text-2xl font-semibold">{data.technicianSignature}</span>
                             )
                         ) : '\u00A0'}
+                        </MovableText>
                     </div>
                 </div>
             
                 {/* -- Customer Section -- */}
                 <div className="grid grid-cols-12 border-x-[1.5px] border-b-[1.5px] border-black">
                     <LabelCell text="客 戶" offset={offsets} className="col-span-2 border-r border-black" />
-                    <div className="col-span-3 border-r border-black p-2 text-xl">{data.serviceUnit || '\u00A0'}</div>
+                    <div className="col-span-3 border-r border-black p-2 text-xl"><MovableText offset={offsets}>{data.serviceUnit || '\u00A0'}</MovableText></div>
                     <LabelCell text="製造單號" offset={offsets} className="col-span-2 border-r border-black" />
-                    <div className="col-span-5 p-2 text-xl whitespace-pre-wrap break-words">{data.manufacturingOrderNumber || '\u00A0'}</div>
+                    <div className="col-span-5 p-2 text-xl whitespace-pre-wrap break-words"><MovableText offset={offsets}>{data.manufacturingOrderNumber || '\u00A0'}</MovableText></div>
                     
                     <div className="col-span-12 border-t border-black grid grid-cols-12 min-h-[4.5rem]">
                         <LabelCell text={<>接洽人<br/>及電話</>} offset={offsets} className="col-span-2 border-r border-black leading-tight" />
-                        <div className="col-span-3 border-r border-black p-2 text-xl whitespace-pre-wrap break-words">{contactPersonPhone || '\u00A0'}</div>
+                        <div className="col-span-3 border-r border-black p-2 text-xl whitespace-pre-wrap break-words"><MovableText offset={offsets}>{contactPersonPhone || '\u00A0'}</MovableText></div>
                         <LabelCell text={<>業務會報<br/>單號</>} offset={offsets} className="col-span-2 border-r border-black leading-tight" />
-                        <div className="col-span-5 p-2 text-xl whitespace-pre-wrap break-words">{data.businessReportNumber || '\u00A0'}</div>
+                        <div className="col-span-5 p-2 text-xl whitespace-pre-wrap break-words"><MovableText offset={offsets}>{data.businessReportNumber || '\u00A0'}</MovableText></div>
                     </div>
                 </div>
 
@@ -146,7 +148,7 @@ export const LegacyReportLayout: React.FC<LegacyReportLayoutProps> = ({ data, cu
                     </div>
                     <div className="grid grid-cols-12 border-t border-black min-h-[6rem]">
                         <div className="col-span-5 border-r border-black p-2 text-xl flex items-center justify-center">
-                            {formattedDate}
+                            <MovableText offset={offsets}>{formattedDate}</MovableText>
                         </div>
                         <div className="col-span-4 border-r border-black p-2 flex items-center justify-center">
                             {data.signature ? <img src={data.signature} alt="客戶簽名" className="h-20 w-auto object-contain" /> : '\u00A0'}
@@ -182,13 +184,15 @@ export const LegacyReportLayout: React.FC<LegacyReportLayoutProps> = ({ data, cu
                     </div>
                     <div className="flex items-center space-x-2 pl-4">
                         <MovableText offset={offsets}><label className="font-semibold whitespace-nowrap">經辦人：</label></MovableText>
-                        {data.technicianSignature ? (
-                            typeof data.technicianSignature === 'string' && data.technicianSignature.startsWith('data:image') ? (
-                                <img src={data.technicianSignature} alt="經辦人簽名" className="h-16 w-auto object-contain ml-2" />
-                            ) : (
-                                <span className="text-3xl font-semibold ml-2">{data.technicianSignature}</span>
-                            )
-                        ) : '\u00A0'}
+                         <MovableText offset={offsets}>
+                            {data.technicianSignature ? (
+                                typeof data.technicianSignature === 'string' && data.technicianSignature.startsWith('data:image') ? (
+                                    <img src={data.technicianSignature} alt="經辦人簽名" className="h-16 w-auto object-contain ml-2" />
+                                ) : (
+                                    <span className="text-3xl font-semibold ml-2">{data.technicianSignature}</span>
+                                )
+                            ) : '\u00A0'}
+                        </MovableText>
                     </div>
                 </div>
                 <div 
