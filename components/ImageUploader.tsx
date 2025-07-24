@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 
 interface ImageUploaderProps {
@@ -32,29 +31,38 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange })
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesToProcess = Array.from(event.target.files);
-      const newPhotosDataUrls: string[] = [];
-      let filesRead = 0;
-
-      if(filesToProcess.length === 0) {
+      if (filesToProcess.length === 0) {
         event.target.value = "";
         return;
       }
 
-      filesToProcess.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if (typeof e.target?.result === 'string') {
-            newPhotosDataUrls.push(e.target.result);
-          }
-          filesRead++;
-          if (filesRead === filesToProcess.length) {
-            onPhotosChange([...photos, ...newPhotosDataUrls]);
-          }
-        };
-        reader.readAsDataURL(file);
+      const readPromises = filesToProcess.map(file => {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (typeof e.target?.result === 'string') {
+              resolve(e.target.result);
+            } else {
+              reject(new Error('Failed to read file as a string.'));
+            }
+          };
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
+        });
       });
-      // Reset file input value to allow re-selecting the same file if needed
-      event.target.value = "";
+
+      Promise.all(readPromises)
+        .then(newPhotosDataUrls => {
+          onPhotosChange([...photos, ...newPhotosDataUrls]);
+        })
+        .catch(error => {
+          console.error("Error reading one or more files:", error);
+          // Optionally, show an error message to the user here.
+        })
+        .finally(() => {
+          // Reset file input value to allow re-selecting the same file if needed
+          if(event.target) event.target.value = "";
+        });
     }
   };
 
