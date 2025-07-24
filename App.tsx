@@ -803,7 +803,15 @@ export const App: React.FC = () => {
   /** 當前表單的資料 */
   const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
   /** 已儲存的本機暫存檔 */
-  const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>({});
+  const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>(() => {
+    try {
+      const savedDrafts = localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY);
+      return savedDrafts ? JSON.parse(savedDrafts) : {};
+    } catch (error) {
+      console.error("Failed to load named drafts from localStorage.", error);
+      return {};
+    }
+  });
   /** 標記表單是否已提交並進入預覽模式 */
   const [isSubmitted, setIsSubmitted] = useState(false);
   /** 標記是否正在進行非同步處理 (如 PDF 產生、上傳) */
@@ -981,14 +989,16 @@ export const App: React.FC = () => {
   }, [isGoogleApiConfigured, checkDropboxStatus]);
 
   /**
-   * 從 localStorage 載入已儲存的暫存檔。
+   * 將 namedDrafts state 同步到 localStorage
    */
   useEffect(() => {
     try {
-        const savedDrafts = localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY);
-        if (savedDrafts) { setNamedDrafts(JSON.parse(savedDrafts)); }
-    } catch (error) { console.error("Failed to load named drafts.", error); }
-  }, []);
+      localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(namedDrafts));
+    } catch (error) {
+      console.error("Failed to save named drafts to localStorage.", error);
+    }
+  }, [namedDrafts]);
+
 
   // --- 回呼函式 (useCallback 用於效能優化) ---
   /**
@@ -1156,20 +1166,17 @@ export const App: React.FC = () => {
             closeModal(); // Prompt was cancelled by user
             return;
         }
-        const currentDrafts = { ...namedDrafts };
-        const isOverwriting = !!currentDrafts[draftName];
+        const isOverwriting = !!namedDrafts[draftName];
 
         const confirmSave = () => {
-            const newDrafts = { ...currentDrafts, [draftName]: formData };
-            setNamedDrafts(newDrafts);
-            localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+            setNamedDrafts(prevDrafts => ({...prevDrafts, [draftName]: formData }));
             showAlert('儲存成功', <>✅ 暫存 "{draftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>);
         };
 
         if (isOverwriting) {
             showConfirm("覆蓋確認", `暫存 "${draftName}" 已存在。要覆蓋它嗎？`, confirmSave, "確認覆蓋");
         } else {
-            if (Object.keys(currentDrafts).length >= MAX_DRAFTS) {
+            if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
                 showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
                 return;
             }
@@ -1242,7 +1249,6 @@ export const App: React.FC = () => {
               const newDrafts = { ...namedDrafts };
               delete newDrafts[selectedDraft];
               setNamedDrafts(newDrafts);
-              localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
               showAlert('刪除成功', `暫存 "${selectedDraft}" 已刪除。`);
             }, "確認刪除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
         } else if (action === 'export') {
@@ -1324,42 +1330,50 @@ export const App: React.FC = () => {
     if (!isGoogleApiConfigured) return showAlert("功能未設定", "Google Drive 功能未設定。");
     if (!gapiReady || !gisReady) return showAlert("尚未就緒", "Google Drive 功能正在初始化，請稍候。");
     try {
-        await getAuthToken(); await loadPickerApi();
+        await getAuthToken();
+        await loadPickerApi();
         const doc = await showGooglePicker();
         if (!doc?.id) return; // 使用者取消選擇
-        
+
         const res = await gapi.client.drive.files.get({ fileId: doc.id, alt: 'media' });
         const importedData = (typeof res.result === 'object') ? res.result : JSON.parse(res.result);
-        
-        showPrompt("匯入暫存", `請為匯入的檔案 (${doc.name}) 命名：`, (dName) => {
+        const docName = doc.name;
+
+        showPrompt("匯入暫存", `請為匯入的檔案 (${docName}) 命名：`, (dName) => {
             if (!dName) {
-              closeModal();
-              return;
+                closeModal();
+                return;
             }
-            setNamedDrafts(cD => {
-                const newDrafts = { ...cD, [dName]: migrateWorkOrderData(importedData) };
-                if (cD[dName]) {
-                    showConfirm("覆蓋確認", `暫存 "${dName}" 已存在，要覆蓋嗎？`, () => {
-                      localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-                      setNamedDrafts(newDrafts);
-                      showAlert('匯入成功', `✅ 暫存 "${dName}" 已成功從雲端匯入並覆蓋！`);
-                    });
-                    return cD; // 暫不更新 state，等待使用者確認
+
+            const newDraftData = migrateWorkOrderData(importedData);
+
+            if (namedDrafts[dName]) {
+                // Draft exists, ask for confirmation to overwrite
+                showConfirm("覆蓋確認", `暫存 "${dName}" 已存在，要覆蓋嗎？`, () => {
+                    setNamedDrafts(prevDrafts => ({
+                        ...prevDrafts,
+                        [dName]: newDraftData
+                    }));
+                    showAlert('匯入成功', `✅ 暫存 "${dName}" 已成功從雲端匯入並覆蓋！`);
+                }, "確認覆蓋");
+            } else {
+                // New draft, check for limit
+                if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
+                    showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
+                    return;
                 }
-                if (Object.keys(cD).length >= MAX_DRAFTS) { 
-                    showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`); 
-                    return cD; 
-                }
-                localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+                setNamedDrafts(prevDrafts => ({
+                    ...prevDrafts,
+                    [dName]: newDraftData
+                }));
                 showAlert('匯入成功', `✅ 暫存 "${dName}" 已成功從雲端匯入！`);
-                return newDrafts;
-            });
+            }
         });
     } catch (error: any) {
         console.error("GDrive import failed:", error);
         showAlert('匯入失敗', `匯入失敗: ${error?.result?.error?.message || error?.message || '未知錯誤'}`);
     }
-  }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured]);
+  }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured, namedDrafts]);
 
   /**
    * 產生 PDF 檔案的 Blob 物件。
