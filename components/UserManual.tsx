@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { APP_VERSION } from '../App';
 
@@ -57,7 +58,7 @@ interface UserManualProps {
  */
 export const UserManual: React.FC<UserManualProps> = ({ onClose }) => {
     return (
-        <div className="fixed inset-0 bg-white z-[100] overflow-y-auto" aria-modal="true" role="dialog">
+        <div className="fixed inset-0 bg-white z-[100] overflow-y-auto user-manual-container" aria-modal="true" role="dialog">
             <div className="relative max-w-5xl mx-auto p-4 sm:p-6 md:p-8">
                 {/* Header with Print and Close buttons (hidden on print) */}
                 <header className="flex justify-between items-center mb-8 print:hidden sticky top-0 bg-white/80 backdrop-blur-sm py-4 z-10 -mx-4 px-4 border-b border-slate-200">
@@ -111,7 +112,7 @@ export const UserManual: React.FC<UserManualProps> = ({ onClose }) => {
                                     <div className="grid grid-cols-12 gap-x-3 gap-y-4 p-4 border border-slate-300 rounded-lg relative bg-white">
                                         <div className="col-span-12 sm:col-span-8">
                                             <label className="block text-base font-medium text-slate-600">產品品名</label>
-                                            <input type="text" value="範例產品" readOnly className="mt-1 block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm text-lg bg-slate-50" />
+                                            <input type="text" value="範例產品" disabled className="mt-1 block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm text-lg bg-slate-50" />
                                         </div>
                                         <div className="col-span-12 sm:col-span-4">
                                             <label className="block text-base font-medium text-slate-600">數量</label>
@@ -151,7 +152,7 @@ export const UserManual: React.FC<UserManualProps> = ({ onClose }) => {
                                      <UIMockup caption="服務人員簽名模式切換">
                                          <span className="text-lg text-indigo-600 font-semibold">簽名</span>
                                          <label className="relative inline-flex items-center">
-                                            <input type="checkbox" className="sr-only peer" readOnly />
+                                            <input type="checkbox" className="sr-only peer" disabled />
                                             <div className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:bg-indigo-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                                          </label>
                                          <span className="text-lg text-slate-500">選單</span>
@@ -206,7 +207,7 @@ export const UserManual: React.FC<UserManualProps> = ({ onClose }) => {
                         <h3>3.1 本機暫存</h3>
                         <p>您可以將填寫到一半的表單儲存在瀏覽器中。</p>
                         <UIMockup caption="暫存管理按鈕">
-                            <select className="w-full sm:w-auto px-3 py-2 border border-slate-500 text-slate-700 rounded-md shadow-sm text-lg font-medium bg-white">
+                            <select className="w-full sm:w-auto px-3 py-2 border border-slate-500 text-slate-700 rounded-md shadow-sm text-lg font-medium bg-white" disabled>
                                  <option value="" disabled>載入/管理暫存</option>
                             </select>
                             <button type="button" className="flex-1 sm:w-auto px-4 py-2 border border-blue-600 text-blue-600 rounded-md shadow-sm text-lg font-medium bg-white">
@@ -381,6 +382,24 @@ GOOGLE_REDIRECT_URI="https://docs.google.com/spreadsheets/d/..."
                     body {
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
+                    }
+
+                    /* --- Print Pagination Fix --- */
+                    /* This classic technique isolates the manual for printing. */
+                    body * {
+                        visibility: hidden;
+                    }
+                    .user-manual-container, .user-manual-container * {
+                        visibility: visible;
+                    }
+                    .user-manual-container {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        height: auto;
+                        overflow: visible;
+                        z-index: 9999;
                     }
                 }
                 `}
