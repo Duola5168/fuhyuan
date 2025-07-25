@@ -619,6 +619,13 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
     const totalPages = selectedTemplate === 'modern' ? modernTotalPages : legacyTotalPages;
     const textPageCount = selectedTemplate === 'modern' ? modernTextPages : legacyTextPages;
 
+    // 為舊式表格 PDF 產出定義專用偏移量
+    // 螢幕預覽使用 legacyLayoutOffsets，而 PDF 則在此基礎上增加 9px 垂直偏移
+    const pdfLegacyOffsets = {
+      x: legacyLayoutOffsets.x,
+      y: legacyLayoutOffsets.y + 9,
+    };
+
     return (
     <>
       {/* 這些是隱藏的容器，專門用於 html2canvas 渲染成 PDF */}
@@ -631,7 +638,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
         )}
 
         {/* Legacy Layout for PDF */}
-        <LegacyReportLayout data={data} currentPage={1} totalPages={legacyTotalPages} offsets={legacyLayoutOffsets} />
+        <LegacyReportLayout data={data} currentPage={1} totalPages={legacyTotalPages} offsets={pdfLegacyOffsets} />
         
         {/* Photo Pages for BOTH Modern and Legacy PDFs */}
         {photoChunks.map((photoChunk, index) => (
@@ -657,7 +664,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
             )
           : (
             <div className="inline-block shadow-lg transform scale-[0.9] origin-top">
-              <LegacyReportLayout data={data} offsets={{ x: 0, y: 0 }} />
+              <LegacyReportLayout data={data} offsets={legacyLayoutOffsets} />
             </div>
             )
         }
@@ -690,7 +697,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
                     <input type="range" id="offsetY" min="-20" max="20" step="1" value={legacyLayoutOffsets.y} onChange={(e) => onLegacyOffsetChange('y', parseInt(e.target.value, 10))} className="w-32 sm:w-40" />
                     <span className="font-mono w-12 text-center tabular-nums">{legacyLayoutOffsets.y}px</span>
                 </div>
-                <button onClick={() => { onLegacyOffsetChange('x', 0); onLegacyOffsetChange('y', 9); }} className="px-3 py-1 text-base bg-white border border-slate-400 rounded-md shadow-sm hover:bg-slate-100">
+                <button onClick={() => { onLegacyOffsetChange('x', 0); onLegacyOffsetChange('y', 0); }} className="px-3 py-1 text-base bg-white border border-slate-400 rounded-md shadow-sm hover:bg-slate-100">
                     重設
                 </button>
             </div>
@@ -831,8 +838,8 @@ export const App: React.FC = () => {
   const [liveRefreshToken, setLiveRefreshToken] = useState<string | null>(DROPBOX_REFRESH_TOKEN || null);
   /** 使用者選擇的報告模板 */
   const [selectedTemplate, setSelectedTemplate] = useState<'modern' | 'legacy'>('modern');
-  /** 舊式表格的 XY 軸偏移量 (預設向上 9px) */
-  const [legacyLayoutOffsets, setLegacyLayoutOffsets] = useState({ x: 0, y: 9 });
+  /** 舊式表格的 XY 軸偏移量 (用於螢幕預覽) */
+  const [legacyLayoutOffsets, setLegacyLayoutOffsets] = useState({ x: 0, y: 0 });
   /** 服務人員簽名輸入模式 */
   const [technicianInputMode, setTechnicianInputMode] = useState<'signature' | 'select'>('signature');
 
@@ -976,7 +983,7 @@ export const App: React.FC = () => {
 
     const gisScript = document.createElement('script');
     gisScript.src = 'https://accounts.google.com/gsi/client';
-    gisScript.async = true; gisScript.defer = true;
+    gisScript.async = true; gapiScript.defer = true;
     gisScript.onload = () => { const client = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPES, callback: '', }); setTokenClient(client); setGisReady(true); };
     document.body.appendChild(gisScript);
 
