@@ -11,6 +11,7 @@ import SignaturePad from './components/SignaturePad';
 import ImageUploader from './components/ImageUploader';
 import { ReportLayout, PdfFooter } from './components/ReportLayout';
 import { LegacyReportLayout } from './components/LegacyReportLayout';
+import { UserManual } from './components/UserManual';
 
 
 // --- 全域型別宣告 (用於從 CDN 載入的函式庫) ---
@@ -23,7 +24,7 @@ declare const google: any;
 // 從 Vite 環境變數讀取版本號，此變數在 vite.config.ts 中被注入
 const rawVersion = process.env.APP_VERSION || '1.8.0'; 
 // 將 '1.8.0' 格式化為 'V1.8' 以顯示在 UI 上
-const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
+export const APP_VERSION = `V${rawVersion.split('.').slice(0, 2).join('.')}`;
 
 // --- API 設定 (從環境變數讀取，增強安全性) ---
 /** Dropbox API 相關金鑰 */
@@ -267,6 +268,8 @@ const ServerStackIcon: React.FC<{ className?: string }> = ({ className }) => ( <
 const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg> );
 const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
 const XCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> );
+const QuestionMarkCircleIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>);
+
 
 // --- 統一彈出視窗系統 (Unified Modal System) ---
 interface ModalButton {
@@ -842,6 +845,8 @@ export const App: React.FC = () => {
   const [legacyLayoutOffsets, setLegacyLayoutOffsets] = useState({ x: 0, y: 0 });
   /** 服務人員簽名輸入模式 */
   const [technicianInputMode, setTechnicianInputMode] = useState<'signature' | 'select'>('signature');
+  /** 是否顯示使用手冊 */
+  const [showManual, setShowManual] = useState(false);
 
 
   // --- 組態檢查 ---
@@ -1750,6 +1755,13 @@ export const App: React.FC = () => {
                     <EnvelopeIcon className="h-6 w-6 text-green-500" />
                 </div>
             )}
+            <button
+              onClick={() => setShowManual(true)}
+              className="p-1 text-slate-500 hover:text-indigo-600 transition-colors"
+              title="開啟使用手冊"
+            >
+              <QuestionMarkCircleIcon className="h-7 w-7" />
+            </button>
             <span className="text-sm font-mono text-slate-400 select-none">{APP_VERSION}</span>
           </div>
         </div>
@@ -1800,6 +1812,7 @@ export const App: React.FC = () => {
         )}
       </main>
       <CustomModal {...modalState} />
+      {showManual && <UserManual onClose={() => setShowManual(false)} />}
     </div>
   );
 };
