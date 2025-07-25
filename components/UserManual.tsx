@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { APP_VERSION } from '../App';
 
