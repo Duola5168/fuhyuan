@@ -620,13 +620,6 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
     const totalPages = selectedTemplate === 'modern' ? modernTotalPages : legacyTotalPages;
     const textPageCount = selectedTemplate === 'modern' ? modernTextPages : legacyTextPages;
 
-    // 為「舊式表格」的 PDF 版本建立專用的位移量
-    // 根據使用者要求，在產生 PDF 時，將內容額外向上移動 9px (Y 軸 +9)
-    const pdfLegacyOffsets = {
-        x: legacyLayoutOffsets.x,
-        y: legacyLayoutOffsets.y + 9,
-    };
-
     return (
     <>
       {/* 這些是隱藏的容器，專門用於 html2canvas 渲染成 PDF */}
@@ -639,7 +632,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
         )}
 
         {/* Legacy Layout for PDF */}
-        <LegacyReportLayout data={data} currentPage={1} totalPages={legacyTotalPages} offsets={pdfLegacyOffsets} />
+        <LegacyReportLayout data={data} currentPage={1} totalPages={legacyTotalPages} offsets={legacyLayoutOffsets} />
         
         {/* Photo Pages for BOTH Modern and Legacy PDFs */}
         {photoChunks.map((photoChunk, index) => (
@@ -665,7 +658,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
             )
           : (
             <div className="inline-block shadow-lg transform scale-[0.9] origin-top">
-              <LegacyReportLayout data={data} offsets={legacyLayoutOffsets} />
+              <LegacyReportLayout data={data} offsets={{ x: 0, y: 0 }} />
             </div>
             )
         }
@@ -698,7 +691,7 @@ const ReportView: React.FC<ReportViewProps> = ({ data, onOpenUploadModal, onDown
                     <input type="range" id="offsetY" min="-20" max="20" step="1" value={legacyLayoutOffsets.y} onChange={(e) => onLegacyOffsetChange('y', parseInt(e.target.value, 10))} className="w-32 sm:w-40" />
                     <span className="font-mono w-12 text-center tabular-nums">{legacyLayoutOffsets.y}px</span>
                 </div>
-                <button onClick={() => { onLegacyOffsetChange('x', 0); onLegacyOffsetChange('y', 0); }} className="px-3 py-1 text-base bg-white border border-slate-400 rounded-md shadow-sm hover:bg-slate-100">
+                <button onClick={() => { onLegacyOffsetChange('x', 0); onLegacyOffsetChange('y', 9); }} className="px-3 py-1 text-base bg-white border border-slate-400 rounded-md shadow-sm hover:bg-slate-100">
                     重設
                 </button>
             </div>
@@ -832,8 +825,8 @@ export const App: React.FC = () => {
   const [liveRefreshToken, setLiveRefreshToken] = useState<string | null>(DROPBOX_REFRESH_TOKEN || null);
   /** 使用者選擇的報告模板 */
   const [selectedTemplate, setSelectedTemplate] = useState<'modern' | 'legacy'>('modern');
-  /** 舊式表格的 XY 軸偏移量 */
-  const [legacyLayoutOffsets, setLegacyLayoutOffsets] = useState({ x: 0, y: 0 });
+  /** 舊式表格的 XY 軸偏移量 (預設向上 9px) */
+  const [legacyLayoutOffsets, setLegacyLayoutOffsets] = useState({ x: 0, y: 9 });
   /** 服務人員簽名輸入模式 */
   const [technicianInputMode, setTechnicianInputMode] = useState<'signature' | 'select'>('signature');
 
@@ -856,7 +849,7 @@ export const App: React.FC = () => {
   
   /** 顯示一個帶有確認和取消按鈕的確認視窗 */
   const showConfirm = (title: string, content: React.ReactNode, onConfirm: () => void, confirmText?: string, confirmClass?: string) => {
-    setModalState({ isOpen: true, title, content, onConfirm: () => { onConfirm(); closeModal(); }, confirmText, confirmClass, onClose: closeModal });
+    setModalState({ isOpen: true, title, content, onConfirm, confirmText, confirmClass, onClose: closeModal });
   };
   
   /** 顯示一個帶有輸入框的提示輸入視窗 */
@@ -866,7 +859,6 @@ export const App: React.FC = () => {
       {content}
       <input type="text" autoFocus onChange={e => inputValue = e.target.value} className="mt-2 appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg" />
     </>;
-    // The modal is replaced by the next one in the confirm logic, not closed here.
     setModalState({ isOpen: true, title, content: PromptContent, onConfirm: () => onConfirm(inputValue), confirmText: "確認", onClose: closeModal});
   };
   
@@ -1095,7 +1087,7 @@ export const App: React.FC = () => {
   const handleEdit = () => setIsSubmitted(false);
   const handleReset = useCallback(() => { 
     showConfirm("確認清除?", "確定要清除所有資料並建立新的服務單嗎？", () => {
-      clearCurrentForm(); setIsSubmitted(false); 
+      clearCurrentForm(); setIsSubmitted(false); closeModal();
     }, "確認清除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
   }, [clearCurrentForm]);
 
@@ -1162,26 +1154,35 @@ export const App: React.FC = () => {
    */
   const handleSaveAsDraft = useCallback(() => {
     showPrompt("儲存暫存", "請為此暫存命名：", (draftName) => {
-        if (!draftName) {
-            closeModal(); // Prompt was cancelled by user
-            return;
+      if (!draftName) {
+        closeModal();
+        return;
+      }
+  
+      const confirmSave = () => {
+        setNamedDrafts(prevDrafts => ({ ...prevDrafts, [draftName]: formData }));
+        // Directly set the modal state to the success message, avoiding race conditions
+        setModalState({
+          isOpen: true,
+          title: '儲存成功',
+          content: <>✅ 暫存 "{draftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>,
+          onClose: closeModal,
+          onConfirm: undefined, // Remove confirm button
+          confirmText: undefined,
+        });
+      };
+  
+      if (namedDrafts[draftName]) {
+        // We now pass `confirmSave` directly to `showConfirm`.
+        // `showConfirm` will execute it when the user clicks "confirm", and our new `confirmSave` will handle the rest.
+        showConfirm("覆蓋確認", `暫存 "${draftName}" 已存在。要覆蓋它嗎？`, confirmSave, "確認覆蓋");
+      } else {
+        if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
+          showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
+          return;
         }
-        const isOverwriting = !!namedDrafts[draftName];
-
-        const confirmSave = () => {
-            setNamedDrafts(prevDrafts => ({...prevDrafts, [draftName]: formData }));
-            showAlert('儲存成功', <>✅ 暫存 "{draftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>);
-        };
-
-        if (isOverwriting) {
-            showConfirm("覆蓋確認", `暫存 "${draftName}" 已存在。要覆蓋它嗎？`, confirmSave, "確認覆蓋");
-        } else {
-            if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
-                showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
-                return;
-            }
-            confirmSave();
-        }
+        confirmSave();
+      }
     });
   }, [formData, namedDrafts]);
 
@@ -1193,6 +1194,7 @@ export const App: React.FC = () => {
         showConfirm("載入確認", `確定要載入 "${name}" 嗎？這將覆蓋目前內容。`, () => {
             setFormData(migrateWorkOrderData(namedDrafts[name]));
             showAlert('載入成功', `暫存 "${name}" 已載入。`);
+            closeModal();
         });
     }
   }, [namedDrafts]);
@@ -1336,7 +1338,16 @@ export const App: React.FC = () => {
         if (!doc?.id) return; // 使用者取消選擇
 
         const res = await gapi.client.drive.files.get({ fileId: doc.id, alt: 'media' });
-        const importedData = (typeof res.result === 'object') ? res.result : JSON.parse(res.result);
+        let importedData;
+        // The result can be an object (if JSON) or a string. Need to handle both.
+        if (typeof res.result === 'object') {
+            importedData = res.result;
+        } else if (typeof res.body === 'string') {
+            importedData = JSON.parse(res.body);
+        } else {
+            throw new Error('Unrecognized format for imported file.');
+        }
+
         const docName = doc.name;
 
         showPrompt("匯入暫存", `請為匯入的檔案 (${docName}) 命名：`, (dName) => {
@@ -1347,26 +1358,25 @@ export const App: React.FC = () => {
 
             const newDraftData = migrateWorkOrderData(importedData);
 
-            if (namedDrafts[dName]) {
-                // Draft exists, ask for confirmation to overwrite
-                showConfirm("覆蓋確認", `暫存 "${dName}" 已存在，要覆蓋嗎？`, () => {
-                    setNamedDrafts(prevDrafts => ({
-                        ...prevDrafts,
-                        [dName]: newDraftData
-                    }));
-                    showAlert('匯入成功', `✅ 暫存 "${dName}" 已成功從雲端匯入並覆蓋！`);
-                }, "確認覆蓋");
-            } else {
-                // New draft, check for limit
-                if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
-                    showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
-                    return;
-                }
-                setNamedDrafts(prevDrafts => ({
+            const confirmImport = () => {
+                 setNamedDrafts(prevDrafts => ({
                     ...prevDrafts,
                     [dName]: newDraftData
                 }));
                 showAlert('匯入成功', `✅ 暫存 "${dName}" 已成功從雲端匯入！`);
+            };
+
+            if (namedDrafts[dName]) {
+                showConfirm("覆蓋確認", `暫存 "${dName}" 已存在，要覆蓋嗎？`, () => {
+                    confirmImport();
+                    closeModal();
+                }, "確認覆蓋");
+            } else {
+                if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
+                    showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
+                    return;
+                }
+                confirmImport();
             }
         });
     } catch (error: any) {
@@ -1466,7 +1476,7 @@ export const App: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, formData, generatePdfBlob, selectedTemplate, handleEdit, handleReset]);
+  }, [isProcessing, formData, generatePdfBlob, selectedTemplate]);
 
   /**
    * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
@@ -1632,7 +1642,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate, handleEdit, handleReset]);
+  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate]);
 
   /**
    * 打開上傳選項的彈出視窗。
@@ -1731,6 +1741,7 @@ export const App: React.FC = () => {
     showConfirm('選擇服務人員', content, () => {
         const nameOnly = selectedTechnician.replace(/^\d+\.\s*/, '');
         handleTechnicianSignatureSave(nameOnly);
+        closeModal();
     }, '確認選取');
   }, [handleTechnicianSignatureSave]);
 
