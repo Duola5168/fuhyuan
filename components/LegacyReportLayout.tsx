@@ -39,6 +39,12 @@ interface LegacyReportLayoutProps {
 
 export const LegacyReportLayout: React.FC<LegacyReportLayoutProps> = ({ data, currentPage, totalPages, offsets = { x: 0, y: 0 } }) => {
     
+    // Create a specific offset for the main content areas, adding an extra 9px upward shift.
+    const contentOffsets = {
+        x: offsets.x,
+        y: offsets.y + 9,
+    };
+
     const formattedDate = data.dateTime 
         ? new Date(data.dateTime).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })
         : '\u00A0';
@@ -121,9 +127,9 @@ export const LegacyReportLayout: React.FC<LegacyReportLayoutProps> = ({ data, cu
                         <div className="col-span-3 p-2 text-center text-xl"><MovableText offset={offsets}>備 註 (客戶意見)</MovableText></div>
                     </div>
                     <div className="grid grid-cols-12 border-t border-black flex-grow">
-                        <div className="col-span-5 border-r border-black p-2 text-xl whitespace-pre-wrap break-words min-h-[14rem]">{data.tasks || '\u00A0'}</div>
-                        <div className="col-span-4 border-r border-black p-2 text-xl whitespace-pre-wrap break-words">{data.status || '\u00A0'}</div>
-                        <div className="col-span-3 p-2 text-xl whitespace-pre-wrap break-words">{data.remarks || '\u00A0'}</div>
+                        <div className="col-span-5 border-r border-black p-2 text-xl whitespace-pre-wrap break-words min-h-[14rem]"><MovableText offset={contentOffsets}>{data.tasks || '\u00A0'}</MovableText></div>
+                        <div className="col-span-4 border-r border-black p-2 text-xl whitespace-pre-wrap break-words"><MovableText offset={contentOffsets}>{data.status || '\u00A0'}</MovableText></div>
+                        <div className="col-span-3 p-2 text-xl whitespace-pre-wrap break-words"><MovableText offset={contentOffsets}>{data.remarks || '\u00A0'}</MovableText></div>
                     </div>
                 </div>
             
@@ -134,7 +140,7 @@ export const LegacyReportLayout: React.FC<LegacyReportLayoutProps> = ({ data, cu
                     </div>
                     <div className="grid grid-cols-12 border-t border-black">
                         <div className="col-span-12 p-2 text-xl whitespace-pre-wrap break-words min-h-[4.5rem]">
-                            {productItems.join('\n') || '\u00A0'}
+                             <MovableText offset={offsets}>{productItems.join('\n') || '\u00A0'}</MovableText>
                         </div>
                     </div>
                 </div>
