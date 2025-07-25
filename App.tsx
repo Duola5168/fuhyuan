@@ -795,6 +795,13 @@ export const App: React.FC = () => {
   // --- State 定義 ---
   /** 當前表單的資料 */
   const [formData, setFormData] = useState<WorkOrderData>(initialFormData);
+  
+  /** 建立一個 ref 來儲存最新的 formData，以避免在回呼函式中取得過時的狀態 */
+  const formDataRef = useRef(formData);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
   /** 已儲存的本機暫存檔 */
   const [namedDrafts, setNamedDrafts] = useState<{ [name: string]: WorkOrderData }>(() => {
     try {
@@ -839,28 +846,25 @@ export const App: React.FC = () => {
   /** 檢查 Brevo Email 功能是否已設定 */
   const isBrevoApiConfigured = !!(BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME);
 
-  // --- 彈出視窗相關函式 ---
-  const closeModal = () => setModalState(initialModalState);
+  // --- 彈出視窗相關函式 (Memoized) ---
+  const closeModal = useCallback(() => setModalState(initialModalState), []);
   
-  /** 顯示一個簡單的提示訊息視窗 */
-  const showAlert = (title: string, content: React.ReactNode) => {
+  const showAlert = useCallback((title: string, content: React.ReactNode) => {
     setModalState({ isOpen: true, title, content, onClose: closeModal });
-  };
+  }, [closeModal]);
   
-  /** 顯示一個帶有確認和取消按鈕的確認視窗 */
-  const showConfirm = (title: string, content: React.ReactNode, onConfirm: () => void, confirmText?: string, confirmClass?: string) => {
+  const showConfirm = useCallback((title: string, content: React.ReactNode, onConfirm: () => void, confirmText?: string, confirmClass?: string) => {
     setModalState({ isOpen: true, title, content, onConfirm, confirmText, confirmClass, onClose: closeModal });
-  };
+  }, [closeModal]);
   
-  /** 顯示一個帶有輸入框的提示輸入視窗 */
-  const showPrompt = (title: string, content: React.ReactNode, onConfirm: (value: string) => void) => {
+  const showPrompt = useCallback((title: string, content: React.ReactNode, onConfirm: (value: string) => void) => {
     let inputValue = '';
     const PromptContent = <>
       {content}
       <input type="text" autoFocus onChange={e => inputValue = e.target.value} className="mt-2 appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg" />
     </>;
     setModalState({ isOpen: true, title, content: PromptContent, onConfirm: () => onConfirm(inputValue), confirmText: "確認", onClose: closeModal});
-  };
+  }, [closeModal]);
   
   /**
    * 將 Data URL 字串轉換為 Blob 物件。
@@ -980,18 +984,6 @@ export const App: React.FC = () => {
     return () => { document.body.removeChild(gapiScript); document.body.removeChild(gisScript); };
   }, [isGoogleApiConfigured, checkDropboxStatus]);
 
-  /**
-   * 將 namedDrafts state 同步到 localStorage
-   */
-  useEffect(() => {
-    try {
-      localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(namedDrafts));
-    } catch (error) {
-      console.error("Failed to save named drafts to localStorage.", error);
-    }
-  }, [namedDrafts]);
-
-
   // --- 回呼函式 (useCallback 用於效能優化) ---
   /**
    * 清空目前表單，重設為初始狀態。
@@ -1040,7 +1032,7 @@ export const App: React.FC = () => {
         newProducts[index] = productToChange;
         return { ...prev, products: newProducts };
     });
-  }, []);
+  }, [showAlert]);
   
   /**
    * 處理產品序號的輸入變更。
@@ -1059,21 +1051,25 @@ export const App: React.FC = () => {
   /**
    * 新增一個空的產品項目。
    */
-  const handleAddProduct = () => {
-    if (formData.products.reduce((acc, p) => acc + p.quantity, 0) + 1 + calculateVisualLines(formData.remarks) > PRODUCTS_REMARKS_LIMIT) {
-        showAlert('行數超限', `已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
-        return;
-    }
-    setFormData(prev => ({ ...prev, products: [...prev.products, { ...initialProduct, id: `product-${Date.now()}` }] }));
-  };
+  const handleAddProduct = useCallback(() => {
+    setFormData(prev => {
+        if (prev.products.reduce((acc, p) => acc + p.quantity, 0) + 1 + calculateVisualLines(prev.remarks) > PRODUCTS_REMARKS_LIMIT) {
+            showAlert('行數超限', `已達產品與備註的總行數上限 (${PRODUCTS_REMARKS_LIMIT})，無法新增產品。`);
+            return prev;
+        }
+        return { ...prev, products: [...prev.products, { ...initialProduct, id: `product-${Date.now()}` }] };
+    });
+  }, [showAlert]);
 
   /**
    * 移除一個指定的產品項目。
    */
-  const handleRemoveProduct = (index: number) => {
-    if (formData.products.length <= 1) return; // 至少保留一項
-    setFormData(prev => ({ ...prev, products: prev.products.filter((_, i) => i !== index) }));
-  };
+  const handleRemoveProduct = useCallback((index: number) => {
+    setFormData(prev => {
+        if (prev.products.length <= 1) return prev;
+        return { ...prev, products: prev.products.filter((_, i) => i !== index) };
+    });
+  }, []);
 
   // --- 簽名和照片的處理函式 ---
   const handleCustomerSignatureSave = useCallback((s: string) => setFormData(p => ({ ...p, signature: s })), []);
@@ -1089,7 +1085,7 @@ export const App: React.FC = () => {
     showConfirm("確認清除?", "確定要清除所有資料並建立新的服務單嗎？", () => {
       clearCurrentForm(); setIsSubmitted(false); closeModal();
     }, "確認清除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
-  }, [clearCurrentForm]);
+  }, [clearCurrentForm, showConfirm, closeModal]);
 
   const handleLegacyOffsetChange = (axis: 'x' | 'y', value: number) => {
     setLegacyLayoutOffsets(prev => ({ ...prev, [axis]: value }));
@@ -1102,22 +1098,24 @@ export const App: React.FC = () => {
     if (template === 'legacy') {
         const errorMessages = [];
 
+        const currentFormData = formDataRef.current; // Use ref for check
+
         // 檢查文字內容是否超過 11 行
-        const tasksLines = calculateVisualLines(formData.tasks, 25);
+        const tasksLines = calculateVisualLines(currentFormData.tasks, 25);
         if (tasksLines > LEGACY_TEXT_AREA_LINE_LIMIT) {
             errorMessages.push(`「處理事項」內容超過版面限制 (約 ${LEGACY_TEXT_AREA_LINE_LIMIT} 行)。`);
         }
-        const statusLines = calculateVisualLines(formData.status, 20);
+        const statusLines = calculateVisualLines(currentFormData.status, 20);
         if (statusLines > LEGACY_TEXT_AREA_LINE_LIMIT) {
             errorMessages.push(`「處理情形」內容超過版面限制 (約 ${LEGACY_TEXT_AREA_LINE_LIMIT} 行)。`);
         }
-        const remarksLines = calculateVisualLines(formData.remarks, 15);
+        const remarksLines = calculateVisualLines(currentFormData.remarks, 15);
         if (remarksLines > LEGACY_TEXT_AREA_LINE_LIMIT) {
             errorMessages.push(`「備註」內容超過版面限制 (約 ${LEGACY_TEXT_AREA_LINE_LIMIT} 行)。`);
         }
 
         // 檢查產品項目總行數是否超過 4 行
-        const productItemsText = formData.products
+        const productItemsText = currentFormData.products
           .filter(p => p.name.trim() !== '')
           .map(p => {
             const serials = (p.serialNumbers || []).map(s => s.trim()).filter(Boolean);
@@ -1126,7 +1124,6 @@ export const App: React.FC = () => {
           })
           .join('\n');
         
-        // 舊式表格的產品欄位是單欄滿版，因此使用較大的每行字元數估算
         const totalProductLines = calculateVisualLines(productItemsText, 50);
         
         if (totalProductLines > LEGACY_PRODUCT_AREA_LINE_LIMIT) {
@@ -1154,50 +1151,61 @@ export const App: React.FC = () => {
    */
   const handleSaveAsDraft = useCallback(() => {
     showPrompt("儲存暫存", "請為此暫存命名：", (draftName) => {
-      if (!draftName) {
-        closeModal();
-        return;
-      }
-  
-      const confirmSave = () => {
-        setNamedDrafts(prevDrafts => ({ ...prevDrafts, [draftName]: formData }));
-        // Directly set the modal state to the success message, avoiding race conditions
-        setModalState({
-          isOpen: true,
-          title: '儲存成功',
-          content: <>✅ 暫存 "{draftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>,
-          onClose: closeModal,
-          onConfirm: undefined, // Remove confirm button
-          confirmText: undefined,
-        });
-      };
-  
-      if (namedDrafts[draftName]) {
-        // We now pass `confirmSave` directly to `showConfirm`.
-        // `showConfirm` will execute it when the user clicks "confirm", and our new `confirmSave` will handle the rest.
-        showConfirm("覆蓋確認", `暫存 "${draftName}" 已存在。要覆蓋它嗎？`, confirmSave, "確認覆蓋");
-      } else {
-        if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
-          showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
-          return;
+        if (!draftName) {
+            closeModal();
+            return;
         }
-        confirmSave();
-      }
+
+        const currentDrafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
+
+        const confirmSave = () => {
+            const newDrafts = { ...currentDrafts, [draftName]: formDataRef.current };
+            try {
+                localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+                setNamedDrafts(newDrafts);
+                showAlert('儲存成功', <>✅ 暫存 "{draftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>);
+            } catch (error) {
+                console.error("Failed to save draft to localStorage.", error);
+                showAlert('儲存失敗', `無法儲存暫存： ${error instanceof Error ? error.message : "未知錯誤"}`);
+            }
+        };
+
+        if (currentDrafts[draftName]) {
+            showConfirm("覆蓋確認", `暫存 "${draftName}" 已存在。要覆蓋它嗎？`, confirmSave, "確認覆蓋");
+        } else {
+            if (Object.keys(currentDrafts).length >= MAX_DRAFTS) {
+                showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
+                return;
+            }
+            confirmSave();
+        }
     });
-  }, [formData, namedDrafts]);
+  }, [showPrompt, closeModal, showAlert, showConfirm]);
+
 
   /**
    * 載入指定的暫存檔，並覆蓋目前表單內容。
    */
   const handleLoadDraft = useCallback((name: string) => {
-    if (namedDrafts[name]) {
+    // Read from localStorage to ensure we have the latest data
+    const currentDrafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
+
+    if (currentDrafts[name]) {
         showConfirm("載入確認", `確定要載入 "${name}" 嗎？這將覆蓋目前內容。`, () => {
-            setFormData(migrateWorkOrderData(namedDrafts[name]));
+            const originalDraft = currentDrafts[name];
+            const migratedDraft = migrateWorkOrderData(originalDraft);
+            setFormData(migratedDraft);
+
+            // If migration actually changed the data, update that specific draft in localStorage
+            if (JSON.stringify(originalDraft) !== JSON.stringify(migratedDraft)) {
+                const updatedDrafts = { ...currentDrafts, [name]: migratedDraft };
+                localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(updatedDrafts));
+                setNamedDrafts(updatedDrafts);
+            }
             showAlert('載入成功', `暫存 "${name}" 已載入。`);
-            closeModal();
         });
     }
-  }, [namedDrafts]);
+  }, [showConfirm, showAlert]);
 
   /**
    * 清除目前表單的所有欄位，但不進入預覽模式。
@@ -1207,7 +1215,7 @@ export const App: React.FC = () => {
         clearCurrentForm();
         showAlert('操作完成', '表單資料已清除。');
     }, "確認清除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
-  }, [clearCurrentForm]);
+  }, [clearCurrentForm, showConfirm, showAlert]);
   
   /**
    * 獲取 Google OAuth 授權 Token。
@@ -1232,56 +1240,17 @@ export const App: React.FC = () => {
     });
   }, [tokenClient]);
   
-  /**
-   * 打開一個用於選擇暫存檔進行刪除或匯出的彈出視窗。
-   */
-  const openDraftActionModal = (action: 'delete' | 'export') => {
-    if (action === 'export' && !isGoogleApiConfigured) { showAlert("功能未設定", "Google Drive 功能未設定。"); return; }
-    const draftNames = Object.keys(namedDrafts);
-    if (draftNames.length === 0) { showAlert("沒有暫存", action === 'delete' ? "沒有暫存可以刪除。" : "沒有暫存可以匯出。"); return; }
-    
-    let selectedDraft = draftNames[0];
-    const title = action === 'delete' ? '刪除本機暫存' : '匯出至 Google 雲端硬碟';
-    const confirmText = action === 'delete' ? '確認刪除' : '匯出';
-    const confirmClass = action === 'delete' ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500';
-
-    const onConfirmAction = () => {
-        if (action === 'delete') {
-            showConfirm("永久刪除?", `確定要永久刪除暫存 "${selectedDraft}" 嗎？`, () => {
-              const newDrafts = { ...namedDrafts };
-              delete newDrafts[selectedDraft];
-              setNamedDrafts(newDrafts);
-              showAlert('刪除成功', `暫存 "${selectedDraft}" 已刪除。`);
-            }, "確認刪除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
-        } else if (action === 'export') {
-            performExportToDrive(selectedDraft);
-        }
-    };
-    
-    const content = <div>
-      <label htmlFor="draft-select" className="text-sm text-gray-500 mb-2 block">請從下方選擇要操作的暫存檔：</label>
-      <select id="draft-select" defaultValue={selectedDraft} onChange={(e) => selectedDraft = e.target.value} className="mt-1 block w-full pl-3 pr-10 py-2 text-lg border-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-base rounded-md">
-        {draftNames.map(name => <option key={name} value={name}>{name}</option>)}
-      </select>
-    </div>;
-
-    setModalState({ isOpen: true, title, content, onConfirm: onConfirmAction, confirmText, confirmClass, onClose: closeModal, backgroundIcon: action === 'delete' ? undefined : <Cog6ToothIcon className="w-48 h-48" /> });
-  };
-  
-  const handleDeleteDraft = () => openDraftActionModal('delete');
-  const handleExportToDrive = () => openDraftActionModal('export');
-  
-  /**
-   * 執行匯出暫存檔至 Google Drive 的操作。
-   */
   const performExportToDrive = useCallback(async (nameToExport: string) => {
-    if (!gapiReady || !gisReady || !namedDrafts[nameToExport]) { showAlert("匯出錯誤", "匯出功能未就緒或找不到暫存。"); return; }
+    // Read fresh from storage to get the correct data
+    const currentDrafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
+
+    if (!gapiReady || !gisReady || !currentDrafts[nameToExport]) { showAlert("匯出錯誤", "匯出功能未就緒或找不到暫存。"); return; }
     try {
         await getAuthToken();
         const form = new FormData();
         const metadata = { 'name': `${nameToExport}-服務單暫存.json`, 'mimeType': 'application/json', 'parents': ['root'] };
         form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', new Blob([JSON.stringify(namedDrafts[nameToExport], null, 2)], { type: 'application/json' }));
+        form.append('file', new Blob([JSON.stringify(currentDrafts[nameToExport], null, 2)], { type: 'application/json' }));
         
         const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { 
             method: 'POST', 
@@ -1298,8 +1267,58 @@ export const App: React.FC = () => {
         console.error("GDrive export failed", error); 
         showAlert('匯出失敗', `匯出失敗：${error instanceof Error ? error.message : "未知錯誤"}`); 
     }
-  }, [gapiReady, gisReady, namedDrafts, getAuthToken]);
+  }, [gapiReady, gisReady, getAuthToken, showAlert]);
 
+  const handleDeleteDraft = useCallback(() => {
+    const currentDrafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
+    const draftNames = Object.keys(currentDrafts);
+    
+    if (draftNames.length === 0) { showAlert("沒有暫存", "沒有暫存可以刪除。"); return; }
+    
+    let selectedDraft = draftNames[0];
+
+    const onConfirmAction = () => {
+        showConfirm("永久刪除?", `確定要永久刪除暫存 "${selectedDraft}" 嗎？`, () => {
+          const latestDrafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
+          delete latestDrafts[selectedDraft];
+          localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(latestDrafts));
+          setNamedDrafts(latestDrafts);
+          showAlert('刪除成功', `暫存 "${selectedDraft}" 已刪除。`);
+        }, "確認刪除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
+    };
+    
+    const content = <div>
+      <p className="mb-2">請選擇要刪除的暫存檔：</p>
+      <select id="draft-select" defaultValue={selectedDraft} onChange={(e) => selectedDraft = e.target.value} className="block w-full px-3 py-2 border border-slate-500 rounded-md text-lg">
+        {draftNames.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+    </div>;
+
+    showConfirm('刪除本機暫存', content, onConfirmAction, "刪除所選項目");
+  }, [showAlert, showConfirm]);
+  
+  const handleExportToDrive = useCallback(() => {
+    if (!isGoogleApiConfigured) { showAlert("功能未設定", "Google Drive 功能未設定。"); return; }
+
+    const currentDrafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
+    const draftNames = Object.keys(currentDrafts);
+    
+    if (draftNames.length === 0) { showAlert("沒有暫存", "沒有暫存可以匯出。"); return; }
+    
+    let selectedDraft = draftNames[0];
+
+    const onConfirmAction = () => { performExportToDrive(selectedDraft); };
+    
+    const content = <div>
+      <p className="mb-2">請選擇要匯出至 Google 雲端硬碟的暫存檔：</p>
+      <select id="draft-select" defaultValue={selectedDraft} onChange={(e) => selectedDraft = e.target.value} className="block w-full px-3 py-2 border border-slate-500 rounded-md text-lg">
+        {draftNames.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+    </div>;
+
+    showConfirm('匯出至 Google 雲端硬碟', content, onConfirmAction, "匯出所選項目");
+  }, [isGoogleApiConfigured, showAlert, showConfirm, performExportToDrive]);
+  
   /**
    * 載入 Google Picker API。
    */
@@ -1323,7 +1342,7 @@ export const App: React.FC = () => {
             .build();
         picker.setVisible(true);
     });
-  }, [API_KEY]); // API_KEY 是依賴項
+  }, []); // API_KEY is a const, so no dependency needed
 
   /**
    * 處理從 Google Drive 匯入暫存檔的完整流程。
@@ -1339,7 +1358,6 @@ export const App: React.FC = () => {
 
         const res = await gapi.client.drive.files.get({ fileId: doc.id, alt: 'media' });
         let importedData;
-        // The result can be an object (if JSON) or a string. Need to handle both.
         if (typeof res.result === 'object') {
             importedData = res.result;
         } else if (typeof res.body === 'string') {
@@ -1350,29 +1368,26 @@ export const App: React.FC = () => {
 
         const docName = doc.name;
 
-        showPrompt("匯入暫存", `請為匯入的檔案 (${docName}) 命名：`, (dName) => {
+        showPrompt(`匯入暫存 (${docName})`, "請為此匯入的檔案命名：", (dName) => {
             if (!dName) {
                 closeModal();
                 return;
             }
 
             const newDraftData = migrateWorkOrderData(importedData);
+            const currentDrafts = JSON.parse(localStorage.getItem(NAMED_DRAFTS_STORAGE_KEY) || '{}');
 
             const confirmImport = () => {
-                 setNamedDrafts(prevDrafts => ({
-                    ...prevDrafts,
-                    [dName]: newDraftData
-                }));
+                 const newDrafts = { ...currentDrafts, [dName]: newDraftData };
+                 localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
+                 setNamedDrafts(newDrafts);
                 showAlert('匯入成功', `✅ 暫存 "${dName}" 已成功從雲端匯入！`);
             };
 
-            if (namedDrafts[dName]) {
-                showConfirm("覆蓋確認", `暫存 "${dName}" 已存在，要覆蓋嗎？`, () => {
-                    confirmImport();
-                    closeModal();
-                }, "確認覆蓋");
+            if (currentDrafts[dName]) {
+                showConfirm("覆蓋確認", `暫存 "${dName}" 已存在，要覆蓋嗎？`, confirmImport, "確認覆蓋");
             } else {
-                if (Object.keys(namedDrafts).length >= MAX_DRAFTS) {
+                if (Object.keys(currentDrafts).length >= MAX_DRAFTS) {
                     showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
                     return;
                 }
@@ -1383,17 +1398,18 @@ export const App: React.FC = () => {
         console.error("GDrive import failed:", error);
         showAlert('匯入失敗', `匯入失敗: ${error?.result?.error?.message || error?.message || '未知錯誤'}`);
     }
-  }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured, namedDrafts]);
+  }, [isGoogleApiConfigured, gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, showPrompt, closeModal, showConfirm, showAlert]);
 
   /**
    * 產生 PDF 檔案的 Blob 物件。
    */
   const generatePdfBlob = useCallback(async (template: 'modern' | 'legacy'): Promise<Blob | null> => {
     try {
+      const currentFormData = formDataRef.current;
       const { jsPDF: JSPDF } = (window as any).jspdf;
       const pdf = new JSPDF('p', 'mm', 'a4');
       const options = { scale: 2, useCORS: true, backgroundColor: '#ffffff' };
-      const photoChunks = chunk(formData.photos, 4);
+      const photoChunks = chunk(currentFormData.photos, 4);
 
       if (template === 'legacy') {
         const legacyEl = document.getElementById('pdf-legacy-report');
@@ -1404,7 +1420,7 @@ export const App: React.FC = () => {
         const canvas = await html2canvas(legacyEl, options);
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
       } else { // Modern layout logic
-        const totalContentLines = calculateVisualLines(formData.tasks) + calculateVisualLines(formData.status) + formData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(formData.remarks);
+        const totalContentLines = calculateVisualLines(currentFormData.tasks) + calculateVisualLines(currentFormData.status) + currentFormData.products.filter(p => p.name.trim() !== '').length + calculateVisualLines(currentFormData.remarks);
         if (totalContentLines > TOTAL_CONTENT_LINES_LIMIT) {
           const [p1, p2] = await Promise.all([html2canvas(document.getElementById('pdf-pdf-page1')!, options), html2canvas(document.getElementById('pdf-pdf-page2')!, options)]);
           pdf.addImage(p1.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
@@ -1416,7 +1432,6 @@ export const App: React.FC = () => {
         }
       }
       
-      // Add photo pages for BOTH templates
       for (let i = 0; i < photoChunks.length; i++) {
         const photoPageEl = document.getElementById(`pdf-photo-page-${i}`);
         if (photoPageEl) {
@@ -1432,7 +1447,7 @@ export const App: React.FC = () => {
       showAlert("PDF 產生失敗", "無法產生PDF，請檢查主控台錯誤。");
       return null;
     }
-  }, [formData]);
+  }, [showAlert]);
 
   /**
    * 處理下載 PDF 到本機。
@@ -1443,7 +1458,8 @@ export const App: React.FC = () => {
     try {
       const blob = await generatePdfBlob(selectedTemplate);
       if (!blob) return;
-      const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      const currentFormData = formDataRef.current;
+      const fileName = `工作服務單-${currentFormData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = fileName;
@@ -1476,7 +1492,7 @@ export const App: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, formData, generatePdfBlob, selectedTemplate]);
+  }, [isProcessing, generatePdfBlob, selectedTemplate, closeModal]);
 
   /**
    * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
@@ -1508,312 +1524,277 @@ export const App: React.FC = () => {
             errorDetails = errorJson.error_summary || JSON.stringify(errorJson);
             
             if (typeof errorDetails === 'string' && errorDetails.includes('invalid_access_token')) {
-                userFriendlyMessage = `無效的存取權杖 (invalid_access_token)。\n\n這通常表示 App 的權限不足 (例如缺少 'files.content.write')，或是 Refresh Token 已失效或被撤銷。\n\n請依照 README 文件，前往 Dropbox App 設定頁面，確認已勾選 'files.content.write' 權限後，再重新產生一個 Refresh Token 並更新至您的應用程式設定。`;
-            } else if (typeof errorDetails === 'string' && errorDetails.includes('path/not_found')) {
-                userFriendlyMessage = `找不到指定的路徑。請確認 '/工作服務單' 資料夾存在於您的 Dropbox 根目錄。`;
-            } else {
-                userFriendlyMessage = `Dropbox API 錯誤: ${errorDetails}`;
+                userFriendlyMessage = `無效的存取權杖 (invalid_access_token)。\n\n這通常表示 App 的權限不足 (例如缺少 'files.content.write')，或是 Refresh Token 已失效或被撤銷。\n\n請依照 README 文件，前往 Dropbox App 設定頁面，確認已勾選 'files.content.write' 權限後重新部署。`;
+            } else if (typeof errorDetails === 'string' && errorDetails.includes('path/conflict/file')) {
+                userFriendlyMessage = `檔案已存在於目標路徑。`;
             }
         } catch (e) {
-            errorDetails = await response.text();
-            userFriendlyMessage = `Dropbox API 錯誤: ${errorDetails}`;
+            // JSON parsing might fail if response is not json, ignore.
         }
-        console.error(`Dropbox API Error for path: ${fullPath}`, errorDetails);
-        throw new Error(userFriendlyMessage);
+        
+        throw new Error(`Dropbox 上傳失敗: ${userFriendlyMessage || errorDetails}`);
     }
-    return await response.json();
+
+    const result = await response.json();
+    return result;
   }, [getDropboxAccessToken]);
-
-  /**
-   * 透過 Brevo (Sendinblue) API 發送帶有 PDF 附件的 Email。
-   */
-  const performEmailSend = useCallback(async (blob: Blob, fileName: string, recipientsStr: string) => {
-    if (!isBrevoApiConfigured) throw new Error("Brevo API 未設定");
-    const recipients = recipientsStr.split(',').map(email => email.trim()).filter(Boolean);
-    if (recipients.length === 0) throw new Error("請提供至少一個有效的收件人 Email");
-    
-    const base64Pdf = await blobToBase64(blob);
-    const payload = {
-      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-      to: recipients.map(email => ({ email })),
-      subject: `${formData.dateTime.split('T')[0]} ${formData.serviceUnit} の工作服務單`,
-      htmlContent: getEmailHtmlContent(formData.serviceUnit, formData.dateTime),
-      attachment: [{ content: base64Pdf, name: fileName }],
-    };
-    
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'accept': 'application/json', 'api-key': BREVO_API_KEY!, 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) throw new Error((await response.json()).message || 'Brevo API 請求失敗');
-  }, [formData.dateTime, formData.serviceUnit, isBrevoApiConfigured]);
-
-  /**
-   * 處理上傳/寄送確認視窗的最終操作。
-   */
-  const handleConfirmUpload = useCallback(async (options: { uploadToNas: boolean; sendByEmail: boolean; emailRecipients: string }) => {
-    const { uploadToNas, sendByEmail, emailRecipients } = options;
-    if (!uploadToNas && !sendByEmail) { showAlert('未選擇操作', '請至少選擇一個操作 (上傳至 NAS 或透過 Email 寄送)。'); return; }
-    
-    setIsProcessing(true);
-    closeModal();
-
-    try {
-        const needsPdf = uploadToNas || sendByEmail;
-        const pdfBlob = needsPdf ? await generatePdfBlob(selectedTemplate) : null;
-        if (needsPdf && !pdfBlob) {
-            throw new Error('PDF 產生失敗，操作已取消。');
-        }
-
-        const tasks: { type: 'nas' | 'email'; promise: Promise<any> }[] = [];
-        const serviceDate = formData.dateTime.split('T')[0];
-        const pdfFileNameForEmail = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
-        
-        // 建立一個統一的錯誤處理函式，以便追蹤
-        const createNasUploadTask = async () => {
-          if (!pdfBlob) return; // 確保 pdfBlob 存在
-          const folderName = `${serviceDate}-${formData.serviceUnit || '未命名服務'}`;
-          const basePath = `/工作服務單/${folderName}`;
-
-          // 1. 上傳 PDF。
-          const pdfPath = `${basePath}/工作服務單.pdf`;
-          await performDropboxUpload(pdfBlob, pdfPath);
-
-          // 2. 循序上傳所有照片。
-          for (let index = 0; index < formData.photos.length; index++) {
-              const photoDataUrl = formData.photos[index];
-              const photoBlob = dataURLtoBlob(photoDataUrl);
-              const photoFileName = `現場照片_${index + 1}.jpg`;
-              const photoPath = `${basePath}/${photoFileName}`;
-              await performDropboxUpload(photoBlob, photoPath);
-          }
-          return `成功上傳 PDF 及 ${formData.photos.length} 張照片。`;
-        };
-
-        if (uploadToNas) {
-            tasks.push({ type: 'nas', promise: createNasUploadTask() });
-        }
-
-        if (sendByEmail && pdfBlob) {
-            tasks.push({ type: 'email', promise: performEmailSend(pdfBlob, pdfFileNameForEmail, emailRecipients) });
-        }
-
-        const results = await Promise.allSettled(tasks.map(t => t.promise));
-        
-        const summary: string[] = [];
-        results.forEach((res, index) => {
-            const taskType = tasks[index].type;
-            const taskName = taskType === 'nas' ? 'NAS 上傳' : 'Email 寄送';
-            if (res.status === 'fulfilled') {
-                const successMessage = res.value || '成功';
-                summary.push(`- ${taskName}: ✅ ${successMessage}`);
-            } else {
-                const reason = (res as PromiseRejectedResult).reason;
-                const errorMessage = reason instanceof Error ? reason.message : String(reason);
-                summary.push(`- ${taskName}: ❌ 失敗 (${errorMessage})`);
-            }
-        });
-
-        const successButtons: ModalButton[] = [];
-      
-        if (GOOGLE_REDIRECT_URI) {
-          successButtons.unshift({
-            text: '外出/加班紀錄表',
-            onClick: () => {
-              window.open(GOOGLE_REDIRECT_URI, '_blank');
-            },
-            className: 'text-white bg-sky-600 hover:bg-sky-700 focus:ring-sky-500'
-          });
-        }
-
-        setModalState({
-            isOpen: true,
-            title: '🚀 操作完成',
-            content: <div className="text-left whitespace-pre-wrap">{summary.join('\n')}</div>,
-            onClose: closeModal,
-            backgroundIcon: <CheckCircleIcon className="w-48 h-48" />,
-            footerButtons: successButtons,
-        });
-
-    } catch (error) {
-        console.error("Upload/Share failed:", error);
-        showAlert('操作失敗', `發生錯誤：${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-        setIsProcessing(false);
-    }
-  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate]);
-
-  /**
-   * 打開上傳選項的彈出視窗。
-   */
-  const handleOpenUploadModal = () => {
-    let uploadToNas = isDropboxConfigured;
-    let sendByEmail = isBrevoApiConfigured;
-    let emailRecipients = 'fuhyuan.w5339@msa.hinet.net';
-    
-    const UploadOptionsContent = () => {
-        const [nasChecked, setNasChecked] = useState(uploadToNas);
-        const [emailChecked, setEmailChecked] = useState(sendByEmail);
-        const [emails, setEmails] = useState(emailRecipients);
-
-        uploadToNas = nasChecked;
-        sendByEmail = emailChecked;
-        emailRecipients = emails;
-        
-        return (
-          <div className="space-y-4 text-left">
-            <div className={`flex items-start gap-4 p-4 rounded-lg transition-all ${!isDropboxConfigured ? 'bg-slate-100 opacity-70 cursor-not-allowed' : 'bg-slate-50'}`}>
-              <div className="flex-shrink-0 w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
-                <ServerStackIcon className="w-6 h-6" />
-              </div>
-              <div className="flex-grow">
-                 <div className="flex items-center">
-                    <p className="font-semibold text-lg text-slate-800">上傳至 NAS</p>
-                    {dropboxStatus === 'checking' && <span className="text-sm text-slate-500 ml-2 animate-pulse">檢查授權中...</span>}
-                    {dropboxStatus === 'ok' && <span className="text-sm text-green-600 ml-2 flex items-center"><CheckCircleIcon className="w-5 h-5 mr-1"/>已授權</span>}
-                    {dropboxStatus === 'error' && <span className="text-sm text-red-600 ml-2 flex items-center"><XCircleIcon className="w-5 h-5 mr-1"/>授權失敗/未設定</span>}
-                </div>
-                <p className="text-base text-slate-500">將PDF及照片上傳至公司雲端硬碟。</p>
-              </div>
-              <div className="flex-shrink-0">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={nasChecked} onChange={(e) => setNasChecked(e.target.checked)} disabled={!isDropboxConfigured || dropboxStatus !== 'ok'} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-            </div>
-
-            <div className={`p-4 rounded-lg transition-all duration-300 ${!isBrevoApiConfigured ? 'bg-slate-100 opacity-70 cursor-not-allowed' : 'bg-slate-50'}`}>
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-teal-100 text-teal-600 rounded-lg flex items-center justify-center">
-                    <EnvelopeIcon className="w-6 h-6"/>
-                </div>
-                <div className="flex-grow">
-                  <p className="font-semibold text-lg text-slate-800">透過 Email 寄送</p>
-                  <p className="text-base text-slate-500">將服務單寄送給指定收件人。</p>
-                </div>
-                <div className="flex-shrink-0">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" checked={emailChecked} onChange={(e) => setEmailChecked(e.target.checked)} disabled={!isBrevoApiConfigured} className="sr-only peer" />
-                        <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                    </label>
-                </div>
-              </div>
-              <div className={`pl-[56px] pt-3 transition-all duration-300 ease-in-out ${emailChecked && isBrevoApiConfigured ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                  <label htmlFor="email-recipients" className="block text-sm font-medium text-gray-500 mb-1">收件人 (多個請用 , 分隔)</label>
-                  <input type="text" id="email-recipients" value={emails} onChange={e => setEmails(e.target.value)} disabled={!emailChecked || !isBrevoApiConfigured} className="appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg disabled:bg-slate-100 disabled:cursor-not-allowed"/>
-              </div>
-            </div>
-          </div>
-        );
-    };
-
-    setModalState({
-        isOpen: true,
-        title: "上傳PDF",
-        content: <UploadOptionsContent />,
-        onConfirm: () => handleConfirmUpload({ uploadToNas, sendByEmail, emailRecipients }),
-        confirmText: "確認執行",
-        onClose: closeModal,
-        backgroundIcon: undefined
-    });
-  };
   
-  /**
-   * 處理從選單選擇服務人員的邏輯。
-   */
-  const handleSelectTechnician = useCallback(() => {
-    const technicians = ['1. 凃寬基', '2. 曾國榮', '3. 陳怡誠', '4. 林少宇', '5. 廖紹志'];
+  const handleOpenUploadModal = useCallback(() => {
+    if (!isBrevoApiConfigured && !isDropboxConfigured) {
+        return showAlert(
+            "功能未設定", 
+            "Email 和 Dropbox 上傳功能皆未設定。請聯繫開發者設定環境變數。"
+        );
+    }
+
+    let recipientEmail = '';
+    const content = (
+        <div>
+            <p className="mb-2">請輸入收件人的 Email 地址 (可輸入多個，以逗號分隔)：</p>
+            <input 
+                type="email" 
+                multiple
+                autoFocus 
+                onChange={e => recipientEmail = e.target.value} 
+                className="mt-2 appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg" 
+                placeholder="example1@email.com, example2@email.com"
+            />
+        </div>
+    );
+
+    const onConfirmAction = async (emailInput: string) => {
+        const emails = emailInput.split(',').map(e => e.trim()).filter(e => e);
+        if (emails.length === 0) {
+            return showAlert("輸入錯誤", "請至少輸入一個有效的 Email 地址。");
+        }
+        
+        setModalState(prev => ({ ...prev, isProcessing: true, title: '處理中...' }));
+        
+        const currentFormData = formDataRef.current;
+        const fileName = `工作服務單-${currentFormData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+
+        try {
+            const blob = await generatePdfBlob(selectedTemplate);
+            if (!blob) {
+                setModalState({ isOpen: false });
+                return;
+            }
+
+            const uploadPromises = [];
+            
+            // Dropbox Upload
+            if (isDropboxConfigured) {
+                const dropboxPath = `/Apps/ServiceReports/${fileName}`;
+                uploadPromises.push(
+                    performDropboxUpload(blob, dropboxPath).catch(e => {
+                        console.error("Dropbox upload failed:", e);
+                        return { service: 'Dropbox', status: 'error', message: e.message };
+                    })
+                );
+            }
+
+            // Brevo Email
+            if (isBrevoApiConfigured) {
+                 const base64Pdf = await blobToBase64(blob);
+                 const emailPayload = {
+                    sender: { email: BREVO_SENDER_EMAIL, name: BREVO_SENDER_NAME },
+                    to: emails.map(email => ({ email })),
+                    subject: `工作服務單 - ${currentFormData.serviceUnit}`,
+                    htmlContent: getEmailHtmlContent(currentFormData.serviceUnit, currentFormData.dateTime),
+                    attachment: [{ content: base64Pdf, name: fileName }]
+                };
+
+                uploadPromises.push(
+                    fetch('https://api.brevo.com/v3/smtp/email', {
+                        method: 'POST',
+                        headers: { 'api-key': BREVO_API_KEY!, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(emailPayload)
+                    }).then(async res => {
+                        if (!res.ok) {
+                            const errText = await res.text();
+                            throw new Error(`Email 發送失敗 (${res.status}): ${errText}`);
+                        }
+                        return { service: 'Email', status: 'ok' };
+                    }).catch(e => {
+                         console.error("Email send failed:", e);
+                         return { service: 'Email', status: 'error', message: e.message };
+                    })
+                );
+            }
+
+            const results = await Promise.all(uploadPromises);
+            const errors = results.filter(r => r?.status === 'error');
+
+            if (errors.length > 0) {
+                 const errorMessages = errors.map(e => `${e.service}: ${e.message}`).join('\n');
+                 showAlert('部分操作失敗', <pre className="whitespace-pre-wrap text-sm">{errorMessages}</pre>);
+            } else {
+                 showAlert('✅ 操作成功', 'PDF 已成功上傳並寄出！');
+            }
+
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "發生未知錯誤";
+            console.error("Upload/Send failed:", error);
+            showAlert('❌ 操作失敗', message);
+        } finally {
+            setModalState(prev => ({ ...prev, isProcessing: false, isOpen: prev.isOpen }));
+        }
+    };
+    
+    showConfirm(
+      '上傳並寄送報告', 
+      content,
+      () => onConfirmAction(recipientEmail),
+      '確認送出'
+    );
+
+  }, [isBrevoApiConfigured, isDropboxConfigured, closeModal, generatePdfBlob, selectedTemplate, performDropboxUpload, showAlert, showConfirm]);
+
+  const handleSelectTechnician = () => {
+    const technicians = ["林義", "阿鴻", "阿進", "文哥", "主任"];
     let selectedTechnician = technicians[0];
+    
     const content = (
         <div>
             <p className="mb-2">請選擇服務人員：</p>
             <select
-                className="block w-full px-3 py-2 text-lg border border-slate-500 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                onChange={(e) => selectedTechnician = e.target.value}
-                autoFocus
+                defaultValue={selectedTechnician}
+                onChange={e => selectedTechnician = e.target.value}
+                className="block w-full px-3 py-2 border border-slate-500 rounded-md text-lg"
             >
                 {technicians.map(name => <option key={name} value={name}>{name}</option>)}
             </select>
         </div>
     );
-    showConfirm('選擇服務人員', content, () => {
-        const nameOnly = selectedTechnician.replace(/^\d+\.\s*/, '');
-        handleTechnicianSignatureSave(nameOnly);
-        closeModal();
-    }, '確認選取');
-  }, [handleTechnicianSignatureSave]);
 
-  // --- 主渲染邏輯 ---
-  return (
-    <div className="min-h-screen bg-slate-100">
-        <div className="relative max-w-4xl mx-auto bg-white rounded-xl shadow-2xl ring-1 ring-black ring-opacity-5 overflow-hidden my-8 sm:my-12">
-           <span className="absolute top-4 right-6 text-sm font-mono text-slate-400 select-none" aria-label={`應用程式版本 ${APP_VERSION}`}>{APP_VERSION}</span>
-           
-           {isSubmitted ? (
-             <ReportView 
-                data={formData} 
-                onOpenUploadModal={handleOpenUploadModal} 
-                onDownloadPdf={handleDownloadPdf} 
-                onReset={handleReset} 
-                onEdit={handleEdit} 
-                isProcessing={isProcessing}
-                selectedTemplate={selectedTemplate}
-                onTemplateChange={handleTemplateChange}
-                legacyLayoutOffsets={legacyLayoutOffsets}
-                onLegacyOffsetChange={handleLegacyOffsetChange}
-             />
-            ) : (
-            <>
-              {!isDropboxConfigured && <DropboxApiKeyErrorDisplay />}
-              {!isGoogleApiConfigured && <ApiKeyErrorDisplay />}
-              {!isBrevoApiConfigured && <BrevoApiKeyErrorDisplay />}
-              <WorkOrderForm 
-                formData={formData} 
-                onInputChange={handleInputChange} 
-                onProductChange={handleProductChange} 
-                onProductSerialNumberChange={handleProductSerialNumberChange} 
-                onAddProduct={handleAddProduct} 
-                onRemoveProduct={handleRemoveProduct} 
-                onPhotosChange={handlePhotosChange} 
-                onTechnicianSignatureSave={handleTechnicianSignatureSave} 
-                onTechnicianSignatureClear={handleTechnicianSignatureClear} 
-                onCustomerSignatureSave={handleCustomerSignatureSave} 
-                onCustomerSignatureClear={handleCustomerSignatureClear} 
-                onSubmit={handleSubmit} 
-                onSaveAsDraft={handleSaveAsDraft} 
-                onLoadDraft={handleLoadDraft} 
-                onDeleteDraft={handleDeleteDraft} 
-                onClearData={handleClearData} 
-                onImportFromDrive={handleImportFromDrive} 
-                onExportToDrive={handleExportToDrive} 
-                namedDrafts={namedDrafts} 
-                technicianInputMode={technicianInputMode}
-                onTechnicianInputModeChange={setTechnicianInputMode}
-                onSelectTechnician={handleSelectTechnician}
-                />
-            </>
-            )}
-        </div>
+    showConfirm(
+        '選擇服務人員',
+        content,
+        () => {
+            handleTechnicianSignatureSave(selectedTechnician);
+            closeModal();
+        },
+        '確認選擇'
+    );
+  };
+
+  /**
+   * 上傳 PDF 到 Dropbox。
+   */
+  const handleUpload = useCallback(async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+        const blob = await generatePdfBlob(selectedTemplate);
+        if (!blob) return;
         
-        <CustomModal {...modalState} isProcessing={isProcessing} />
+        const currentFormData = formDataRef.current;
+        const datePart = new Date(currentFormData.dateTime).toISOString().split('T')[0];
+        const yearMonth = datePart.substring(0, 7); // YYYY-MM
+        const serviceUnit = currentFormData.serviceUnit || 'UnknownUnit';
+        const fileName = `工作服務單-${serviceUnit}-${datePart}.pdf`;
+        const dropboxPath = `/Apps/ServiceReports/${yearMonth}/${fileName}`;
 
-        {isProcessing && (
-            <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[60]">
-              <div className="text-center">
-                <div role="status" className="flex items-center justify-center">
-                    <svg aria-hidden="true" className="w-8 h-8 text-slate-200 animate-spin fill-indigo-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
-                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0492C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
-                    </svg>
-                    <span className="sr-only">Loading...</span>
+        await performDropboxUpload(blob, dropboxPath);
+
+        setModalState({
+          isOpen: true,
+          title: '✅ 上傳成功',
+          content: <>檔案已成功上傳至 Dropbox:<br/><code className="text-sm bg-slate-200 p-1 rounded">{dropboxPath}</code></>,
+          onClose: closeModal,
+          backgroundIcon: <CheckCircleIcon className="w-48 h-48" />
+        });
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "發生未知錯誤";
+      console.error("Upload to Dropbox failed:", error);
+      setModalState({
+        isOpen: true,
+        title: '❌ 上傳失敗',
+        content: <pre className="whitespace-pre-wrap text-sm">{message}</pre>,
+        onClose: closeModal,
+        backgroundIcon: <XCircleIcon className="w-48 h-48" />
+      });
+    } finally {
+        setIsProcessing(false);
+    }
+  }, [isProcessing, generatePdfBlob, selectedTemplate, performDropboxUpload, closeModal]);
+
+  return (
+    <div className="bg-slate-100 min-h-screen">
+      <header className="bg-white shadow-md sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <Cog6ToothIcon className="h-8 w-8 text-slate-500" />
+            <span className="text-xl font-semibold text-slate-700">工作服務單產生器</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            {isDropboxConfigured && dropboxStatus !== 'unchecked' && (
+                <div className="flex items-center space-x-2" title={
+                    dropboxStatus === 'ok' ? 'Dropbox 服務已連線' : 
+                    dropboxStatus === 'checking' ? '正在檢查 Dropbox 連線...' : 'Dropbox 服務連線失敗'
+                }>
+                    <ServerStackIcon className={`h-6 w-6 ${
+                        dropboxStatus === 'ok' ? 'text-green-500' :
+                        dropboxStatus === 'checking' ? 'text-yellow-500 animate-pulse' : 'text-red-500'
+                    }`} />
                 </div>
-                <p className="text-xl font-semibold text-slate-700 mt-4">正在處理中...</p>
-                <p className="text-lg text-slate-500">請稍候</p>
-              </div>
-            </div>
+            )}
+            {isBrevoApiConfigured && (
+                 <div className="flex items-center space-x-2" title="Email 服務已啟用">
+                    <EnvelopeIcon className="h-6 w-6 text-green-500" />
+                </div>
+            )}
+            <span className="text-sm font-mono text-slate-400 select-none">{APP_VERSION}</span>
+          </div>
+        </div>
+      </header>
+      <main className="max-w-7xl mx-auto">
+        {!isDropboxConfigured && <DropboxApiKeyErrorDisplay />}
+        {!isBrevoApiConfigured && <BrevoApiKeyErrorDisplay />}
+        {!isGoogleApiConfigured && <ApiKeyErrorDisplay />}
+        
+        {isSubmitted ? (
+          <ReportView 
+            data={formData} 
+            onOpenUploadModal={handleOpenUploadModal}
+            onDownloadPdf={handleDownloadPdf}
+            onReset={handleReset}
+            onEdit={handleEdit}
+            isProcessing={isProcessing}
+            selectedTemplate={selectedTemplate}
+            onTemplateChange={handleTemplateChange}
+            legacyLayoutOffsets={legacyLayoutOffsets}
+            onLegacyOffsetChange={handleLegacyOffsetChange}
+          />
+        ) : (
+          <WorkOrderForm 
+            formData={formData} 
+            onInputChange={handleInputChange} 
+            onProductChange={handleProductChange} 
+            onProductSerialNumberChange={handleProductSerialNumberChange}
+            onAddProduct={handleAddProduct} 
+            onRemoveProduct={handleRemoveProduct} 
+            onPhotosChange={handlePhotosChange}
+            onTechnicianSignatureSave={handleTechnicianSignatureSave} 
+            onTechnicianSignatureClear={handleTechnicianSignatureClear}
+            onCustomerSignatureSave={handleCustomerSignatureSave} 
+            onCustomerSignatureClear={handleCustomerSignatureClear}
+            onSubmit={handleSubmit}
+            onSaveAsDraft={handleSaveAsDraft}
+            onLoadDraft={handleLoadDraft}
+            onDeleteDraft={handleDeleteDraft}
+            onClearData={handleClearData}
+            onImportFromDrive={handleImportFromDrive}
+            onExportToDrive={handleExportToDrive}
+            namedDrafts={namedDrafts}
+            technicianInputMode={technicianInputMode}
+            onTechnicianInputModeChange={setTechnicianInputMode}
+            onSelectTechnician={handleSelectTechnician}
+          />
         )}
+      </main>
+      <CustomModal {...modalState} />
     </div>
   );
 };
