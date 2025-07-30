@@ -191,7 +191,7 @@ export const UserManual: React.FC<UserManualProps> = ({ onClose }) => {
                            <BulletPoint><strong>最終操作：</strong>
                              <ul className="mt-2 list-disc pl-6 space-y-1">
                                  <li><strong>下載PDF：</strong> 將目前預覽的報告（含照片）下載為 PDF 檔案存到您的裝置。</li>
-                                 <li><strong>上傳PDF：</strong> 彈出視窗，選擇上傳至NAS則系統會將 PDF 上傳到您設定的 NAS 資料夾，選擇寄送Email則在輸入收件人 Email 後(預設公司mail)，系統會透過 Brevo 服務將報告作為附件寄送給客戶。</li>
+                                 <li><strong>上傳PDF：</strong> 彈出視窗，選擇上傳至NAS則系統會將 PDF 及照片上傳到公司的 NAS 資料夾內(\\Q81974459\05.暫存\工作服務單)，選擇寄送Email則在輸入收件人 Email 後(預設公司mail)，系統會透過 Brevo 服務將報告作為附件寄送給客戶。</li>
                                  <li><strong>修改內容：</strong> 返回表單編輯頁面。</li>
                                  <li><strong>建立新服務單：</strong> 清空所有資料，開始一筆新的記錄。</li>
                              </ul>
