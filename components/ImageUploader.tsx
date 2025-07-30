@@ -87,7 +87,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange })
         onChange={handleFileChange}
         className="hidden"
         accept="image/*"
-        capture="environment"
+        capture
       />
        <input
         type="file"
@@ -121,6 +121,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ photos, onPhotosChange })
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {photos.map((photo, index) => (
             <div key={index} className="relative group">
+              <div className="absolute top-1 left-1 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold z-10 select-none">
+                {index + 1}
+              </div>
               <img src={photo} alt={`upload-preview-${index}`} className="w-full h-auto object-cover rounded-lg shadow-md aspect-square" />
               <button
                 type="button"
