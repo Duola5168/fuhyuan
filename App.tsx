@@ -1,3 +1,4 @@
+
 /**
  * @file App.tsx
  * @description 這是工作服務單應用程式的主元件檔案。
@@ -843,28 +844,31 @@ export const App: React.FC = () => {
   const isBrevoApiConfigured = !!(BREVO_API_KEY && BREVO_SENDER_EMAIL && BREVO_SENDER_NAME);
 
   // --- 彈出視窗相關函式 ---
-  const closeModal = () => setModalState(initialModalState);
+  const closeModal = useCallback(() => setModalState(initialModalState), []);
   
   /** 顯示一個簡單的提示訊息視窗 */
-  const showAlert = (title: string, content: React.ReactNode) => {
+  const showAlert = useCallback((title: string, content: React.ReactNode) => {
     setModalState({ isOpen: true, title, content, onClose: closeModal });
-  };
+  }, [closeModal]);
   
-  /** 顯示一個帶有確認和取消按鈕的確認視窗 */
-  const showConfirm = (title: string, content: React.ReactNode, onConfirm: () => void, confirmText?: string, confirmClass?: string) => {
-    setModalState({ isOpen: true, title, content, onConfirm: () => { onConfirm(); closeModal(); }, confirmText, confirmClass, onClose: closeModal });
-  };
+  /** 
+   * 顯示一個帶有確認和取消按鈕的確認視窗。
+   * The `onConfirm` callback is now responsible for closing the modal, either by calling `closeModal()`
+   * or by showing another modal (which replaces the current one).
+   */
+  const showConfirm = useCallback((title: string, content: React.ReactNode, onConfirm: () => void, confirmText?: string, confirmClass?: string) => {
+    setModalState({ isOpen: true, title, content, onConfirm, confirmText, confirmClass, onClose: closeModal });
+  }, [closeModal]);
   
   /** 顯示一個帶有輸入框的提示輸入視窗 */
-  const showPrompt = (title: string, content: React.ReactNode, onConfirm: (value: string) => void) => {
+  const showPrompt = useCallback((title: string, content: React.ReactNode, onConfirm: (value: string) => void) => {
     let inputValue = '';
     const PromptContent = <>
       {content}
       <input type="text" autoFocus onChange={e => inputValue = e.target.value} className="mt-2 appearance-none block w-full px-3 py-2 border border-slate-500 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg" />
     </>;
-    // The modal is replaced by the next one in the confirm logic, not closed here.
     setModalState({ isOpen: true, title, content: PromptContent, onConfirm: () => onConfirm(inputValue), confirmText: "確認", onClose: closeModal});
-  };
+  }, [closeModal]);
   
   /**
    * 將 Data URL 字串轉換為 Blob 物件。
@@ -1042,7 +1046,7 @@ export const App: React.FC = () => {
         newProducts[index] = productToChange;
         return { ...prev, products: newProducts };
     });
-  }, []);
+  }, [showAlert]);
   
   /**
    * 處理產品序號的輸入變更。
@@ -1089,9 +1093,11 @@ export const App: React.FC = () => {
   const handleEdit = () => setIsSubmitted(false);
   const handleReset = useCallback(() => { 
     showConfirm("確認清除?", "確定要清除所有資料並建立新的服務單嗎？", () => {
-      clearCurrentForm(); setIsSubmitted(false); 
+      clearCurrentForm(); 
+      setIsSubmitted(false);
+      closeModal();
     }, "確認清除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
-  }, [clearCurrentForm]);
+  }, [clearCurrentForm, showConfirm, closeModal]);
 
   const handleLegacyOffsetChange = (axis: 'x' | 'y', value: number) => {
     setLegacyLayoutOffsets(prev => ({ ...prev, [axis]: value }));
@@ -1156,31 +1162,35 @@ export const App: React.FC = () => {
    */
   const handleSaveAsDraft = useCallback(() => {
     showPrompt("儲存暫存", "請為此暫存命名：", (draftName) => {
-        if (!draftName) {
-            closeModal(); // Prompt was cancelled by user
+        const finalDraftName = draftName ? draftName.trim() : "";
+        if (!finalDraftName) {
+            showAlert('儲存失敗', '暫存檔名不可為空。請重新操作一次。');
             return;
         }
-        const currentDrafts = { ...namedDrafts };
-        const isOverwriting = !!currentDrafts[draftName];
 
-        const confirmSave = () => {
-            const newDrafts = { ...currentDrafts, [draftName]: formData };
+        const currentDrafts = { ...namedDrafts };
+        const isOverwriting = !!currentDrafts[finalDraftName];
+
+        const performSave = () => {
+            const newDrafts = { ...currentDrafts, [finalDraftName]: formData };
             setNamedDrafts(newDrafts);
             localStorage.setItem(NAMED_DRAFTS_STORAGE_KEY, JSON.stringify(newDrafts));
-            showAlert('儲存成功', <>✅ 暫存 "{draftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>);
+            showAlert('儲存成功', <>✅ 暫存 "{finalDraftName}" 已儲存！<br/><br/><b className="font-semibold">重要提醒：</b><br/>暫存資料會因清理瀏覽器快取而消失，請注意備份。</>);
         };
 
         if (isOverwriting) {
-            showConfirm("覆蓋確認", `暫存 "${draftName}" 已存在。要覆蓋它嗎？`, confirmSave, "確認覆蓋");
+            showConfirm(`覆蓋確認`, `暫存 "${finalDraftName}" 已存在。要覆蓋它嗎？`, () => {
+                performSave();
+            }, "確認覆蓋");
         } else {
             if (Object.keys(currentDrafts).length >= MAX_DRAFTS) {
                 showAlert('儲存失敗', `無法儲存，已達上限 (${MAX_DRAFTS}份)。`);
                 return;
             }
-            confirmSave();
+            performSave();
         }
     });
-  }, [formData, namedDrafts]);
+  }, [formData, namedDrafts, showPrompt, showAlert, showConfirm]);
 
   /**
    * 載入指定的暫存檔，並覆蓋目前表單內容。
@@ -1192,7 +1202,7 @@ export const App: React.FC = () => {
             showAlert('載入成功', `暫存 "${name}" 已載入。`);
         });
     }
-  }, [namedDrafts]);
+  }, [namedDrafts, showConfirm, showAlert]);
 
   /**
    * 清除目前表單的所有欄位，但不進入預覽模式。
@@ -1202,7 +1212,7 @@ export const App: React.FC = () => {
         clearCurrentForm();
         showAlert('操作完成', '表單資料已清除。');
     }, "確認清除", "bg-red-600 hover:bg-red-700 focus:ring-red-500");
-  }, [clearCurrentForm]);
+  }, [clearCurrentForm, showConfirm, showAlert]);
   
   /**
    * 獲取 Google OAuth 授權 Token。
@@ -1294,7 +1304,7 @@ export const App: React.FC = () => {
         console.error("GDrive export failed", error); 
         showAlert('匯出失敗', `匯出失敗：${error instanceof Error ? error.message : "未知錯誤"}`); 
     }
-  }, [gapiReady, gisReady, namedDrafts, getAuthToken]);
+  }, [gapiReady, gisReady, namedDrafts, getAuthToken, showAlert]);
 
   /**
    * 載入 Google Picker API。
@@ -1363,7 +1373,7 @@ export const App: React.FC = () => {
         console.error("GDrive import failed:", error);
         showAlert('匯入失敗', `匯入失敗: ${error?.result?.error?.message || error?.message || '未知錯誤'}`);
     }
-  }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured]);
+  }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured, showAlert, showPrompt, showConfirm, closeModal]);
 
   /**
    * 產生 PDF 檔案的 Blob 物件。
@@ -1412,7 +1422,7 @@ export const App: React.FC = () => {
       showAlert("PDF 產生失敗", "無法產生PDF，請檢查主控台錯誤。");
       return null;
     }
-  }, [formData]);
+  }, [formData, showAlert]);
 
   /**
    * 處理下載 PDF 到本機。
@@ -1456,7 +1466,7 @@ export const App: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, formData, generatePdfBlob, selectedTemplate, handleEdit, handleReset]);
+  }, [isProcessing, formData, generatePdfBlob, selectedTemplate, closeModal]);
 
   /**
    * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
@@ -1622,7 +1632,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate, handleEdit, handleReset]);
+  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate, showAlert, closeModal]);
 
   /**
    * 打開上傳選項的彈出視窗。
@@ -1721,8 +1731,9 @@ export const App: React.FC = () => {
     showConfirm('選擇服務人員', content, () => {
         const nameOnly = selectedTechnician.replace(/^\d+\.\s*/, '');
         handleTechnicianSignatureSave(nameOnly);
+        closeModal();
     }, '確認選取');
-  }, [handleTechnicianSignatureSave]);
+  }, [handleTechnicianSignatureSave, showConfirm, closeModal]);
 
   // --- 主渲染邏輯 ---
   return (
