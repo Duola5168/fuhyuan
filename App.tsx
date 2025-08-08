@@ -1,6 +1,7 @@
 
 
 
+
 /**
  * @file App.tsx
  * @description 這是工作服務單應用程式的主元件檔案。
@@ -835,8 +836,6 @@ export const App: React.FC = () => {
   const [technicianInputMode, setTechnicianInputMode] = useState<'signature' | 'select'>('signature');
   /** 使用手冊顯示狀態 */
   const [showManual, setShowManual] = useState(false);
-  /** 用於儲存最後產生的 PDF，以供分享功能使用 */
-  const [lastGeneratedPdf, setLastGeneratedPdf] = useState<{ blob: Blob; fileName: string } | null>(null);
 
 
   // --- 組態檢查 ---
@@ -1381,16 +1380,18 @@ export const App: React.FC = () => {
 
   /**
    * 透過 Web Share API 分享 PDF 檔案。
+   * 此函式直接接收 blob 和檔名，避免因 state 更新延遲導致的錯誤。
+   * @param {Blob} blob - 要分享的 PDF Blob 物件。
+   * @param {string} fileName - 分享時要顯示的檔案名稱。
    */
-  const handleSharePdf = useCallback(async () => {
-    if (!lastGeneratedPdf) {
-      showAlert('錯誤', '找不到要分享的 PDF 檔案。請先產生或下載一份報告。');
+  const handleSharePdf = useCallback(async (blob: Blob, fileName: string) => {
+    if (!blob || !fileName) {
+      showAlert('錯誤', '找不到要分享的 PDF 檔案資料。');
       return;
     }
-
-    const { blob, fileName } = lastGeneratedPdf;
+  
     const fileToShare = new File([blob], fileName, { type: blob.type });
-
+  
     if (navigator.share) {
       try {
         if (navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
@@ -1400,9 +1401,15 @@ export const App: React.FC = () => {
             text: `工作服務單: ${formData.serviceUnit}`,
           });
         } else {
-          showAlert('不支援', '您的瀏覽器無法直接分享檔案，但您可以下載後手動分享。');
+          // 在無法分享檔案的情況下，退回只分享文字和標題的模式
+          // 這在某些桌面瀏覽器上可能是預期行為
+           await navigator.share({
+            title: fileName,
+            text: `工作服務單: ${formData.serviceUnit} - 請下載附件。`,
+           });
         }
       } catch (error) {
+        // 使用者取消分享操作時，不顯示錯誤訊息
         if ((error as DOMException).name !== 'AbortError') {
           console.error("Share failed:", error);
           showAlert('分享失敗', `無法啟動分享功能：${(error as Error).message}`);
@@ -1411,7 +1418,7 @@ export const App: React.FC = () => {
     } else {
       showAlert('功能不支援', '您的瀏覽器不支援分享功能。請嘗試在手機上的瀏覽器開啟此頁面。');
     }
-  }, [lastGeneratedPdf, showAlert, formData.serviceUnit]);
+  }, [showAlert, formData.serviceUnit]);
 
   /**
    * 產生 PDF 檔案的 Blob 物件。
@@ -1472,8 +1479,6 @@ export const App: React.FC = () => {
       const blob = await generatePdfBlob(selectedTemplate);
       if (!blob) return;
       const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      setLastGeneratedPdf({ blob, fileName });
 
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -1485,12 +1490,14 @@ export const App: React.FC = () => {
 
       const successButtons: ModalButton[] = [];
 
+      // 檢查是否能分享檔案
       if (navigator.share && navigator.canShare) {
-        const testFile = new File([""], "test.pdf", { type: "application/pdf" });
+        const testFile = new File([blob], fileName, { type: blob.type });
+        // 有些瀏覽器支援 navigator.share 但不支援分享檔案，需明確檢查
         if (navigator.canShare({ files: [testFile] })) {
             successButtons.unshift({
                 text: '分享至 LINE',
-                onClick: handleSharePdf,
+                onClick: () => handleSharePdf(blob, fileName),
                 className: 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
             });
         }
@@ -1610,11 +1617,6 @@ export const App: React.FC = () => {
 
         const tasks: { type: 'nas' | 'email'; promise: Promise<any> }[] = [];
         const serviceDate = formData.dateTime.split('T')[0];
-        const pdfFileName = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
-        
-        if (pdfBlob) {
-          setLastGeneratedPdf({ blob: pdfBlob, fileName: pdfFileName });
-        }
         
         // 建立一個統一的錯誤處理函式，以便追蹤
         const createNasUploadTask = async () => {
@@ -1643,6 +1645,7 @@ export const App: React.FC = () => {
         }
 
         if (sendByEmail && pdfBlob) {
+            const pdfFileName = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
             tasks.push({ type: 'email', promise: performEmailSend(pdfBlob, pdfFileName, emailRecipients) });
         }
 
@@ -1665,13 +1668,14 @@ export const App: React.FC = () => {
         const successButtons: ModalButton[] = [];
       
         if (pdfBlob) {
+          const pdfFileName = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
           const canShare = navigator.share && navigator.canShare;
           if (canShare) {
-              const testFile = new File([""], "test.pdf", { type: "application/pdf" });
+              const testFile = new File([pdfBlob], pdfFileName, { type: "application/pdf" });
               if (navigator.canShare({ files: [testFile] })) {
                   successButtons.unshift({
                       text: '分享至 LINE',
-                      onClick: handleSharePdf,
+                      onClick: () => handleSharePdf(pdfBlob, pdfFileName),
                       className: 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
                   });
               }
