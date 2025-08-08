@@ -1,5 +1,6 @@
 
 
+
 /**
  * @file App.tsx
  * @description 這是工作服務單應用程式的主元件檔案。
@@ -834,6 +835,8 @@ export const App: React.FC = () => {
   const [technicianInputMode, setTechnicianInputMode] = useState<'signature' | 'select'>('signature');
   /** 使用手冊顯示狀態 */
   const [showManual, setShowManual] = useState(false);
+  /** 用於儲存最後產生的 PDF，以供分享功能使用 */
+  const [lastGeneratedPdf, setLastGeneratedPdf] = useState<{ blob: Blob; fileName: string } | null>(null);
 
 
   // --- 組態檢查 ---
@@ -1377,6 +1380,40 @@ export const App: React.FC = () => {
   }, [gapiReady, gisReady, getAuthToken, loadPickerApi, showGooglePicker, isGoogleApiConfigured, showAlert, showPrompt, showConfirm, closeModal]);
 
   /**
+   * 透過 Web Share API 分享 PDF 檔案。
+   */
+  const handleSharePdf = useCallback(async () => {
+    if (!lastGeneratedPdf) {
+      showAlert('錯誤', '找不到要分享的 PDF 檔案。請先產生或下載一份報告。');
+      return;
+    }
+
+    const { blob, fileName } = lastGeneratedPdf;
+    const fileToShare = new File([blob], fileName, { type: blob.type });
+
+    if (navigator.share) {
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+          await navigator.share({
+            files: [fileToShare],
+            title: fileName,
+            text: `工作服務單: ${formData.serviceUnit}`,
+          });
+        } else {
+          showAlert('不支援', '您的瀏覽器無法直接分享檔案，但您可以下載後手動分享。');
+        }
+      } catch (error) {
+        if ((error as DOMException).name !== 'AbortError') {
+          console.error("Share failed:", error);
+          showAlert('分享失敗', `無法啟動分享功能：${(error as Error).message}`);
+        }
+      }
+    } else {
+      showAlert('功能不支援', '您的瀏覽器不支援分享功能。請嘗試在手機上的瀏覽器開啟此頁面。');
+    }
+  }, [lastGeneratedPdf, showAlert, formData.serviceUnit]);
+
+  /**
    * 產生 PDF 檔案的 Blob 物件。
    */
   const generatePdfBlob = useCallback(async (template: 'modern' | 'legacy'): Promise<Blob | null> => {
@@ -1435,6 +1472,9 @@ export const App: React.FC = () => {
       const blob = await generatePdfBlob(selectedTemplate);
       if (!blob) return;
       const fileName = `工作服務單-${formData.serviceUnit || 'report'}-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      setLastGeneratedPdf({ blob, fileName });
+
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = fileName;
@@ -1444,6 +1484,17 @@ export const App: React.FC = () => {
       URL.revokeObjectURL(link.href);
 
       const successButtons: ModalButton[] = [];
+
+      if (navigator.share && navigator.canShare) {
+        const testFile = new File([""], "test.pdf", { type: "application/pdf" });
+        if (navigator.canShare({ files: [testFile] })) {
+            successButtons.unshift({
+                text: '分享至 LINE',
+                onClick: handleSharePdf,
+                className: 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
+            });
+        }
+      }
     
       if (GOOGLE_REDIRECT_URI) {
         successButtons.unshift({
@@ -1467,7 +1518,7 @@ export const App: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, formData, generatePdfBlob, selectedTemplate, closeModal]);
+  }, [isProcessing, formData, generatePdfBlob, selectedTemplate, closeModal, handleSharePdf]);
 
   /**
    * 上傳 Blob 到 Dropbox 的指定路徑。此函式會在內部自動獲取最新的 Access Token。
@@ -1559,7 +1610,11 @@ export const App: React.FC = () => {
 
         const tasks: { type: 'nas' | 'email'; promise: Promise<any> }[] = [];
         const serviceDate = formData.dateTime.split('T')[0];
-        const pdfFileNameForEmail = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
+        const pdfFileName = `工作服務單-${serviceDate}-${formData.serviceUnit || 'report'}.pdf`;
+        
+        if (pdfBlob) {
+          setLastGeneratedPdf({ blob: pdfBlob, fileName: pdfFileName });
+        }
         
         // 建立一個統一的錯誤處理函式，以便追蹤
         const createNasUploadTask = async () => {
@@ -1588,7 +1643,7 @@ export const App: React.FC = () => {
         }
 
         if (sendByEmail && pdfBlob) {
-            tasks.push({ type: 'email', promise: performEmailSend(pdfBlob, pdfFileNameForEmail, emailRecipients) });
+            tasks.push({ type: 'email', promise: performEmailSend(pdfBlob, pdfFileName, emailRecipients) });
         }
 
         const results = await Promise.allSettled(tasks.map(t => t.promise));
@@ -1609,6 +1664,20 @@ export const App: React.FC = () => {
 
         const successButtons: ModalButton[] = [];
       
+        if (pdfBlob) {
+          const canShare = navigator.share && navigator.canShare;
+          if (canShare) {
+              const testFile = new File([""], "test.pdf", { type: "application/pdf" });
+              if (navigator.canShare({ files: [testFile] })) {
+                  successButtons.unshift({
+                      text: '分享至 LINE',
+                      onClick: handleSharePdf,
+                      className: 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                  });
+              }
+          }
+        }
+
         if (GOOGLE_REDIRECT_URI) {
           successButtons.unshift({
             text: '外出/加班紀錄表',
@@ -1634,7 +1703,7 @@ export const App: React.FC = () => {
     } finally {
         setIsProcessing(false);
     }
-  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate, showAlert, closeModal]);
+  }, [formData, generatePdfBlob, performDropboxUpload, performEmailSend, selectedTemplate, showAlert, closeModal, handleSharePdf]);
 
   /**
    * 打開上傳選項的彈出視窗。
